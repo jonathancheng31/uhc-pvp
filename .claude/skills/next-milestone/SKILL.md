@@ -45,7 +45,7 @@ In this order, committing working steps as you go:
 3. **Practice bots use it too,** so the owner can practice against it alone.
 4. **Smoke test covers it.** Extend `tools/smoke_test.sh` so the new feature is exercised over
    the network, including the laggy player.
-5. **Looks and sound.** Check with `/playtest-shot` (first person, other players, through lag).
+5. **Looks and sound.** Check with `/screenshot` (first person, other players, through lag).
    Art and sound are our own.
 
 ## 5. Finish

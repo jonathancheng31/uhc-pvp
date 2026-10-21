@@ -1,6 +1,6 @@
 ---
-name: feedback
-description: Log the owner's playtest feedback in docs/playtest-notes.md and act on it. Use whenever the owner reports how a build plays, a bug, or an idea, even when they don't type /feedback.
+name: playtest
+description: Log the owner's playtest feedback in docs/playtest-notes.md and act on it. Use whenever the owner reports how a build plays, a bug, or an idea, even when they don't type /playtest.
 argument-hint: "<what you noticed while playing>"
 ---
 

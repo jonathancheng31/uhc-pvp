@@ -1,5 +1,5 @@
 ---
-name: playtest-shot
+name: screenshot
 description: Run the game on a virtual display and take screenshots to check how something looks (view model, animations, HUD, effects, other players through lag). Use after any visual change, and whenever you need to see the game instead of guessing.
 argument-hint: "[what to look at]"
 ---

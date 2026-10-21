@@ -36,14 +36,14 @@ milestone ships.
 - **Project commands** (`.claude/skills/`):
   - `/next-milestone`: catch up, research, plan with the owner, build, ship
   - `/ship`: checks, commit, push, wait for the Windows build, tell the owner
-  - `/playtest-shot`: screenshots of the game on a virtual display, to check visuals
-  - `/feedback`: log the owner's playtest feedback and act on it
-- **Every piece of feedback goes in `docs/playtest-notes.md`,** typed as `/feedback` or said in
+  - `/screenshot`: screenshots of the game on a virtual display, to check visuals
+  - `/playtest`: log the owner's playtest feedback and act on it
+- **Every piece of feedback goes in `docs/playtest-notes.md`,** typed as `/playtest` or said in
   plain chat. Fixes record the version that fixed them.
 - **Research happens in helpers.** Look up Minecraft 1.8.9 mechanics with the `mc-researcher`
   agent (`.claude/agents/`), one per topic, in parallel. Its brief is the starting point;
   numbers still get parity tests.
-- **Look before asking the owner to look.** Check visual changes with `/playtest-shot` first.
+- **Look before asking the owner to look.** Check visual changes with `/screenshot` first.
 - **Chat stays short:** outcome first, plain language, one or two specific questions at most.
 
 ## Commands
@@ -56,7 +56,7 @@ dotnet build UhcPvp.csproj            # compile; warnings are errors (nullable +
 dotnet format UhcPvp.csproj           # fix formatting; CI runs it with --verify-no-changes
 tools/run_tests.sh [Filter]          # build + unit tests (tests/*Tests.cs), optionally only matching names
 tools/smoke_test.sh                  # host + 2 players + dummy, all bots fighting over the network (one laggy)
-tools/screenshot.sh [--at=3,3.1] [-- launch options]   # screenshots on a virtual display (see /playtest-shot)
+tools/screenshot.sh [--at=3,3.1] [-- launch options]   # screenshots on a virtual display (see /screenshot)
 godot --headless --path . --import   # after adding assets (textures etc.)
 python3 tools/gen_textures.py        # rebuild block atlas and HUD icons, then re-import
 python3 tools/gen_sounds.py          # rebuild sound effects, then re-import
