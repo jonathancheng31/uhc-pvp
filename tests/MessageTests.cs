@@ -26,7 +26,10 @@ public class MessageTests : TestCase
             new Pong(1.5, 99.75),
             new Attack(7, -1, 10.5, 10.4, new Vector3(1, 5, 2), 45f, new Vector3(1, 5, -0.5f), AttackFlags.Critical | AttackFlags.SprintKnockback),
             new Hurt(-1, 7, 14.5f, HurtFlags.Fresh | HurtFlags.Critical, 1234.5678),
+            new Hurt(7, -2, 20f, HurtFlags.Fresh | HurtFlags.Rod, 55.4),
             new Swing(7),
+            new RodCast(-2, 55.125, new Vector3(3.5f, 6.52f, 9.25f), new Vector3(0.1f, -0.2f, -1.48f)),
+            new RodHook(-2, 7, 55.4),
         ];
         Check(messages.Select(m => m.Type).Distinct().Count() == Enum.GetValues<MsgType>().Length,
             "test covers every message type");

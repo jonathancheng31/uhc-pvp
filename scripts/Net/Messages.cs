@@ -21,6 +21,8 @@ public enum MsgType : byte
     Attack,
     Hurt,
     Swing,
+    RodCast,
+    RodHook,
 }
 
 /// <summary>A network message. Each one knows how to write itself; <see cref="MessageCodec"/> reads them.</summary>
@@ -161,6 +163,11 @@ public enum AttackFlags : byte
     Critical = 1,
     /// <summary>The attacker's sprint counts for sprint knockback (see PlayerMotor.ServerSprinting).</summary>
     SprintKnockback = 2,
+    /// <summary>
+    /// A fishing rod hit: no damage, knockback away from the thrower, counts for hit protection.
+    /// <c>AttackerFeet</c> is the thrower's position when the bobber touched.
+    /// </summary>
+    Rod = 4,
 }
 
 /// <summary>
@@ -199,6 +206,8 @@ public enum HurtFlags : byte
     Fresh = 1,
     Critical = 2,
     Killed = 4,
+    /// <summary>A fishing rod hit.</summary>
+    Rod = 8,
 }
 
 /// <summary>
@@ -227,6 +236,41 @@ public sealed record Swing(int PlayerId) : IMessage
     public MsgType Type => MsgType.Swing;
     public void Write(BinaryWriter w) => w.Write(PlayerId);
     public static Swing Read(BinaryReader r) => new(r.ReadInt32());
+}
+
+/// <summary>
+/// thrower -> host -> all: someone threw their fishing rod at host time <c>Time</c>. Their old
+/// bobber vanishes, and every game flies the new one from <c>Origin</c> with <c>Velocity</c>
+/// (blocks per Minecraft tick), so they all compute the same path.
+/// </summary>
+public sealed record RodCast(int PlayerId, double Time, Vector3 Origin, Vector3 Velocity) : IMessage
+{
+    public MsgType Type => MsgType.RodCast;
+    public void Write(BinaryWriter w)
+    {
+        w.Write(PlayerId);
+        w.Write(Time);
+        w.WriteVector3(Origin);
+        w.WriteVector3(Velocity);
+    }
+    public static RodCast Read(BinaryReader r) => new(r.ReadInt32(), r.ReadDouble(), r.ReadVector3(), r.ReadVector3());
+}
+
+/// <summary>
+/// thrower -> host -> all: the thrower's bobber caught <c>VictimId</c> at host time <c>Time</c>
+/// and hangs on them now. (The hit itself travels as an <see cref="Attack"/> with
+/// <see cref="AttackFlags.Rod"/>.)
+/// </summary>
+public sealed record RodHook(int PlayerId, int VictimId, double Time) : IMessage
+{
+    public MsgType Type => MsgType.RodHook;
+    public void Write(BinaryWriter w)
+    {
+        w.Write(PlayerId);
+        w.Write(VictimId);
+        w.Write(Time);
+    }
+    public static RodHook Read(BinaryReader r) => new(r.ReadInt32(), r.ReadInt32(), r.ReadDouble());
 }
 
 /// <summary>Turns messages into bytes and back. Bad input decodes to null rather than throwing.</summary>
@@ -264,6 +308,8 @@ public static class MessageCodec
                 MsgType.Attack => Attack.Read(reader),
                 MsgType.Hurt => Hurt.Read(reader),
                 MsgType.Swing => Swing.Read(reader),
+                MsgType.RodCast => RodCast.Read(reader),
+                MsgType.RodHook => RodHook.Read(reader),
                 _ => null,
             };
             // Trailing bytes mean the sender and receiver disagree about the format.

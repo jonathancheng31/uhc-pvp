@@ -12,7 +12,7 @@ public enum BotMode
     Still,
     /// <summary>Strafes left and right while facing you: a moving target.</summary>
     Strafe,
-    /// <summary>Chases the nearest enemy and fights back: sprinting, strafing, clicking, w-tapping.</summary>
+    /// <summary>Chases the nearest enemy and fights back: sprinting, strafing, clicking, w-tapping, rodding.</summary>
     Fight,
     /// <summary>Moves exactly like <see cref="Fight"/> but never swings: a target that runs at you.</summary>
     Chase,
@@ -20,8 +20,8 @@ public enum BotMode
     Wander,
 }
 
-/// <summary>What a bot wants to do this tick: which keys it holds and whether it clicks.</summary>
-public readonly record struct BotIntent(MovementInput Input, bool Attack);
+/// <summary>What a bot wants to do this tick: which keys it holds, whether it clicks and whether it throws its rod.</summary>
+public readonly record struct BotIntent(MovementInput Input, bool Attack, bool Rod = false);
 
 /// <summary>
 /// Practice-bot AI. It "plays" through the same controls a person does: it turns its view,
@@ -41,6 +41,7 @@ public sealed class BotBrain
     private double _strafeTimer;
     private int _strafeDirection = 1;
     private double _clickTimer;
+    private double _rodTimer;
     private double _nextJump;
     private int _releaseForwardTicks;
 
@@ -123,7 +124,15 @@ public sealed class BotBrain
             double cps = Tuning.BotClicksPerSecond * (0.8 + _random.NextDouble() * 0.4);
             _clickTimer = 1.0 / cps;
         }
-        return new BotIntent(new MovementInput(forward, strafe, jump, true, false, self.Yaw), attack);
+        // Rod enemies at mid range, to open a fight like players do.
+        bool rod = false;
+        _rodTimer -= delta;
+        if (clicks && distance > Tuning.BotRodMinDistance && distance < Tuning.BotRodMaxDistance && _rodTimer <= 0)
+        {
+            rod = true;
+            _rodTimer = Tuning.BotRodSeconds * (0.7 + _random.NextDouble() * 0.6);
+        }
+        return new BotIntent(new MovementInput(forward, strafe, jump, true, false, self.Yaw), attack, rod);
     }
 
     private BotIntent Wander(Player self, double delta)

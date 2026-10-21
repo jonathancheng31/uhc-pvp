@@ -33,6 +33,7 @@ public partial class Player : Node3D
     private static readonly int N = Tuning.SubticksPerMcTick;
     private static readonly double SwingSeconds = (double)Tuning.SwingMcTicks / Tuning.McTickRate;
     private static readonly double FlashSeconds = (double)Tuning.HurtFlashMcTicks / Tuning.McTickRate;
+    private const double CastSeconds = 0.3;
 
     private readonly double _mouseDegrees = Tuning.DegreesPerMouseCount(Tuning.DefaultMouseSensitivity);
     private Game _game = null!;
@@ -44,6 +45,7 @@ public partial class Player : Node3D
     private int _subtick;
     private double _sinceHurt;
     private double _swingTime = -1;
+    private double _castTime = -1;
     private double _flashTime;
     private double _deadTime;
 
@@ -154,6 +156,11 @@ public partial class Player : Node3D
             // Every click is one attack, like 1.8: no cooldown, so clicking speed matters.
             _game.TryAttack(this);
         }
+        else if (@event.IsActionPressed(Controls.Use))
+        {
+            // Right-click throws the rod (again: the old bobber vanishes and a new one flies).
+            _game.ThrowRod(this);
+        }
     }
 
     public override void _PhysicsProcess(double delta)
@@ -191,6 +198,10 @@ public partial class Player : Node3D
         {
             _game.TryAttack(this);
         }
+        if (intent?.Rod == true)
+        {
+            _game.ThrowRod(this);
+        }
         if (Kind == PlayerKind.Bot)
         {
             // Practice bots heal to full after a few seconds of peace.
@@ -215,6 +226,14 @@ public partial class Player : Node3D
             }
         }
         _deadTime = IsDead ? _deadTime + delta : 0;
+        if (_castTime >= 0)
+        {
+            _castTime += delta;
+            if (_castTime >= CastSeconds)
+            {
+                _castTime = -1;
+            }
+        }
 
         if (Motor is not null)
         {
@@ -232,6 +251,7 @@ public partial class Player : Node3D
         }
         Model.SetHealth(Vitality.Health);
         Model.SetSwing(SwingProgress, Pitch);
+        Model.SetCast(_castTime < 0 ? -1 : (float)(_castTime / CastSeconds));
         Model.SetHurtTint((float)(_flashTime / FlashSeconds));
         Model.SetDeath(_deadTime);
     }
@@ -248,6 +268,16 @@ public partial class Player : Node3D
             ViewModel?.Swing();
         }
     }
+
+    /// <summary>Plays the rod cast: the left arm flicks forward.</summary>
+    public void PlayCast()
+    {
+        _castTime = 0;
+        ViewModel?.Cast();
+    }
+
+    /// <summary>Where this player's fishing line starts: the rod tip on screen.</summary>
+    public Vector3 RodTip => ViewModel is { Visible: true } ? ViewModel.RodTip : Model.RodTip;
 
     /// <summary>Clicking at nothing: Minecraft 1.8's miss penalty (see <see cref="MissPenalty"/>).</summary>
     public void StartMissCooldown() => _missPenalty.Missed();

@@ -2,6 +2,7 @@
 """Generates our own sound effects (assets/sounds/*.wav) from simple synthesis.
 
 hurt.wav: a short, punchy hit: a falling low thump plus a filtered noise crack.
+rod_cast.wav: a fishing rod cast: a quick airy whoosh with a thin line whizzing out.
 Seeded, so it rebuilds identically. Uses only the Python standard library.
 """
 import math
@@ -44,5 +45,30 @@ def hurt():
     return out
 
 
+def rod_cast():
+    rng = random.Random(1890)
+    n = int(RATE * 0.32)
+    out = []
+    low = band = 0.0
+    phase = 0.0
+    for i in range(n):
+        t = i / RATE
+        # Noise through a resonant filter whose pitch sweeps up then down: the whoosh.
+        sweep = 500 + 2200 * math.sin(math.pi * min(t / 0.28, 1.0))
+        f = 2 * math.sin(math.pi * sweep / RATE)
+        noise = rng.uniform(-1, 1)
+        low += f * band
+        band += f * (noise - low - 0.35 * band)
+        swell = math.sin(math.pi * min(t / 0.3, 1.0)) ** 1.5
+        # The line paying out: a faint falling whistle.
+        freq = 2600 - 1600 * t / 0.32
+        phase += 2 * math.pi * freq / RATE
+        whiz = math.sin(phase) * 0.12 * math.exp(-t / 0.12)
+        attack = min(1.0, t / 0.004)
+        out.append((band * swell * 0.9 + whiz) * attack)
+    return out
+
+
 if __name__ == "__main__":
     write("hurt.wav", hurt())
+    write("rod_cast.wav", rod_cast())

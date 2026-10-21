@@ -137,7 +137,7 @@ public class RodTests : TestCase
         Bobber bobber = Cast(FlatWorld(), new Vec3d(32.5, FloorY, 55.5), 0, 0);
         bobber.Hook(7);
         CheckEqual(bobber.HookedId, 7, "caught");
-        CheckNear(Bobber.HookPoint(new Vec3d(1, 2, 3)).Y, 2 + 1.44, 1e-12, "hangs at 0.8 of the player's height");
+        CheckNear(Bobber.HookPoint(new Vec3d(1, 2, 3)).Y, 2 + 1.08, 1e-12, "hangs at the chest");
         var hangPoint = new Vec3d(20.5, 12, 20.5);
         bobber.Release(20.0, hangPoint);
         Check(bobber.HookedId is null, "released");

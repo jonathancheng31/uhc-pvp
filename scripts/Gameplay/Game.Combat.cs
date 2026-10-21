@@ -11,7 +11,8 @@ namespace UhcPvp.Gameplay;
 
 /// <summary>
 /// Combat, following the plan in docs/netcode.md:
-/// 1. The attacker's game decides a hit from exactly what was on its screen (TryAttack).
+/// 1. The attacker's game decides a hit from exactly what was on its screen (TryAttack, or a
+///    bobber catching someone in Game.Rod.cs).
 /// 2. The hit goes to the game that owns the victim (their own, or the host for bots), which
 ///    checks the lag cap and hit protection and applies damage and knockback (ResolveAttack).
 /// 3. Everyone is told what happened and plays the hurt effects (ApplyHurt).
@@ -180,16 +181,20 @@ public partial class Game
         Vec3d attackerFeet = Vec3d.From(attack.AttackerFeet);
         Vec3d seenFeet = Vec3d.From(attack.TargetFeet);
         Vec3d attackerEye = attackerFeet + new Vec3d(0, Tuning.EyeHeight, 0);
-        if (HitScan.Hitbox(seenFeet).DistanceTo(attackerEye) > Tuning.Reach + ReachTolerance)
+        bool rod = (attack.Flags & AttackFlags.Rod) != 0;
+        bool tooFar = rod
+            ? (seenFeet - attackerFeet).Length > Tuning.RodLineLength + ReachTolerance
+            : HitScan.Hitbox(seenFeet).DistanceTo(attackerEye) > Tuning.Reach + ReachTolerance;
+        if (tooFar)
         {
             GD.Print($"[combat] ignored a hit on {victim.PlayerName}: too far");
             return HitResult.Ignored;
         }
 
-        bool critical = (attack.Flags & AttackFlags.Critical) != 0;
-        bool sprintKnockback = (attack.Flags & AttackFlags.SprintKnockback) != 0;
+        bool critical = !rod && (attack.Flags & AttackFlags.Critical) != 0;
+        bool sprintKnockback = !rod && (attack.Flags & AttackFlags.SprintKnockback) != 0;
         HitResult result = victim.Vitality.TakeHit(
-            CombatRules.RawDamage(Tuning.SwordDamage, critical), Tuning.KitArmorPoints, HitProtection.TickAt(attack.AttackTime));
+            RawDamage(rod, critical), Tuning.KitArmorPoints, HitProtection.TickAt(attack.AttackTime));
         if (result == HitResult.Ignored)
         {
             return result;
@@ -213,7 +218,8 @@ public partial class Game
 
         var flags = (result == HitResult.Hurt ? HurtFlags.Fresh : 0)
             | (critical ? HurtFlags.Critical : 0)
-            | (victim.IsDead ? HurtFlags.Killed : 0);
+            | (victim.IsDead ? HurtFlags.Killed : 0)
+            | (rod ? HurtFlags.Rod : 0);
         var hurt = new Hurt(victim.PeerId, attack.AttackerId, (float)victim.Vitality.Health, flags, attack.AttackTime);
         ApplyHurt(hurt);
         SendToAll(hurt);
@@ -231,6 +237,7 @@ public partial class Game
         bool fresh = (hurt.Flags & HurtFlags.Fresh) != 0;
         bool killed = (hurt.Flags & HurtFlags.Killed) != 0;
         bool critical = (hurt.Flags & HurtFlags.Critical) != 0;
+        bool rod = (hurt.Flags & HurtFlags.Rod) != 0;
         bool byMe = hurt.AttackerId == LocalPlayer.PeerId;
         bool predicted = byMe
             && _predictedAt.Remove(hurt.VictimId, out double predictedAt) && now - predictedAt < PredictionWindow;
@@ -242,7 +249,7 @@ public partial class Game
         }
         else if (double.IsFinite(hurt.AttackTime))
         {
-            GuessProtection(hurt.VictimId).Hit(CombatRules.RawDamage(Tuning.SwordDamage, critical), HitProtection.TickAt(hurt.AttackTime));
+            GuessProtection(hurt.VictimId).Hit(RawDamage(rod, critical), HitProtection.TickAt(hurt.AttackTime));
         }
 
         victim.ShowHurt(predicted ? hurt with { Flags = hurt.Flags & ~HurtFlags.Fresh } : hurt);
@@ -256,7 +263,12 @@ public partial class Game
             Effects.CritBurst(this, chest);
         }
 
-        if (byMe)
+        // Rod hits are counted on their own; the combo readout is for sword hits.
+        if (byMe && rod)
+        {
+            RodHitsLanded++;
+        }
+        else if (byMe)
         {
             HitsLanded++;
             if (fresh)
@@ -269,7 +281,7 @@ public partial class Game
                 Kills++;
             }
         }
-        if (hurt.VictimId == LocalPlayer.PeerId && fresh)
+        if (hurt.VictimId == LocalPlayer.PeerId && fresh && !rod)
         {
             HitsTaken++;
             Combo = 0;
@@ -340,4 +352,8 @@ public partial class Game
     }
 
     private static Vector3 Chest(Player player) => player.Position + new Vector3(0, 1.1f, 0);
+
+    /// <summary>A hit's damage before armor: the sword's, or none for a rod.</summary>
+    private static double RawDamage(bool rod, bool critical) =>
+        rod ? Tuning.RodDamage : CombatRules.RawDamage(Tuning.SwordDamage, critical);
 }

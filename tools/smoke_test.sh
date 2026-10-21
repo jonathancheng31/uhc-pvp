@@ -2,9 +2,9 @@
 # Multiplayer smoke test. A host and two network players run headless on this machine, all
 # played by the fighting bot AI; one has simulated lag. The host also adds a practice
 # dummy that chases without hitting. Teams: host + BotA (Red) vs dummy + BotB (Blue).
-# Every player must see the other three and land hits, which exercises every combat path:
-# host hitting its own bot, a client hitting a host-run bot, a client hitting the host, and a
-# client hitting another client through the host.
+# Every player must see the other three and land sword and rod hits, which exercises every
+# combat path: host hitting its own bot, a client hitting a host-run bot, a client hitting the
+# host, and a client hitting another client through the host.
 set -uo pipefail
 GODOT="${GODOT:-godot}"
 PORT="${PORT:-27777}"
@@ -27,7 +27,8 @@ for name in Host BotA BotB; do
   line="$(grep '^SMOKE' "$LOGS/$name.log" || true)"
   echo "$name: ${line:-<no report>}"
   landed="$(sed -n 's/.* landed=\([0-9]*\).*/\1/p' <<< "$line")"
-  if [[ "$line" != *"seen=3"* || "${landed:-0}" -lt 1 ]]; then
+  rods="$(sed -n 's/.* rods=\([0-9]*\).*/\1/p' <<< "$line")"
+  if [[ "$line" != *"seen=3"* || "${landed:-0}" -lt 1 || "${rods:-0}" -lt 1 ]]; then
     status=1
     echo "---- $name log ----"; grep -v "ALSA\|audio" "$LOGS/$name.log" | tail -40
   fi

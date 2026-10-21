@@ -13,7 +13,7 @@ namespace UhcPvp.Gameplay;
 
 /// <summary>
 /// The match: builds the arena, spawns players (people and practice bots) and keeps everyone in
-/// sync. Combat lives in Game.Combat.cs.
+/// sync. Combat lives in Game.Combat.cs, the fishing rod in Game.Rod.cs.
 ///
 /// Networking model (docs/netcode.md): each player's game owns its own movement and sends its
 /// state to the host 60 times a second; the host runs the bots. The host sends everyone a
@@ -103,6 +103,7 @@ public partial class Game : Node3D
             return;
         }
         double now = Net.HostTime;
+        StepRods(now);
         if (Net.IsHost)
         {
             foreach (Player player in _players.Values.Where(p => p.IsOwned))
@@ -219,6 +220,7 @@ public partial class Game : Node3D
             player.QueueFree();
         }
         _latestStates.Remove(id);
+        RemoveBobber(id);
     }
 
     private void OnMessage(int from, IMessage message)
@@ -239,6 +241,12 @@ public partial class Game : Node3D
                 break;
             case Swing swing:
                 OnSwingMessage(from, swing);
+                break;
+            case RodCast cast:
+                OnRodCastMessage(from, cast);
+                break;
+            case RodHook hook:
+                OnRodHookMessage(from, hook);
                 break;
         }
     }
@@ -309,7 +317,7 @@ public partial class Game : Node3D
     {
         int moving = _seenBounds.Values.Count(b => b.Size.Length() > 1.0f);
         GD.Print($"SMOKE name={LocalPlayer.PlayerName} host={Net.IsHost} players_now={PlayerCount} "
-            + $"seen={_seenBounds.Count} moving={moving} landed={HitsLanded} taken={HitsTaken} "
+            + $"seen={_seenBounds.Count} moving={moving} landed={HitsLanded} rods={RodHitsLanded} taken={HitsTaken} "
             + $"kills={Kills} ping_ms={(int)Math.Round(Net.PingSeconds * 1000)}");
     }
 

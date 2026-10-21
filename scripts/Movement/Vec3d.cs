@@ -9,6 +9,7 @@ public readonly record struct Vec3d(double X, double Y, double Z)
     public static readonly Vec3d Zero = new(0, 0, 0);
 
     public double HorizontalLength => Math.Sqrt(X * X + Z * Z);
+    public double Length => Math.Sqrt(X * X + Y * Y + Z * Z);
 
     public static Vec3d operator +(Vec3d a, Vec3d b) => new(a.X + b.X, a.Y + b.Y, a.Z + b.Z);
     public static Vec3d operator -(Vec3d a, Vec3d b) => new(a.X - b.X, a.Y - b.Y, a.Z - b.Z);

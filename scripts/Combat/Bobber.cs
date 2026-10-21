@@ -36,12 +36,15 @@ public sealed class Bobber
         _world = world;
         ThrowerId = throwerId;
         CastTime = castTime;
+        Origin = origin;
         Fly(castTime, origin, velocity);
     }
 
     public int ThrowerId { get; }
     /// <summary>Host time of the cast.</summary>
     public double CastTime { get; }
+    /// <summary>Where the cast started.</summary>
+    public Vec3d Origin { get; }
     /// <summary>The player it's caught on, if any.</summary>
     public int? HookedId { get; private set; }
     /// <summary>Whether it's lying on the ground (or against a wall), as of the latest tick worked out.</summary>

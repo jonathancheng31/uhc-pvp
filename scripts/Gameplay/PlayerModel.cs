@@ -8,7 +8,7 @@ namespace UhcPvp.Gameplay;
 
 /// <summary>
 /// A blocky placeholder body: head, torso, arms and legs, with the shirt in the team's color,
-/// a sword in hand and a name tag with health overhead. Proportions follow a 32-pixel-tall
+/// a sword in the right hand, a fishing rod in the left, and a name tag with health overhead. Proportions follow a 32-pixel-tall
 /// character scaled to the 1.8-block player height. Walking, sneaking, attacking, getting hurt
 /// and dying use Minecraft 1.8's animation numbers.
 /// </summary>
@@ -33,9 +33,11 @@ public partial class PlayerModel : Node3D
     private Node3D _rightLeg = null!;
     private Label3D _nameTag = null!;
     private Label3D _healthTag = null!;
+    private Node3D _rodTip = null!;
     private float _walkSwing;
     private float _walkAmount;
     private float _attackSwing = -1;
+    private float _cast = -1;
     private float _pitch;
     private bool _sneaking;
     private float _shownHealth = -1;
@@ -60,6 +62,7 @@ public partial class PlayerModel : Node3D
         _rightArm = AddPivot(new Vector3(6, 10, 0), _upperBody);
         AddBox(new Vector3(4, 12, 4), new Vector3(0, -4, 0), teamColor.Darkened(0.15f), _rightArm);
         AddHeldSword(_rightArm);
+        _rodTip = AddHeldRod(_leftArm);
 
         // Head on a pivot at the neck so it can look up and down.
         _head = AddPivot(new Vector3(0, 24, 0), _pose);
@@ -75,6 +78,16 @@ public partial class PlayerModel : Node3D
         _healthTag = MakeLabel("", new Color(1f, 0.45f, 0.45f), 24);
         AddChild(_healthTag);
         PlaceTags();
+    }
+
+    /// <summary>Where the rod's line starts, in world space.</summary>
+    public Vector3 RodTip => _rodTip.GlobalPosition;
+
+    /// <summary>Rod cast progress from 0 to 1, or -1 when not casting.</summary>
+    public void SetCast(float progress)
+    {
+        _cast = progress;
+        ApplyPose();
     }
 
     /// <summary>Pitch in degrees; positive looks up.</summary>
@@ -152,7 +165,9 @@ public partial class PlayerModel : Node3D
         float sneakArms = _sneaking ? 0.4f : 0f;
         _leftLeg.Rotation = new Vector3(leg, 0, 0);
         _rightLeg.Rotation = new Vector3(-leg, 0, 0);
-        _leftArm.Rotation = new Vector3(arm - sneakArms, 0, 0);
+        // Casting the rod: the left arm comes up and flicks forward.
+        float cast = _cast >= 0 ? MathF.Sin(_cast * MathF.PI) * 1.1f : 0f;
+        _leftArm.Rotation = new Vector3(arm - sneakArms + cast, 0, 0);
         var rightArm = new Vector3(-arm - sneakArms, 0, 0);
         float bodyTwist = 0f;
         if (_attackSwing >= 0)
@@ -191,6 +206,16 @@ public partial class PlayerModel : Node3D
         AddBox(new Vector3(1, 3, 1), new Vector3(0, -0.5f, 0), new Color(0.42f, 0.27f, 0.15f), hand);
         AddBox(new Vector3(3.5f, 0.8f, 1.2f), new Vector3(0, 1.2f, 0), new Color(0.2f, 0.22f, 0.26f), hand);
         AddBox(new Vector3(1.3f, 9, 0.6f), new Vector3(0, 6, 0), new Color(0.55f, 0.9f, 0.95f), hand);
+    }
+
+    /// <summary>A small blocky fishing rod held in the left hand, pointing forward and up. Returns its tip.</summary>
+    private Node3D AddHeldRod(Node3D arm)
+    {
+        var hand = AddPivot(new Vector3(0, -10, -1), arm);
+        hand.Rotation = new Vector3(-1.0f, 0, 0);
+        AddBox(new Vector3(1, 3, 1), new Vector3(0, -0.5f, 0), new Color(0.25f, 0.17f, 0.11f), hand);
+        AddBox(new Vector3(0.7f, 16, 0.7f), new Vector3(0, 9, 0), new Color(0.55f, 0.38f, 0.22f), hand);
+        return AddPivot(new Vector3(0, 17, 0), hand);
     }
 
     private static Label3D MakeLabel(string text, Color color, int size) => new()

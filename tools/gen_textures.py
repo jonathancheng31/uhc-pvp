@@ -161,6 +161,34 @@ def slot(size, border, fill):
     return img
 
 
+def rod_icon():
+    """Our fishing rod: a pole leaning like the sword, with the line hanging to a bobber."""
+    img = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    outline, grip, pole, reel = (32, 16, 16, 255), (90, 58, 34, 255), (176, 124, 72, 255), (150, 154, 162, 255)
+    line, red, white = (50, 50, 54, 255), (214, 38, 46, 255), (240, 240, 236, 255)
+    shaft = [(x, 15 - x) for x in range(1, 13)]
+    for x, y in shaft:
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            p = (x + dx, y + dy)
+            if p not in shaft and 0 <= p[0] < 16 and 0 <= p[1] < 16:
+                img.putpixel(p, outline)
+    for i, p in enumerate(shaft):
+        img.putpixel(p, grip if i < 4 else pole)
+    for p in ((5, 12), (6, 12), (6, 13)):
+        img.putpixel(p, reel)
+    for y in range(3, 10):
+        img.putpixel((13, y), line)
+    for x in range(12, 15):
+        img.putpixel((x, 9), outline if x != 13 else line)
+        img.putpixel((x, 10), red)
+        img.putpixel((x, 11), white)
+        img.putpixel((x, 12), outline)
+    for y in (10, 11):
+        img.putpixel((11, y), outline)
+        img.putpixel((15, y), outline)
+    return img
+
+
 def make_hud():
     HUD_DIR.mkdir(parents=True, exist_ok=True)
     for name, rows in (("heart", HEART), ("armor", ARMOR)):
@@ -170,6 +198,7 @@ def make_hud():
         half_version(full, empty).save(HUD_DIR / f"{name}_half.png")
         empty.save(HUD_DIR / f"{name}_empty.png")
     icon(SWORD, PALETTE_FULL).save(HUD_DIR / "sword.png")
+    rod_icon().save(HUD_DIR / "rod.png")
     slot(22, (60, 60, 66, 255), (0, 0, 0, 110)).save(HUD_DIR / "slot.png")
     slot(24, (240, 240, 240, 255), (0, 0, 0, 0)).save(HUD_DIR / "slot_selected.png")
     print(f"wrote HUD icons to {HUD_DIR}")

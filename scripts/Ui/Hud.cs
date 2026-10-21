@@ -280,7 +280,10 @@ public partial class Hud : CanvasLayer
         center.AddChild(column);
     }
 
-    /// <summary>Armor, hearts and the hotbar along the bottom middle, like Minecraft's.</summary>
+    /// <summary>
+    /// Armor, hearts and the hotbar along the bottom middle, like Minecraft's, plus a slot to
+    /// the left for the fishing rod in your other hand (right-click).
+    /// </summary>
     private void BuildBottomBar()
     {
         var bar = new VBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
@@ -291,23 +294,24 @@ public partial class Hud : CanvasLayer
         bar.Position += new Vector2(0, -8);
         AddChild(bar);
 
-        bar.AddChild(IconRow(_armor, _armorFull));
-        bar.AddChild(IconRow(_hearts, _heartFull));
+        // Armor and hearts line up with the hotbar's first slot, past the rod's slot.
+        bar.AddChild(Indented(IconRow(_armor, _armorFull), 22 + OffHandGap));
+        bar.AddChild(Indented(IconRow(_hearts, _heartFull), 22 + OffHandGap));
 
         var hotbar = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
         hotbar.AddThemeConstantOverride("separation", 0);
         var slotTexture = GD.Load<Texture2D>(HudDir + "slot.png");
         var selected = GD.Load<Texture2D>(HudDir + "slot_selected.png");
         var sword = GD.Load<Texture2D>(HudDir + "sword.png");
+        var rod = GD.Load<Texture2D>(HudDir + "rod.png");
+        // The rod's slot hangs off the left; an equal gap on the right keeps the hotbar centered.
+        var rodSlot = Slot(slotTexture);
+        rodSlot.AddChild(Icon(rod, new Vector2(3, 3) * GuiScale, new Vector2(16, 16) * GuiScale));
+        hotbar.AddChild(rodSlot);
+        hotbar.AddChild(Spacer(OffHandGap));
         for (int i = 0; i < 9; i++)
         {
-            var slot = new TextureRect
-            {
-                Texture = slotTexture,
-                CustomMinimumSize = new Vector2(22, 22) * GuiScale,
-                StretchMode = TextureRect.StretchModeEnum.Scale,
-                TextureFilter = CanvasItem.TextureFilterEnum.Nearest,
-            };
+            var slot = Slot(slotTexture);
             if (i == 0)
             {
                 slot.AddChild(Icon(sword, new Vector2(3, 3) * GuiScale, new Vector2(16, 16) * GuiScale));
@@ -315,8 +319,31 @@ public partial class Hud : CanvasLayer
             }
             hotbar.AddChild(slot);
         }
+        hotbar.AddChild(Spacer(OffHandGap + 22));
         bar.AddChild(hotbar);
     }
+
+    /// <summary>Gap between the rod's slot and the hotbar, in GUI pixels.</summary>
+    private const int OffHandGap = 6;
+
+    private static TextureRect Slot(Texture2D texture) => new()
+    {
+        Texture = texture,
+        CustomMinimumSize = new Vector2(22, 22) * GuiScale,
+        StretchMode = TextureRect.StretchModeEnum.Scale,
+        TextureFilter = CanvasItem.TextureFilterEnum.Nearest,
+    };
+
+    private static MarginContainer Indented(Control content, int left)
+    {
+        var margin = new MarginContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        margin.AddThemeConstantOverride("margin_left", left * GuiScale);
+        margin.AddChild(content);
+        return margin;
+    }
+
+    private static Control Spacer(int width) =>
+        new() { CustomMinimumSize = new Vector2(width, 0) * GuiScale, MouseFilter = Control.MouseFilterEnum.Ignore };
 
     private static HBoxContainer IconRow(List<TextureRect> into, Texture2D texture)
     {

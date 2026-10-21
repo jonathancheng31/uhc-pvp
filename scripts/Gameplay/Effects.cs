@@ -7,9 +7,11 @@ namespace UhcPvp.Gameplay;
 public static class Effects
 {
     public const string HurtSoundPath = "res://assets/sounds/hurt.wav";
+    public const string RodCastSoundPath = "res://assets/sounds/rod_cast.wav";
 
     private static readonly Random Random = new();
     private static AudioStream? _hurt;
+    private static AudioStream? _rodCast;
 
     /// <summary>The hurt sound at a spot, with Minecraft's small random pitch change.</summary>
     public static void PlayHurt(Node parent, Vector3 position, bool killed)
@@ -23,6 +25,24 @@ public static class Effects
             PitchScale = killed ? pitch * 0.7f : pitch,
             UnitSize = 8,
             MaxDistance = 64,
+        };
+        parent.AddChild(player);
+        player.Finished += player.QueueFree;
+        player.Play();
+    }
+
+    /// <summary>The whoosh of a rod cast, a little lower or higher each time.</summary>
+    public static void PlayCast(Node parent, Vector3 position)
+    {
+        _rodCast ??= GD.Load<AudioStream>(RodCastSoundPath);
+        var player = new AudioStreamPlayer3D
+        {
+            Stream = _rodCast,
+            Position = position,
+            PitchScale = (float)(0.85 + Random.NextDouble() * 0.3),
+            VolumeDb = -4,
+            UnitSize = 6,
+            MaxDistance = 48,
         };
         parent.AddChild(player);
         player.Finished += player.QueueFree;

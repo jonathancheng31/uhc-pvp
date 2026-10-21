@@ -178,8 +178,8 @@ public static class Tuning
     public const double BobberImpactSpeedKept = 0.1;
     /// <summary>Players count this much bigger on every side for the bobber.</summary>
     public const double BobberHitboxGrow = 0.3;
-    /// <summary>A caught bobber hangs at this fraction of the player's height.</summary>
-    public const double BobberHookHeight = 0.8;
+    /// <summary>A caught bobber hangs at this fraction of the player's height: the chest (1.8.9's hangs at the neck, 0.8).</summary>
+    public const double BobberHookHeight = 0.6;
     /// <summary>The line breaks (the bobber vanishes) when it's farther than this from the thrower.</summary>
     public const double RodLineLength = 32.0;
 
@@ -193,6 +193,11 @@ public static class Tuning
     public const double PracticeDummyDistance = 5.0;
     /// <summary>Clicks per second of a fighting bot (average; it varies a bit).</summary>
     public const double BotClicksPerSecond = 9.0;
+    /// <summary>A fighting bot throws its rod at enemies between these distances (blocks)...</summary>
+    public const double BotRodMinDistance = 3.5;
+    public const double BotRodMaxDistance = 8.0;
+    /// <summary>...about this often (seconds, average; it varies a bit).</summary>
+    public const double BotRodSeconds = 1.5;
 
     // --- Arena -----------------------------------------------------------------------------
 
