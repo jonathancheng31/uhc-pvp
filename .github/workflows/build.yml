@@ -1,0 +1,71 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: "4.7.2"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Cache Godot
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}-windows
+
+      - name: Install Godot
+        run: |
+          tools/install_godot.sh --windows-templates
+          echo "$HOME/godot" >> "$GITHUB_PATH"
+
+      - name: Import project
+        run: godot --headless --path . --import
+
+      - name: Unit tests
+        run: tools/run_tests.sh
+
+      - name: Multiplayer smoke test
+        run: tools/smoke_test.sh
+
+      - name: Export Windows build
+        run: |
+          mkdir -p build/windows
+          godot --headless --path . --export-release "Windows Desktop" build/windows/UHC-PvP.exe
+          test -f build/windows/UHC-PvP.exe
+          cd build/windows && zip -q -r ../UHC-PvP-Windows.zip .
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: UHC-PvP-Windows
+          path: build/UHC-PvP-Windows.zip
+
+      - name: Publish dev build
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete dev-build --yes --cleanup-tag || true
+          gh release create dev-build build/UHC-PvP-Windows.zip \
+            --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "Latest dev build" \
+            --notes "Built automatically from ${GITHUB_SHA::7}: $(git log -1 --format=%s)"

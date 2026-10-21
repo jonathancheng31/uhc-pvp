@@ -1,0 +1,14 @@
+# Godot
+.godot/
+/android/
+*.translation
+
+# Build output
+build/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+*.tmp
+.vscode/
+.idea/

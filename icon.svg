@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 16 16" shape-rendering="crispEdges">
+  <rect width="16" height="16" rx="2" fill="#1f2430"/>
+  <!-- blade -->
+  <path fill="#cfe8ff" d="M12 2h2v2h-1v1h-1v1h-1v1h-1v1H9V7h1V6h1V5h1V4h1V3h-1z"/>
+  <path fill="#7fb6e6" d="M13 3h1v1h-1v1h-1v1h-1v1h-1v1H9V7h1V6h1V5h1V4h1z"/>
+  <!-- guard -->
+  <path fill="#d94141" d="M5 8h1v1h1v1h1v1h1v1H8v-1H7v-1H6V9H5z"/>
+  <path fill="#d94141" d="M4 9h2v1H4zM8 12h1v2H8z"/>
+  <!-- handle -->
+  <path fill="#8a5a33" d="M3 11h1v1h1v1H4v1H3v-1H2v-1h1z"/>
+  <rect x="2" y="13" width="1" height="1" fill="#3b82f6"/>
+</svg>

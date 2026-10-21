@@ -1,0 +1,43 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="UHC PvP"
+config/description="Team vs team block PvP inspired by Minecraft 1.8.9 combat."
+config/version="0.1.0"
+run/main_scene="res://scenes/main_menu.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+config/icon="res://icon.svg"
+
+[autoload]
+
+LaunchArgs="*res://scripts/autoload/launch_args.gd"
+Controls="*res://scripts/autoload/controls.gd"
+Net="*res://scripts/autoload/net.gd"
+Session="*res://scripts/autoload/session.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/vsync/vsync_mode=0
+
+[physics]
+
+common/physics_ticks_per_second=60
+common/max_physics_steps_per_frame=8
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/canvas_textures/default_texture_filter=0
+environment/defaults/default_clear_color=Color(0.53, 0.72, 1, 1)
