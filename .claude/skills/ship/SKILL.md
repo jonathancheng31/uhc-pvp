@@ -63,11 +63,12 @@ fix it, and go back to step 2.
 Then confirm the download really is this commit:
 
 ```bash
-gh release view dev-build --repo jonathancheng31/uhc-pvp --json targetCommitish,assets \
-  --jq '.targetCommitish, (.assets[] | "\(.name) \(.size)")'
+gh api repos/jonathancheng31/uhc-pvp/releases/tags/dev-build \
+  --jq '.target_commitish, (.assets[] | "\(.name) \(.size)")'
 ```
 
-`targetCommitish` must equal `$sha` and `UHC-PvP-Windows.zip` must be listed.
+`target_commitish` must equal `$sha` and `UHC-PvP-Windows.zip` must be listed. (Use `gh api`
+here: `gh release view` needs GitHub's GraphQL API, which cloud sessions can't reach.)
 
 ## 6. Tell the owner
 
