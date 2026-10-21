@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Generates the placeholder block texture atlas (assets/textures/blocks.png).
+"""Generates our placeholder textures: the block atlas (assets/textures/blocks.png) and the
+HUD icons (assets/textures/hud/*.png).
 
 Every pixel is made here from seeded noise, so the textures are our own and
 rebuild identically. Tile order must match the TILE_* constants in
@@ -76,6 +77,103 @@ def planks(rng):
 
 TILES = [grass_top, grass_side, dirt, stone, wall, planks]
 
+HUD_DIR = OUT.parent / "hud"
+
+# 9x9 icons drawn from character maps: . transparent, o outline, and palette letters.
+HEART = [
+    ".oo...oo.",
+    "orrooorro",
+    "orwrrrrro",
+    "orrrrrrro",
+    "orrrrrrdo",
+    ".orrrrdo.",
+    "..orrdo..",
+    "...odo...",
+    "....o....",
+]
+ARMOR = [
+    ".oo...oo.",
+    "oggoooggo",
+    "ogwgggggo",
+    ".ogggggo.",
+    ".ogggggo.",
+    ".ogggggo.",
+    ".ogggsso.",
+    ".oooooo..",
+    ".........",
+]
+SWORD = [
+    "..............oo",
+    ".............olo",
+    "............olco",
+    "...........olco.",
+    "..........olco..",
+    ".........olco...",
+    "........olco....",
+    "...oo..olco.....",
+    "...ogoolco......",
+    "....oglco.......",
+    "....oggo........",
+    "...ohoogo.......",
+    "..ohho.oo.......",
+    "oohho...........",
+    "ohho............",
+    "ooo.............",
+]
+PALETTE_FULL = {"o": (32, 16, 16, 255), "r": (214, 38, 46, 255), "w": (255, 200, 200, 255), "d": (150, 20, 28, 255),
+                "g": (210, 214, 222, 255), "s": (150, 154, 162, 255), "l": (230, 252, 255, 255), "c": (110, 210, 225, 255), "h": (120, 76, 44, 255)}
+
+
+def icon(rows, palette):
+    img = Image.new("RGBA", (len(rows[0]), len(rows)), (0, 0, 0, 0))
+    for y, row in enumerate(rows):
+        for x, ch in enumerate(row):
+            if ch != ".":
+                img.putpixel((x, y), palette.get(ch, (255, 0, 255, 255)))
+    return img
+
+
+def empty_version(rows):
+    """Same outline, dark translucent inside: an empty heart or armor slot."""
+    palette = {"o": (32, 16, 16, 255)}
+    for k in "rwdgsl":
+        palette[k] = (40, 40, 44, 200)
+    return icon(rows, palette)
+
+
+def half_version(full, empty):
+    img = empty.copy()
+    w, h = full.size
+    for y in range(h):
+        for x in range(w // 2 + 1):
+            img.putpixel((x, y), full.getpixel((x, y)))
+    return img
+
+
+def slot(size, border, fill):
+    img = Image.new("RGBA", (size, size), fill)
+    for i in range(size):
+        for t in range(2):
+            img.putpixel((i, t), border)
+            img.putpixel((i, size - 1 - t), border)
+            img.putpixel((t, i), border)
+            img.putpixel((size - 1 - t, i), border)
+    return img
+
+
+def make_hud():
+    HUD_DIR.mkdir(parents=True, exist_ok=True)
+    for name, rows in (("heart", HEART), ("armor", ARMOR)):
+        full = icon(rows, PALETTE_FULL)
+        empty = empty_version(rows)
+        full.save(HUD_DIR / f"{name}_full.png")
+        half_version(full, empty).save(HUD_DIR / f"{name}_half.png")
+        empty.save(HUD_DIR / f"{name}_empty.png")
+    icon(SWORD, PALETTE_FULL).save(HUD_DIR / "sword.png")
+    slot(22, (60, 60, 66, 255), (0, 0, 0, 110)).save(HUD_DIR / "slot.png")
+    slot(24, (240, 240, 240, 255), (0, 0, 0, 0)).save(HUD_DIR / "slot_selected.png")
+    print(f"wrote HUD icons to {HUD_DIR}")
+
 
 def main():
     rng = random.Random(1889)  # fixed seed: same textures every run
@@ -87,6 +185,7 @@ def main():
     OUT.parent.mkdir(parents=True, exist_ok=True)
     atlas.save(OUT)
     print(f"wrote {OUT}")
+    make_hud()
 
 
 if __name__ == "__main__":

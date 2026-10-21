@@ -26,6 +26,15 @@ public readonly record struct Box(double MinX, double MinY, double MinZ, double 
 
     public Box Grow(double d) => new(MinX - d, MinY - d, MinZ - d, MaxX + d, MaxY + d, MaxZ + d);
 
+    /// <summary>Distance from a point to the nearest point of this box (0 if inside).</summary>
+    public double DistanceTo(Vec3d p)
+    {
+        double dx = Math.Max(Math.Max(MinX - p.X, 0), p.X - MaxX);
+        double dy = Math.Max(Math.Max(MinY - p.Y, 0), p.Y - MaxY);
+        double dz = Math.Max(Math.Max(MinZ - p.Z, 0), p.Z - MaxZ);
+        return Math.Sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
     public bool Contains(Vec3d p) =>
         p.X > MinX && p.X < MaxX && p.Y > MinY && p.Y < MaxY && p.Z > MinZ && p.Z < MaxZ;
 

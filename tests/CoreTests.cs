@@ -70,7 +70,7 @@ public class NetClockTests : TestCase
 
 public class SnapshotBufferTests : TestCase
 {
-    private static PlayerState State(float x, float yaw) => new(new Vector3(x, 5, 0), yaw, 0, PlayerFlags.None);
+    private static PlayerState State(float x, float yaw) => new(new Vector3(x, 5, 0), yaw, 0, PlayerFlags.None, 20);
 
     public void TestBlendsBetweenStates()
     {
@@ -135,7 +135,7 @@ public class TuningTests : TestCase
 
     public void TestPlayerStateValidity()
     {
-        var state = new PlayerState(new Vector3(1, 2, 3), 45, -10, PlayerFlags.Sprinting);
+        var state = new PlayerState(new Vector3(1, 2, 3), 45, -10, PlayerFlags.Sprinting, 20);
         Check(state.IsValid, "valid");
         Check(state.Has(PlayerFlags.Sprinting) && !state.Has(PlayerFlags.Sneaking), "flags");
         Check(!(state with { Yaw = float.NaN }).IsValid, "NaN rejected");

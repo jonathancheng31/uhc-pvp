@@ -273,3 +273,25 @@ public class HitScanTests : TestCase
         CheckEqual(HitScan.Aim(Eye, North, TargetAt(3.45), world).Kind, AimKind.Miss, "miss, not block");
     }
 }
+
+public class BotAimTests : TestCase
+{
+    public void TestBotLookAnglesPointAtTarget()
+    {
+        var world = new VoxelWorld(new Vector3I(64, 24, 64));
+        world.Fill(new Vector3I(0, 0, 0), new Vector3I(63, 3, 63), Block.Stone);
+        var eye = new Vec3d(32.5, 4 + Tuning.EyeHeight, 32.5);
+        var random = new Random(4);
+        for (int i = 0; i < 50; i++)
+        {
+            var feet = new Vec3d(32.5 + random.NextDouble() * 4 - 2, 4, 32.5 + random.NextDouble() * 4 - 2);
+            if ((feet - new Vec3d(eye.X, 4, eye.Z)).HorizontalLength < 0.8)
+            {
+                continue;
+            }
+            (double yaw, double pitch) = Gameplay.BotBrain.LookAngles(eye, feet + new Vec3d(0, 1.2, 0));
+            AimResult aim = HitScan.Aim(eye, HitScan.LookVector(yaw, pitch), [new AimTarget(9, feet)], world);
+            CheckEqual(aim.Kind, AimKind.Player, $"aiming at a player at {feet}");
+        }
+    }
+}

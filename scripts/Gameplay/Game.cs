@@ -1,8 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using UhcPvp.Autoload;
 using UhcPvp.Core;
+using UhcPvp.Movement;
 using UhcPvp.Net;
 using UhcPvp.Ui;
 using UhcPvp.World;
@@ -10,26 +12,35 @@ using UhcPvp.World;
 namespace UhcPvp.Gameplay;
 
 /// <summary>
-/// The match: builds the arena, spawns players and keeps everyone's positions in sync.
+/// The match: builds the arena, spawns players (people and practice bots) and keeps everyone in
+/// sync. Combat lives in Game.Combat.cs.
 ///
 /// Networking model (docs/netcode.md): each player's game owns its own movement and sends its
-/// state to the host 60 times a second. The host sends everyone a snapshot of all players 60
-/// times a second, and each game draws the other players slightly in the past so they move
-/// smoothly.
+/// state to the host 60 times a second; the host runs the bots. The host sends everyone a
+/// snapshot of all players 60 times a second, and each game draws the other players slightly in
+/// the past so they move smoothly.
 /// </summary>
 public partial class Game : Node3D
 {
-    private readonly Dictionary<int, Player> _remotePlayers = new();
+    private readonly Dictionary<int, Player> _players = new();
     /// <summary>Host only: latest state of every player.</summary>
     private readonly Dictionary<int, (double Time, PlayerState State)> _latestStates = new();
     /// <summary>Test stats: where we've seen each other player. Kept after they leave.</summary>
     private readonly Dictionary<int, Aabb> _seenBounds = new();
+    private (Vec3d Home, float Yaw)? _nextBotHome;
 
     public VoxelWorld World { get; private set; } = null!;
     public Player LocalPlayer { get; private set; } = null!;
-    public int PlayerCount => _remotePlayers.Count + 1;
+    public int PlayerCount => _players.Count;
+    public IEnumerable<Player> Players => _players.Values;
+    /// <summary>How practice bots behave (host only; changed from the pause menu).</summary>
+    public BotMode PracticeBotMode { get; private set; } = BotMode.Still;
+
+    /// <summary>Kill messages and other notices for the HUD.</summary>
+    public event Action<string>? Notice;
 
     private static Network Net => Network.Instance;
+    private static Session Session => Session.Instance;
 
     public override void _Ready()
     {
@@ -39,29 +50,43 @@ public partial class Game : Node3D
         renderer.Build(World);
         SetupEnvironment();
 
-        LocalPlayer = SpawnPlayer(Net.MyId, local: true);
-        foreach (int id in Session.Instance.Players.Keys.Where(id => id != Net.MyId))
+        var args = LaunchArgs.Instance;
+        PracticeBotMode = args.DummyMode;
+        LocalPlayer = SpawnPlayer(Net.MyId);
+        if (args.BotMode is BotMode mode)
         {
-            AddRemote(id);
+            LocalPlayer.Brain = new BotBrain(mode, Net.MyId);
+        }
+        foreach (int id in Session.Players.Keys.Where(id => id != Net.MyId))
+        {
+            OnPlayerAdded(id);
         }
 
         AddChild(new Hud { Name = "Hud", Game = this });
 
-        Session.Instance.PlayerAdded += AddRemote;
-        Session.Instance.PlayerRemoved += RemoveRemote;
+        Session.PlayerAdded += OnPlayerAdded;
+        Session.PlayerRemoved += OnPlayerRemoved;
         Net.MessageReceived += OnMessage;
-        LaunchArgs.Instance.Quitting += PrintTestReport;
-        if (LaunchArgs.Instance.ScreenshotPath.Length > 0)
+        args.Quitting += PrintTestReport;
+        if (args.ScreenshotPath.Length > 0)
         {
-            GetTree().CreateTimer(LaunchArgs.Instance.ScreenshotAt).Timeout += TakeScreenshot;
+            GetTree().CreateTimer(args.ScreenshotAt).Timeout += TakeScreenshot;
+        }
+        if (Net.IsHost)
+        {
+            int dummies = args.Dummies + (Session.IsPractice ? 1 : 0);
+            for (int i = 0; i < dummies; i++)
+            {
+                AddPracticeBot();
+            }
         }
         GD.Print($"[game] match started as {LocalPlayer.PlayerName} (id {Net.MyId}, team {LocalPlayer.Team.DisplayName()})");
     }
 
     public override void _ExitTree()
     {
-        Session.Instance.PlayerAdded -= AddRemote;
-        Session.Instance.PlayerRemoved -= RemoveRemote;
+        Session.PlayerAdded -= OnPlayerAdded;
+        Session.PlayerRemoved -= OnPlayerRemoved;
         Net.MessageReceived -= OnMessage;
         LaunchArgs.Instance.Quitting -= PrintTestReport;
     }
@@ -73,47 +98,118 @@ public partial class Game : Node3D
             return;
         }
         double now = Net.HostTime;
-        PlayerState state = LocalPlayer.GetState();
         if (Net.IsHost)
         {
-            _latestStates[Net.MyId] = (now, state);
+            foreach (Player player in _players.Values.Where(p => p.IsOwned))
+            {
+                _latestStates[player.PeerId] = (now, player.GetState());
+            }
             BroadcastSnapshot();
         }
         else
         {
-            Net.SendToHost(new StateUpdate(now, state), reliable: false);
+            Net.SendToHost(new StateUpdate(now, LocalPlayer.GetState()), reliable: false);
         }
     }
 
     public override void _Process(double delta)
     {
         double now = Net.HostTime;
-        foreach (Player player in _remotePlayers.Values)
+        foreach (Player player in _players.Values)
         {
-            player.UpdateRemote(now, delta);
-            TrackSeen(player);
+            if (!player.IsOwned)
+            {
+                player.UpdateRemote(now, delta);
+            }
+            if (player != LocalPlayer)
+            {
+                TrackSeen(player);
+            }
         }
     }
 
-    private Player SpawnPlayer(int id, bool local)
+    public Player? Find(int id) => _players.GetValueOrDefault(id);
+
+    /// <summary>Living players on the other team (whom bots go after).</summary>
+    public IReadOnlyList<Player> EnemiesOf(Player player) =>
+        _players.Values.Where(p => p != player && !p.IsDead && p.Team != player.Team).ToList();
+
+    /// <summary>Host only: adds a practice bot on the other team, a few blocks in front of you, facing you.</summary>
+    public void AddPracticeBot()
     {
+        if (!Net.IsHost)
+        {
+            return;
+        }
+        Team team = LocalPlayer.Team == Team.Red ? Team.Blue : Team.Red;
+        int existing = _players.Values.Count(p => p.Kind == PlayerKind.Bot);
+        Vec3d forward = Vec3d.Forward(LocalPlayer.Yaw);
+        Vec3d side = Vec3d.Left(LocalPlayer.Yaw) * ((existing % 3 - 1) * 2.0);
+        Vec3d home = LocalPlayer.Feet + forward * Tuning.PracticeDummyDistance + side;
+        Vector3I size = Arena.WorldSize;
+        home = new Vec3d(
+            Math.Clamp(home.X, 1.5, size.X - 1.5), Tuning.ArenaFloorY, Math.Clamp(home.Z, 1.5, size.Z - 1.5));
+        float facing = Mathf.Wrap(LocalPlayer.Yaw + 180f, -180f, 180f);
+        _nextBotHome = (home, facing);
+        if (Session.AddBot(team) == 0)
+        {
+            Notice?.Invoke("The match is full");
+        }
+        _nextBotHome = null;
+    }
+
+    /// <summary>Host only: removes every practice bot.</summary>
+    public void RemovePracticeBots()
+    {
+        foreach (int id in _players.Values.Where(p => p.Kind == PlayerKind.Bot).Select(p => p.PeerId).ToList())
+        {
+            Session.RemoveBot(id);
+        }
+    }
+
+    public void SetPracticeBotMode(BotMode mode)
+    {
+        PracticeBotMode = mode;
+        foreach (Player bot in _players.Values.Where(p => p.Kind == PlayerKind.Bot && p.Brain is not null))
+        {
+            bot.Brain!.Mode = mode;
+        }
+    }
+
+    private Player SpawnPlayer(int id)
+    {
+        PlayerKind kind = id == Net.MyId ? PlayerKind.Local
+            : Session.IsBot(id) && Net.IsHost ? PlayerKind.Bot
+            : PlayerKind.Remote;
+        Team team = Session.TeamOf(id);
+        Vec3d home = Vec3d.From(Arena.SpawnPosition(team, Session.SlotOf(id)));
+        float yaw = Arena.SpawnYaw(team);
+        if (kind == PlayerKind.Bot && _nextBotHome is { } placed)
+        {
+            (home, yaw) = placed;
+        }
         var player = new Player();
-        player.Setup(id, local, World);
+        player.Setup(this, id, kind, World, home, yaw);
+        if (kind == PlayerKind.Bot)
+        {
+            player.Brain = new BotBrain(PracticeBotMode, id);
+        }
         AddChild(player);
+        _players[id] = player;
         return player;
     }
 
-    private void AddRemote(int id)
+    private void OnPlayerAdded(int id)
     {
-        if (id != Net.MyId && !_remotePlayers.ContainsKey(id))
+        if (!_players.ContainsKey(id))
         {
-            _remotePlayers[id] = SpawnPlayer(id, local: false);
+            SpawnPlayer(id);
         }
     }
 
-    private void RemoveRemote(int id)
+    private void OnPlayerRemoved(int id)
     {
-        if (_remotePlayers.Remove(id, out Player? player))
+        if (_players.Remove(id, out Player? player))
         {
             player.QueueFree();
         }
@@ -130,12 +226,21 @@ public partial class Game : Node3D
             case Snapshot snapshot when !Net.IsHost:
                 ReceiveSnapshot(snapshot);
                 break;
+            case Attack attack:
+                OnAttackMessage(from, attack);
+                break;
+            case Hurt hurt:
+                OnHurtMessage(from, hurt);
+                break;
+            case Swing swing:
+                OnSwingMessage(from, swing);
+                break;
         }
     }
 
     private void HostReceiveState(int from, StateUpdate update)
     {
-        if (!_remotePlayers.TryGetValue(from, out Player? player) || !update.State.IsValid
+        if (!_players.TryGetValue(from, out Player? player) || player.IsOwned || !update.State.IsValid
             || !double.IsFinite(update.Time))
         {
             return;
@@ -158,7 +263,7 @@ public partial class Game : Node3D
         double now = Net.HostTime;
         foreach (SnapshotEntry entry in snapshot.Players)
         {
-            if (_remotePlayers.TryGetValue(entry.Id, out Player? player) && entry.State.IsValid
+            if (_players.TryGetValue(entry.Id, out Player? player) && !player.IsOwned && entry.State.IsValid
                 && double.IsFinite(entry.Time))
             {
                 player.ReceiveState(entry.Time, entry.State, now);
@@ -199,7 +304,8 @@ public partial class Game : Node3D
     {
         int moving = _seenBounds.Values.Count(b => b.Size.Length() > 1.0f);
         GD.Print($"SMOKE name={LocalPlayer.PlayerName} host={Net.IsHost} players_now={PlayerCount} "
-            + $"seen={_seenBounds.Count} moving={moving} ping_ms={(int)System.Math.Round(Net.PingSeconds * 1000)}");
+            + $"seen={_seenBounds.Count} moving={moving} landed={HitsLanded} taken={HitsTaken} "
+            + $"kills={Kills} ping_ms={(int)Math.Round(Net.PingSeconds * 1000)}");
     }
 
     private async void TakeScreenshot()

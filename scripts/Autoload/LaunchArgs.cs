@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using Godot;
 using UhcPvp.Core;
+using UhcPvp.Gameplay;
 
 namespace UhcPvp.Autoload;
 
@@ -15,7 +16,10 @@ namespace UhcPvp.Autoload;
 /// --join=ADDRESS       Join a match right away.
 /// --port=N             Port to host on or join (default Tuning.DefaultPort).
 /// --name=NAME          Player name.
-/// --bot                Play by itself: run around, sprint and jump (for multiplayer tests).
+/// --bot[=MODE]         Play by itself. MODE is wander (default: run, hop, sneak) or fight.
+/// --practice           Host a solo practice match with a training dummy.
+/// --dummies=N          Host only: add N practice bots.
+/// --dummy-mode=MODE    How practice bots behave: still (default), strafe or fight.
 /// --ping=MS            Simulate this much extra ping.
 /// --jitter=MS          Simulate this much random extra delay.
 /// --loss=PERCENT       Simulate this percentage of lost packets.
@@ -34,7 +38,12 @@ public partial class LaunchArgs : Node
     public string JoinAddress { get; private set; } = "";
     public int Port { get; private set; } = Tuning.DefaultPort;
     public string PlayerName { get; private set; } = "";
-    public bool Bot { get; private set; }
+    /// <summary>If set, the local player is played by a bot brain in this mode.</summary>
+    public BotMode? BotMode { get; private set; }
+    public bool Bot => BotMode is not null;
+    public bool Practice { get; private set; }
+    public int Dummies { get; private set; }
+    public BotMode DummyMode { get; private set; } = Gameplay.BotMode.Still;
     public double PingMs { get; private set; }
     public double JitterMs { get; private set; }
     public double LossPercent { get; private set; }
@@ -42,7 +51,7 @@ public partial class LaunchArgs : Node
     public string ScreenshotPath { get; private set; } = "";
     public double ScreenshotAt { get; private set; } = 2.0;
 
-    public bool WantsAutoStart => Host || JoinAddress.Length > 0;
+    public bool WantsAutoStart => Host || Practice || JoinAddress.Length > 0;
 
     public override void _EnterTree()
     {
@@ -75,7 +84,10 @@ public partial class LaunchArgs : Node
                 case "--join": JoinAddress = value; break;
                 case "--port": Port = ParseInt(value, Tuning.DefaultPort); break;
                 case "--name": PlayerName = value; break;
-                case "--bot": Bot = true; break;
+                case "--bot": BotMode = ParseMode(value, Gameplay.BotMode.Wander); break;
+                case "--practice": Practice = true; break;
+                case "--dummies": Dummies = ParseInt(value, 0); break;
+                case "--dummy-mode": DummyMode = ParseMode(value, Gameplay.BotMode.Still); break;
                 case "--ping": PingMs = ParseDouble(value); break;
                 case "--jitter": JitterMs = ParseDouble(value); break;
                 case "--loss": LossPercent = ParseDouble(value); break;
@@ -86,6 +98,9 @@ public partial class LaunchArgs : Node
             }
         }
     }
+
+    private static BotMode ParseMode(string value, BotMode fallback) =>
+        Enum.TryParse(value, ignoreCase: true, out BotMode mode) ? mode : fallback;
 
     private static double ParseDouble(string value) =>
         double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double result) ? result : 0.0;

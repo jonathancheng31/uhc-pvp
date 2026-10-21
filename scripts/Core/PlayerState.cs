@@ -10,17 +10,19 @@ public enum PlayerFlags : byte
     OnGround = 1,
     Sprinting = 2,
     Sneaking = 4,
+    Dead = 8,
 }
 
 /// <summary>
 /// The compact state each player sends many times per second.
 /// Yaw and pitch are in degrees. Yaw 0 faces -Z; positive yaw turns left. Positive pitch looks up.
+/// Health is in half-hearts (0 to 20).
 /// </summary>
-public readonly record struct PlayerState(Vector3 Position, float Yaw, float Pitch, PlayerFlags Flags)
+public readonly record struct PlayerState(Vector3 Position, float Yaw, float Pitch, PlayerFlags Flags, float Health)
 {
     public bool IsValid =>
         float.IsFinite(Position.X) && float.IsFinite(Position.Y) && float.IsFinite(Position.Z)
-        && float.IsFinite(Yaw) && float.IsFinite(Pitch);
+        && float.IsFinite(Yaw) && float.IsFinite(Pitch) && float.IsFinite(Health);
 
     public bool Has(PlayerFlags flag) => (Flags & flag) != 0;
 
@@ -32,6 +34,7 @@ public readonly record struct PlayerState(Vector3 Position, float Yaw, float Pit
             a.Position.Lerp(b.Position, t),
             yaw,
             Mathf.Lerp(a.Pitch, b.Pitch, t),
-            t < 0.5f ? a.Flags : b.Flags);
+            t < 0.5f ? a.Flags : b.Flags,
+            t < 0.5f ? a.Health : b.Health);
     }
 }

@@ -7,6 +7,10 @@ Read these first; they hold the plan and every decision made so far:
 - `docs/design.md`: vision, decisions, milestones, open questions
 - `docs/netcode.md`: how lag is handled and why
 - `docs/movement.md`: how movement matches Minecraft 1.8.9 exactly at 60 ticks/s (read before touching movement)
+- `docs/combat.md`: melee rules, w-tapping, practice bots
+
+`docs/design.md` has a "Current status / next up" section: read it first, and update it when a
+milestone ships.
 
 ## Working with the owner
 
@@ -31,9 +35,10 @@ and Godot 4.7.2 .NET (`tools/install_godot.sh`, checksum verified), builds and i
 dotnet build UhcPvp.csproj            # compile; warnings are errors (nullable + .NET analyzers)
 dotnet format UhcPvp.csproj           # fix formatting; CI runs it with --verify-no-changes
 tools/run_tests.sh [Filter]          # build + unit tests (tests/*Tests.cs), optionally only matching names
-tools/smoke_test.sh                  # host + 2 bots (one laggy) must all see each other moving
+tools/smoke_test.sh                  # host + 2 players + dummy, all bots fighting over the network (one laggy)
 godot --headless --path . --import   # after adding assets (textures etc.)
-python3 tools/gen_textures.py        # rebuild the block texture atlas, then re-import
+python3 tools/gen_textures.py        # rebuild block atlas and HUD icons, then re-import
+python3 tools/gen_sounds.py          # rebuild sound effects, then re-import
 ```
 
 Run the game with launch options after `--` (full list in `scripts/Autoload/LaunchArgs.cs`):
@@ -41,6 +46,8 @@ Run the game with launch options after `--` (full list in `scripts/Autoload/Laun
 ```bash
 godot --path . -- --host --name=Alice
 godot --path . -- --join=127.0.0.1 --name=Bot --bot --ping=120 --jitter=20 --loss=2
+godot --path . -- --practice --bot=fight          # solo practice; the local player is a fighting bot
+godot --path . -- --host --dummies=2 --dummy-mode=strafe
 ```
 
 To see the game in a cloud session, render to a virtual display and save a screenshot:
@@ -61,10 +68,13 @@ It produces `UHC-PvP.exe` plus a `data_UhcPvp_windows_x86_64` folder (the .NET r
 - `scripts/Core/`: engine-light logic with unit tests: `Tuning` (every gameplay number),
   `PlayerState`, `SnapshotBuffer`, `NetClock`, `LagSimulator`, `Team`
 - `scripts/Movement/`: physics in doubles: `Vec3d`, `Box` (Minecraft's collision math),
-  `MotionModel` (20-tick to 60-tick conversion), `PlayerMotor`
+  `MotionModel` (20-tick to 60-tick conversion), `PlayerMotor` (also knockback, sprint hits, w-tap)
+- `scripts/Combat/`: `CombatRules` (damage, armor, knockback), `Vitality` (health, hit
+  protection), `HitScan` (Minecraft's aiming and reach)
 - `scripts/Net/Messages.cs`: every network message as a typed record with its binary format
 - `scripts/World/`: `VoxelWorld` (block grid), `ChunkMesher`, `WorldRenderer`, `Arena`, `Blocks`
-- `scripts/Gameplay/`: `Game` (match scene logic), `Player`, `PlayerModel`
+- `scripts/Gameplay/`: `Game` (players, sync, practice bots) and `Game.Combat.cs` (attack flow),
+  `Player` (local, bot or remote), `PlayerModel`, `ViewModel` (first-person sword), `BotBrain`, `Effects`
 - `scripts/Ui/`: main menu and in-match HUD, both built in code
 - `tests/`: `TestCase` base class, `*Tests.cs` suites, `McReference` (exact Minecraft 1.8.9
   movement used as the yardstick), run by `tests/test_runner.tscn`. Excluded from release builds.

@@ -40,14 +40,20 @@ public partial class MainMenu : Control
     {
         var args = LaunchArgs.Instance;
         string name = args.PlayerName.Length > 0 ? args.PlayerName : "Bot";
-        if (args.Host)
+        if (args.Host || args.Practice)
         {
-            Session.Host(name, args.Port);
+            Session.Host(name, args.Port, practice: args.Practice);
         }
         else
         {
             Session.Join(name, args.JoinAddress, args.Port, retries: 20);
         }
+    }
+
+    private void OnPracticePressed()
+    {
+        SaveSettings();
+        Session.Host(_nameEdit.Text, Tuning.DefaultPort, practice: true);
     }
 
     private void OnHostPressed()
@@ -105,6 +111,10 @@ public partial class MainMenu : Control
         box.AddChild(Caption("Name"));
         _nameEdit = new LineEdit { MaxLength = Session.MaxNameLength, PlaceholderText = "Your name" };
         box.AddChild(_nameEdit);
+        var practiceButton = new Button { Text = "Practice (solo, with bots)", CustomMinimumSize = new Vector2(0, 40) };
+        practiceButton.Pressed += OnPracticePressed;
+        box.AddChild(practiceButton);
+
         var hostButton = new Button { Text = "Host match", CustomMinimumSize = new Vector2(0, 40) };
         hostButton.Pressed += OnHostPressed;
         box.AddChild(hostButton);

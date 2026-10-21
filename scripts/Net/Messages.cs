@@ -18,6 +18,9 @@ public enum MsgType : byte
     Snapshot,
     Ping,
     Pong,
+    Attack,
+    Hurt,
+    Swing,
 }
 
 /// <summary>A network message. Each one knows how to write itself; <see cref="MessageCodec"/> reads them.</summary>
@@ -27,7 +30,8 @@ public interface IMessage
     void Write(BinaryWriter w);
 }
 
-public readonly record struct RosterEntry(int Id, string Name, Team Team);
+/// <summary>A player in the match. Bots have negative ids and are run by the host.</summary>
+public readonly record struct RosterEntry(int Id, string Name, Team Team, bool IsBot);
 
 public readonly record struct SnapshotEntry(int Id, double Time, PlayerState State);
 
@@ -149,6 +153,76 @@ public sealed record Pong(double ClientTime, double HostTime) : IMessage
     public static Pong Read(BinaryReader r) => new(r.ReadDouble(), r.ReadDouble());
 }
 
+[Flags]
+public enum AttackFlags : byte
+{
+    None = 0,
+    /// <summary>The attacker was falling: a critical hit.</summary>
+    Critical = 1,
+    /// <summary>The attacker's sprint counts for sprint knockback (see PlayerMotor.ServerSprinting).</summary>
+    SprintKnockback = 2,
+}
+
+/// <summary>
+/// attacker -> host -> victim's owner: "I hit you". The attacker's game decided the hit from what
+/// it saw; the victim's game checks the lag cap and applies damage and knockback.
+/// </summary>
+/// <param name="AttackTime">Host-clock time of the click.</param>
+/// <param name="ViewTime">Host-clock time of the victim state the attacker was looking at.</param>
+/// <param name="TargetFeet">Where the attacker saw the victim.</param>
+public sealed record Attack(
+    int AttackerId, int TargetId, double AttackTime, double ViewTime,
+    Vector3 AttackerFeet, float AttackerYaw, Vector3 TargetFeet, AttackFlags Flags) : IMessage
+{
+    public MsgType Type => MsgType.Attack;
+    public void Write(BinaryWriter w)
+    {
+        w.Write(AttackerId);
+        w.Write(TargetId);
+        w.Write(AttackTime);
+        w.Write(ViewTime);
+        w.WriteVector3(AttackerFeet);
+        w.Write(AttackerYaw);
+        w.WriteVector3(TargetFeet);
+        w.Write((byte)Flags);
+    }
+    public static Attack Read(BinaryReader r) => new(
+        r.ReadInt32(), r.ReadInt32(), r.ReadDouble(), r.ReadDouble(),
+        r.ReadVector3(), r.ReadSingle(), r.ReadVector3(), (AttackFlags)r.ReadByte());
+}
+
+[Flags]
+public enum HurtFlags : byte
+{
+    None = 0,
+    /// <summary>A full hit: knockback, red flash and hurt sound.</summary>
+    Fresh = 1,
+    Critical = 2,
+    Killed = 4,
+}
+
+/// <summary>victim's owner -> host -> all: a hit landed, and the victim's health now.</summary>
+public sealed record Hurt(int VictimId, int AttackerId, float Health, HurtFlags Flags) : IMessage
+{
+    public MsgType Type => MsgType.Hurt;
+    public void Write(BinaryWriter w)
+    {
+        w.Write(VictimId);
+        w.Write(AttackerId);
+        w.Write(Health);
+        w.Write((byte)Flags);
+    }
+    public static Hurt Read(BinaryReader r) => new(r.ReadInt32(), r.ReadInt32(), r.ReadSingle(), (HurtFlags)r.ReadByte());
+}
+
+/// <summary>player -> host -> all: someone swung their arm (attacked, hit or not).</summary>
+public sealed record Swing(int PlayerId) : IMessage
+{
+    public MsgType Type => MsgType.Swing;
+    public void Write(BinaryWriter w) => w.Write(PlayerId);
+    public static Swing Read(BinaryReader r) => new(r.ReadInt32());
+}
+
 /// <summary>Turns messages into bytes and back. Bad input decodes to null rather than throwing.</summary>
 public static class MessageCodec
 {
@@ -181,6 +255,9 @@ public static class MessageCodec
                 MsgType.Snapshot => Snapshot.Read(reader),
                 MsgType.Ping => Ping.Read(reader),
                 MsgType.Pong => Pong.Read(reader),
+                MsgType.Attack => Attack.Read(reader),
+                MsgType.Hurt => Hurt.Read(reader),
+                MsgType.Swing => Swing.Read(reader),
                 _ => null,
             };
             // Trailing bytes mean the sender and receiver disagree about the format.
@@ -229,6 +306,7 @@ public static class MessageCodec
         w.Write(entry.Id);
         w.WriteShortString(entry.Name);
         w.Write((byte)entry.Team);
+        w.Write(entry.IsBot);
     }
 
     internal static RosterEntry ReadRosterEntry(this BinaryReader r)
@@ -236,24 +314,34 @@ public static class MessageCodec
         int id = r.ReadInt32();
         string name = r.ReadShortString();
         byte team = r.ReadByte();
+        bool isBot = r.ReadBoolean();
         return team <= (byte)Team.Blue
-            ? new RosterEntry(id, name, (Team)team)
+            ? new RosterEntry(id, name, (Team)team, isBot)
             : throw new InvalidDataException("bad team");
     }
 
+    internal static void WriteVector3(this BinaryWriter w, Vector3 v)
+    {
+        w.Write(v.X);
+        w.Write(v.Y);
+        w.Write(v.Z);
+    }
+
+    internal static Vector3 ReadVector3(this BinaryReader r) => new(r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
+
     internal static void WritePlayerState(this BinaryWriter w, PlayerState s)
     {
-        w.Write(s.Position.X);
-        w.Write(s.Position.Y);
-        w.Write(s.Position.Z);
+        w.WriteVector3(s.Position);
         w.Write(s.Yaw);
         w.Write(s.Pitch);
         w.Write((byte)s.Flags);
+        w.Write(s.Health);
     }
 
     internal static PlayerState ReadPlayerState(this BinaryReader r) => new(
-        new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle()),
+        r.ReadVector3(),
         r.ReadSingle(),
         r.ReadSingle(),
-        (PlayerFlags)r.ReadByte());
+        (PlayerFlags)r.ReadByte(),
+        r.ReadSingle());
 }

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Godot;
 using UhcPvp.Autoload;
@@ -6,12 +7,32 @@ using UhcPvp.Gameplay;
 
 namespace UhcPvp.Ui;
 
-/// <summary>In-match overlay: crosshair, debug info (F3) and the pause menu (Esc).</summary>
+/// <summary>
+/// In-match overlay: crosshair, hearts, armor and hotbar, hit readout (combo and reach), kill
+/// feed, death screen, debug info (F3) and the pause menu (Esc) with practice-bot controls.
+/// </summary>
 public partial class Hud : CanvasLayer
 {
+    /// <summary>Pixel art is drawn at this multiple of its size, like Minecraft's GUI scale 2.</summary>
+    private const int GuiScale = 2;
+    private const double ReadoutSeconds = 2.5;
+    private const double NoticeSeconds = 5.0;
+    private const string HudDir = "res://assets/textures/hud/";
+
+    private readonly List<TextureRect> _hearts = new();
+    private readonly List<TextureRect> _armor = new();
+    private readonly List<(Label Label, double ShownAt)> _notices = new();
+    private Texture2D _heartFull = null!, _heartHalf = null!, _heartEmpty = null!;
+    private Texture2D _armorFull = null!, _armorHalf = null!, _armorEmpty = null!;
     private Label _debugLabel = null!;
-    private Control _pauseMenu = null!;
+    private Label _readout = null!;
     private Label _clickHint = null!;
+    private Label _practiceHint = null!;
+    private Control _pauseMenu = null!;
+    private Control _deathScreen = null!;
+    private Label _respawnLabel = null!;
+    private VBoxContainer _noticeBox = null!;
+    private OptionButton? _botMode;
 
     public Game? Game { get; set; }
 
@@ -19,25 +40,38 @@ public partial class Hud : CanvasLayer
 
     public override void _Ready()
     {
+        LoadIcons();
         BuildCrosshair();
+        BuildReadout();
+        BuildBottomBar();
+        BuildNoticeBox();
+        BuildDeathScreen();
         _debugLabel = new Label { Position = new Vector2(8, 6) };
         AddShadow(_debugLabel);
         AddChild(_debugLabel);
+        _practiceHint = MakeCornerHint();
         BuildPauseMenu();
-        _clickHint = new Label
-        {
-            Text = "Click to play",
-            HorizontalAlignment = HorizontalAlignment.Center,
-            Visible = false,
-        };
+        _clickHint = new Label { Text = "Click to play", HorizontalAlignment = HorizontalAlignment.Center, Visible = false };
         _clickHint.SetAnchorsPreset(Control.LayoutPreset.Center);
         _clickHint.Position += new Vector2(0, 40);
         _clickHint.AddThemeFontSizeOverride("font_size", 22);
         AddShadow(_clickHint);
         AddChild(_clickHint);
+        if (Game is not null)
+        {
+            Game.Notice += ShowNotice;
+        }
         if (!LaunchArgs.Instance.Bot)
         {
             Input.MouseMode = Input.MouseModeEnum.Captured;
+        }
+    }
+
+    public override void _ExitTree()
+    {
+        if (Game is not null)
+        {
+            Game.Notice -= ShowNotice;
         }
     }
 
@@ -56,6 +90,7 @@ public partial class Hud : CanvasLayer
             && Input.MouseMode != Input.MouseModeEnum.Captured)
         {
             Input.MouseMode = Input.MouseModeEnum.Captured;
+            GetViewport().SetInputAsHandled(); // the click that grabs the mouse shouldn't also attack
         }
     }
 
@@ -63,24 +98,113 @@ public partial class Hud : CanvasLayer
     {
         _clickHint.Visible = !_pauseMenu.Visible && !LaunchArgs.Instance.Bot && !Headless
             && Input.MouseMode != Input.MouseModeEnum.Captured;
-        if (!_debugLabel.Visible || Game is null)
+        if (Game is null)
         {
             return;
         }
+        Player me = Game.LocalPlayer;
+        UpdateBars(me);
+        UpdateReadout();
+        UpdateNotices();
+        _deathScreen.Visible = me.IsDead;
+        if (me.IsDead)
+        {
+            _respawnLabel.Text = $"Respawning in {Math.Max(Math.Ceiling(me.RespawnIn), 1):0}...";
+        }
+        _practiceHint.Visible = Network.Instance.IsHost && HasBots() && !_pauseMenu.Visible;
+        if (_debugLabel.Visible)
+        {
+            UpdateDebug(me);
+        }
+    }
+
+    private bool HasBots()
+    {
+        foreach (Player p in Game!.Players)
+        {
+            if (p.Kind == PlayerKind.Bot)
+            {
+                return true;
+            }
+        }
+        return Session.Instance.IsPractice;
+    }
+
+    private void UpdateBars(Player me)
+    {
+        // Each heart is 2 health; each armor icon is 2 armor points.
+        double health = Math.Ceiling(me.Health);
+        for (int i = 0; i < _hearts.Count; i++)
+        {
+            double left = health - i * 2;
+            _hearts[i].Texture = left >= 2 ? _heartFull : left >= 1 ? _heartHalf : _heartEmpty;
+        }
+        for (int i = 0; i < _armor.Count; i++)
+        {
+            int left = Tuning.KitArmorPoints - i * 2;
+            _armor[i].Texture = left >= 2 ? _armorFull : left >= 1 ? _armorHalf : _armorEmpty;
+        }
+    }
+
+    private void UpdateReadout()
+    {
+        double since = Network.Instance.Now - Game!.LastHitAt;
+        if (since > ReadoutSeconds || Game.Combo == 0)
+        {
+            _readout.Text = "";
+            return;
+        }
+        _readout.Text = $"{Game.Combo} hit{(Game.Combo == 1 ? "" : "s")}  ·  {Game.LastReach:0.00} blocks";
+        _readout.Modulate = new Color(1, 1, 1, (float)Math.Clamp((ReadoutSeconds - since) / 0.5, 0, 1));
+    }
+
+    private void ShowNotice(string text)
+    {
+        var label = new Label { Text = text, HorizontalAlignment = HorizontalAlignment.Right };
+        AddShadow(label);
+        _noticeBox.AddChild(label);
+        _notices.Add((label, Network.Instance.Now));
+        if (_notices.Count > 5)
+        {
+            _notices[0].Label.QueueFree();
+            _notices.RemoveAt(0);
+        }
+    }
+
+    private void UpdateNotices()
+    {
+        double now = Network.Instance.Now;
+        for (int i = _notices.Count - 1; i >= 0; i--)
+        {
+            double age = now - _notices[i].ShownAt;
+            if (age > NoticeSeconds)
+            {
+                _notices[i].Label.QueueFree();
+                _notices.RemoveAt(i);
+            }
+            else
+            {
+                _notices[i].Label.Modulate = new Color(1, 1, 1, (float)Math.Clamp((NoticeSeconds - age) / 1.0, 0, 1));
+            }
+        }
+    }
+
+    private void UpdateDebug(Player me)
+    {
         var net = Network.Instance;
-        Player player = Game.LocalPlayer;
         var lines = new List<string>
         {
             $"UHC PvP {ProjectSettings.GetSetting("application/config/version").AsString()}",
             $"FPS: {Engine.GetFramesPerSecond():0}",
             $"Role: {(net.IsHost ? "host" : "player")}",
             $"Ping: {net.PingSeconds * 1000:0} ms",
-            $"Players: {Game.PlayerCount}/{Tuning.MaxPlayers}",
-            $"Team: {player.Team.DisplayName()}",
-            $"XYZ: {player.Position.X:0.00} / {player.Position.Y:0.00} / {player.Position.Z:0.00}",
-            $"Facing: yaw {player.Yaw:0.0}, pitch {player.Pitch:0.0}",
+            $"Players: {Game!.PlayerCount}/{Tuning.MaxPlayers}",
+            $"Team: {me.Team.DisplayName()}",
+            $"XYZ: {me.Position.X:0.00} / {me.Position.Y:0.00} / {me.Position.Z:0.00}",
+            $"Facing: yaw {me.Yaw:0.0}, pitch {me.Pitch:0.0}",
+            $"Health: {me.Health:0.##}",
         };
-        if (player.Motor is { } motor)
+        if (me.Motor is { } motor)
         {
             var states = new List<string> { motor.OnGround ? "on ground" : "in air" };
             if (motor.Sprinting)
@@ -92,7 +216,9 @@ public partial class Hud : CanvasLayer
                 states.Add("sneaking");
             }
             lines.Add($"Speed: {motor.HorizontalSpeed:0.00} blocks/s ({string.Join(", ", states)})");
+            lines.Add($"Sprint knockback ready: {(motor.ServerSprinting ? "yes" : "no (w-tap)")}");
         }
+        lines.Add($"Hits landed: {Game.HitsLanded}, taken: {Game.HitsTaken}");
         if (net.IsLagSimulated)
         {
             lines.Add($"Simulated lag: +{LaunchArgs.Instance.PingMs:0} ms ping");
@@ -104,7 +230,21 @@ public partial class Hud : CanvasLayer
     {
         // The match keeps running while the menu is open; this only frees the mouse.
         _pauseMenu.Visible = paused;
+        if (_botMode is not null && Game is not null)
+        {
+            _botMode.Selected = (int)Game.PracticeBotMode;
+        }
         Input.MouseMode = paused ? Input.MouseModeEnum.Visible : Input.MouseModeEnum.Captured;
+    }
+
+    private void LoadIcons()
+    {
+        _heartFull = GD.Load<Texture2D>(HudDir + "heart_full.png");
+        _heartHalf = GD.Load<Texture2D>(HudDir + "heart_half.png");
+        _heartEmpty = GD.Load<Texture2D>(HudDir + "heart_empty.png");
+        _armorFull = GD.Load<Texture2D>(HudDir + "armor_full.png");
+        _armorHalf = GD.Load<Texture2D>(HudDir + "armor_half.png");
+        _armorEmpty = GD.Load<Texture2D>(HudDir + "armor_empty.png");
     }
 
     private void BuildCrosshair()
@@ -126,6 +266,129 @@ public partial class Hud : CanvasLayer
         }
     }
 
+    private void BuildReadout()
+    {
+        // Centered just under the crosshair.
+        var center = new CenterContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        AddChild(center);
+        var column = new VBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        column.AddChild(new Control { CustomMinimumSize = new Vector2(0, 70), MouseFilter = Control.MouseFilterEnum.Ignore });
+        _readout = new Label { HorizontalAlignment = HorizontalAlignment.Center, CustomMinimumSize = new Vector2(320, 0) };
+        AddShadow(_readout);
+        column.AddChild(_readout);
+        center.AddChild(column);
+    }
+
+    /// <summary>Armor, hearts and the hotbar along the bottom middle, like Minecraft's.</summary>
+    private void BuildBottomBar()
+    {
+        var bar = new VBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        bar.AddThemeConstantOverride("separation", 2);
+        bar.SetAnchorsPreset(Control.LayoutPreset.CenterBottom);
+        bar.GrowHorizontal = Control.GrowDirection.Both;
+        bar.GrowVertical = Control.GrowDirection.Begin;
+        bar.Position += new Vector2(0, -8);
+        AddChild(bar);
+
+        bar.AddChild(IconRow(_armor, _armorFull));
+        bar.AddChild(IconRow(_hearts, _heartFull));
+
+        var hotbar = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        hotbar.AddThemeConstantOverride("separation", 0);
+        var slotTexture = GD.Load<Texture2D>(HudDir + "slot.png");
+        var selected = GD.Load<Texture2D>(HudDir + "slot_selected.png");
+        var sword = GD.Load<Texture2D>(HudDir + "sword.png");
+        for (int i = 0; i < 9; i++)
+        {
+            var slot = new TextureRect
+            {
+                Texture = slotTexture,
+                CustomMinimumSize = new Vector2(22, 22) * GuiScale,
+                StretchMode = TextureRect.StretchModeEnum.Scale,
+                TextureFilter = CanvasItem.TextureFilterEnum.Nearest,
+            };
+            if (i == 0)
+            {
+                slot.AddChild(Icon(sword, new Vector2(3, 3) * GuiScale, new Vector2(16, 16) * GuiScale));
+                slot.AddChild(Icon(selected, new Vector2(-1, -1) * GuiScale, new Vector2(24, 24) * GuiScale));
+            }
+            hotbar.AddChild(slot);
+        }
+        bar.AddChild(hotbar);
+    }
+
+    private static HBoxContainer IconRow(List<TextureRect> into, Texture2D texture)
+    {
+        var row = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        row.AddThemeConstantOverride("separation", -1 * GuiScale);
+        for (int i = 0; i < 10; i++)
+        {
+            var icon = new TextureRect
+            {
+                Texture = texture,
+                CustomMinimumSize = new Vector2(9, 9) * GuiScale,
+                StretchMode = TextureRect.StretchModeEnum.Scale,
+                TextureFilter = CanvasItem.TextureFilterEnum.Nearest,
+            };
+            into.Add(icon);
+            row.AddChild(icon);
+        }
+        return row;
+    }
+
+    private static TextureRect Icon(Texture2D texture, Vector2 position, Vector2 size) => new()
+    {
+        Texture = texture,
+        Position = position,
+        Size = size,
+        StretchMode = TextureRect.StretchModeEnum.Scale,
+        TextureFilter = CanvasItem.TextureFilterEnum.Nearest,
+        MouseFilter = Control.MouseFilterEnum.Ignore,
+    };
+
+    private void BuildNoticeBox()
+    {
+        _noticeBox = new VBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        _noticeBox.SetAnchorsPreset(Control.LayoutPreset.TopRight);
+        _noticeBox.GrowHorizontal = Control.GrowDirection.Begin;
+        _noticeBox.Position += new Vector2(-10, 8);
+        AddChild(_noticeBox);
+    }
+
+    private void BuildDeathScreen()
+    {
+        _deathScreen = new Control { Visible = false, MouseFilter = Control.MouseFilterEnum.Ignore };
+        _deathScreen.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        var tint = new ColorRect { Color = new Color(0.6f, 0, 0, 0.35f), MouseFilter = Control.MouseFilterEnum.Ignore };
+        tint.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        _deathScreen.AddChild(tint);
+        var center = new CenterContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        _deathScreen.AddChild(center);
+        var box = new VBoxContainer();
+        center.AddChild(box);
+        var title = new Label { Text = "You died!", HorizontalAlignment = HorizontalAlignment.Center };
+        title.AddThemeFontSizeOverride("font_size", 48);
+        AddShadow(title);
+        box.AddChild(title);
+        _respawnLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
+        AddShadow(_respawnLabel);
+        box.AddChild(_respawnLabel);
+        AddChild(_deathScreen);
+    }
+
+    private Label MakeCornerHint()
+    {
+        var label = new Label { Text = "Practice: press Esc for bot options", Modulate = new Color(1, 1, 1, 0.7f) };
+        label.SetAnchorsPreset(Control.LayoutPreset.BottomLeft);
+        label.GrowVertical = Control.GrowDirection.Begin;
+        label.Position += new Vector2(10, -10);
+        AddShadow(label);
+        AddChild(label);
+        return label;
+    }
+
     private void BuildPauseMenu()
     {
         _pauseMenu = new Control { Visible = false };
@@ -136,19 +399,38 @@ public partial class Hud : CanvasLayer
         var center = new CenterContainer();
         center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         _pauseMenu.AddChild(center);
-        var box = new VBoxContainer();
+        var box = new VBoxContainer { CustomMinimumSize = new Vector2(260, 0) };
         box.AddThemeConstantOverride("separation", 10);
         center.AddChild(box);
         var title = new Label { Text = "Paused", HorizontalAlignment = HorizontalAlignment.Center };
         title.AddThemeFontSizeOverride("font_size", 28);
         box.AddChild(title);
-        var resume = new Button { Text = "Back to game", CustomMinimumSize = new Vector2(240, 40) };
-        resume.Pressed += () => SetPaused(false);
-        box.AddChild(resume);
-        var leave = new Button { Text = "Leave match", CustomMinimumSize = new Vector2(240, 40) };
-        leave.Pressed += () => Session.Instance.Leave();
-        box.AddChild(leave);
+        box.AddChild(MenuButton("Back to game", () => SetPaused(false)));
+
+        if (Network.Instance.IsHost && Game is not null)
+        {
+            box.AddChild(new HSeparator());
+            box.AddChild(new Label { Text = "Practice bots", HorizontalAlignment = HorizontalAlignment.Center });
+            box.AddChild(MenuButton("Add bot", () => Game.AddPracticeBot()));
+            box.AddChild(MenuButton("Remove all bots", () => Game.RemovePracticeBots()));
+            _botMode = new OptionButton { CustomMinimumSize = new Vector2(260, 40) };
+            _botMode.AddItem("Bots stand still", (int)BotMode.Still);
+            _botMode.AddItem("Bots strafe", (int)BotMode.Strafe);
+            _botMode.AddItem("Bots fight back", (int)BotMode.Fight);
+            _botMode.Selected = (int)Game.PracticeBotMode;
+            _botMode.ItemSelected += index => Game.SetPracticeBotMode((BotMode)(int)index);
+            box.AddChild(_botMode);
+            box.AddChild(new HSeparator());
+        }
+        box.AddChild(MenuButton("Leave match", () => Session.Instance.Leave()));
         AddChild(_pauseMenu);
+    }
+
+    private static Button MenuButton(string text, Action onPressed)
+    {
+        var button = new Button { Text = text, CustomMinimumSize = new Vector2(260, 40) };
+        button.Pressed += onPressed;
+        return button;
     }
 
     private static void AddShadow(Label label)

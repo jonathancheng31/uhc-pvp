@@ -1,34 +1,39 @@
 #!/usr/bin/env bash
-# Multiplayer smoke test: a host and two bot players run headless on this
-# machine (one with simulated lag), and each must see the other two moving.
+# Multiplayer smoke test. A host and two network players run headless on this machine, all
+# played by the fighting bot AI; one has simulated lag. The host also adds a still practice
+# dummy. Teams: host + BotA (Red) vs dummy + BotB (Blue).
+# Every player must see the other three and land hits, which exercises every combat path:
+# host hitting its own bot, a client hitting a host-run bot, a client hitting the host, and a
+# client hitting another client through the host.
 set -uo pipefail
 GODOT="${GODOT:-godot}"
 PORT="${PORT:-27777}"
 cd "$(dirname "$0")/.."
 dotnet build UhcPvp.csproj --nologo -v quiet -clp:ErrorsOnly
-LOGS="$(mktemp -d)"
+LOGS="${LOGS:-$(mktemp -d)}"
 
 run() { # name, extra args...
   local name="$1"; shift
-  "$GODOT" --headless --path . -- --name="$name" --bot --port="$PORT" "$@" > "$LOGS/$name.log" 2>&1
+  "$GODOT" --headless --path . -- --name="$name" --bot=fight --port="$PORT" "$@" > "$LOGS/$name.log" 2>&1
 }
 
-run Host --host --quit-after=9 &
-run BotA --join=127.0.0.1 --quit-after=8 &
-run BotB --join=127.0.0.1 --ping=120 --jitter=20 --loss=2 --quit-after=8 &
+run Host --host --dummies=1 --quit-after=15 &
+run BotA --join=127.0.0.1 --quit-after=14 &
+run BotB --join=127.0.0.1 --ping=120 --jitter=20 --loss=2 --quit-after=14 &
 wait
 
 status=0
 for name in Host BotA BotB; do
   line="$(grep '^SMOKE' "$LOGS/$name.log" || true)"
   echo "$name: ${line:-<no report>}"
-  if [[ "$line" != *"seen=2 moving=2"* ]]; then
+  landed="$(sed -n 's/.* landed=\([0-9]*\).*/\1/p' <<< "$line")"
+  if [[ "$line" != *"seen=3"* || "${landed:-0}" -lt 1 ]]; then
     status=1
-    echo "---- $name log ----"; cat "$LOGS/$name.log"
+    echo "---- $name log ----"; grep -v "ALSA\|audio" "$LOGS/$name.log" | tail -40
   fi
 done
-if grep -l "SCRIPT ERROR" "$LOGS"/*.log; then
-  echo "Script errors found in the logs above"; status=1
+if grep -lE "SCRIPT ERROR|Unhandled exception|System\.[A-Za-z]*Exception" "$LOGS"/*.log; then
+  echo "Errors found in the logs above"; status=1
 fi
 [[ $status -eq 0 ]] && echo "Smoke test passed" || echo "Smoke test FAILED"
 exit $status

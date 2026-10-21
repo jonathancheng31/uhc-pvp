@@ -9,21 +9,24 @@ namespace UhcPvp.Tests;
 public class MessageTests : TestCase
 {
     private static readonly PlayerState SampleState =
-        new(new Vector3(1.5f, 5f, -3.25f), 90f, -12.5f, PlayerFlags.OnGround | PlayerFlags.Sprinting);
+        new(new Vector3(1.5f, 5f, -3.25f), 90f, -12.5f, PlayerFlags.OnGround | PlayerFlags.Sprinting, 17.5f);
 
     public void TestEveryMessageRoundTrips()
     {
         IMessage[] messages =
         [
             new Hello(Autoload.Network.ProtocolVersion, "Steve"),
-            new Welcome(7, [new RosterEntry(1, "Host", Team.Red), new RosterEntry(7, "Alex", Team.Blue)]),
+            new Welcome(7, [new RosterEntry(1, "Host", Team.Red, false), new RosterEntry(-1, "Dummy 1", Team.Blue, true)]),
             new Rejected("Match is full"),
-            new PlayerJoined(new RosterEntry(9, "Sam", Team.Blue)),
+            new PlayerJoined(new RosterEntry(9, "Sam", Team.Blue, false)),
             new PlayerLeft(9),
             new StateUpdate(12.25, SampleState),
             new Snapshot([new SnapshotEntry(1, 3.5, SampleState), new SnapshotEntry(7, 3.25, SampleState)]),
             new Ping(1.5),
             new Pong(1.5, 99.75),
+            new Attack(7, -1, 10.5, 10.4, new Vector3(1, 5, 2), 45f, new Vector3(1, 5, -0.5f), AttackFlags.Critical | AttackFlags.SprintKnockback),
+            new Hurt(-1, 7, 14.5f, HurtFlags.Fresh | HurtFlags.Critical),
+            new Swing(7),
         ];
         Check(messages.Select(m => m.Type).Distinct().Count() == Enum.GetValues<MsgType>().Length,
             "test covers every message type");

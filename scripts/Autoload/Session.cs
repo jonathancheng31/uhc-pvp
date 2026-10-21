@@ -19,6 +19,7 @@ public partial class Session : Node
 
     private readonly Dictionary<int, RosterEntry> _players = new();
     private (string Address, int Port, int RetriesLeft)? _joinAttempt;
+    private int _nextBotId = -1;
 
     public static Session Instance { get; private set; } = null!;
 
@@ -29,6 +30,8 @@ public partial class Session : Node
     /// <summary>Shown on the main menu, e.g. why the last match ended.</summary>
     public string Status { get; private set; } = "";
     public bool InMatch { get; private set; }
+    /// <summary>Hosting a solo practice match (starts with a training dummy).</summary>
+    public bool IsPractice { get; private set; }
 
     public IReadOnlyDictionary<int, RosterEntry> Players => _players;
 
@@ -45,9 +48,10 @@ public partial class Session : Node
         Net.MessageReceived += OnMessage;
     }
 
-    public Error Host(string playerName, int port)
+    public Error Host(string playerName, int port, bool practice = false)
     {
         MyName = CleanName(playerName);
+        IsPractice = practice;
         Error err = Net.HostGame(port);
         if (err != Error.Ok)
         {
@@ -55,7 +59,8 @@ public partial class Session : Node
             return err;
         }
         _players.Clear();
-        _players[Network.HostId] = new RosterEntry(Network.HostId, MyName, Team.Red);
+        _players[Network.HostId] = new RosterEntry(Network.HostId, MyName, Team.Red, false);
+        _nextBotId = -1;
         GD.Print($"[session] hosting on port {port} as {MyName}");
         EnterMatch();
         return Error.Ok;
@@ -64,6 +69,7 @@ public partial class Session : Node
     public Error Join(string playerName, string address, int port, int retries = 0)
     {
         MyName = CleanName(playerName);
+        IsPractice = false;
         _joinAttempt = (address, port, retries);
         Status = $"Connecting to {address}:{port}...";
         return Net.JoinGame(address, port);
@@ -82,6 +88,36 @@ public partial class Session : Node
             GetTree().ChangeSceneToFile(MenuScene);
         }
     }
+
+    /// <summary>Host only: adds a practice bot to a team. Returns its id (negative), or 0 if not hosting or full.</summary>
+    public int AddBot(Team team)
+    {
+        if (!Net.IsHost || _players.Count >= Tuning.MaxPlayers)
+        {
+            return 0;
+        }
+        int id = _nextBotId--;
+        var entry = new RosterEntry(id, $"Bot {-id}", team, true);
+        _players[id] = entry;
+        Net.Broadcast(new PlayerJoined(entry), reliable: true);
+        PlayerAdded?.Invoke(id);
+        return id;
+    }
+
+    /// <summary>Host only: removes a practice bot.</summary>
+    public void RemoveBot(int id)
+    {
+        if (Net.IsHost && IsBot(id) && _players.Remove(id))
+        {
+            Net.Broadcast(new PlayerLeft(id), reliable: true);
+            PlayerRemoved?.Invoke(id);
+        }
+    }
+
+    public bool IsBot(int id) => _players.TryGetValue(id, out var entry) && entry.IsBot;
+
+    /// <summary>The peer whose game runs this player: themselves, or the host for bots.</summary>
+    public static int OwnerOf(int id) => id < 0 ? Network.HostId : id;
 
     public Team TeamOf(int id) => _players.TryGetValue(id, out var entry) ? entry.Team : Team.Red;
 
@@ -191,7 +227,7 @@ public partial class Session : Node
             return;
         }
         Team team = TeamSize(Team.Red) <= TeamSize(Team.Blue) ? Team.Red : Team.Blue;
-        var entry = new RosterEntry(from, CleanName(hello.Name), team);
+        var entry = new RosterEntry(from, CleanName(hello.Name), team, false);
         _players[from] = entry;
         GD.Print($"[session] {entry.Name} joined team {team.DisplayName()}");
         Net.Send(from, new Welcome(from, _players.Values.ToArray()), reliable: true);

@@ -67,11 +67,24 @@ ghosting small.
 drops this player's packets, half on the way out and half on the way back. Reliable
 packets are never dropped and stay in order, like ENet's reliable channel.
 
+**Hits** (`scripts/Gameplay/Game.Combat.cs`). The attacker's game aims exactly like Minecraft
+(`HitScan`) against players where they're drawn on its screen, then sends an `Attack` with the
+host-clock time of the click and of the victim state it was showing, plus where it saw the
+victim. Each player is "owned" by one game: their own, or the host for bots. The owner checks
+the lag cap (view no older than `Tuning.LagCap`) and reach (with 0.5 block tolerance), then
+applies damage and knockback to the victim's real current motion, and sends a `Hurt` to
+everyone. Clients route through the host, which only relays messages from the right owner.
+
+**Instant feedback.** Hitting a player whose game is elsewhere shows the red flash and hurt
+sound immediately (unless they were hit in the last half second); the confirming `Hurt` doesn't
+replay them. Against host-run bots on the host, everything is local and instant.
+
+**Bots** are owned by the host's game and appear to everyone else as normal players in snapshots.
+
 ## Still to build
 
-- Hit messages with the lag cap check (melee milestone).
-- Knockback messages applied by the victim (melee milestone).
-- Predicted knockback on the attacker's screen, blending into the real path.
+- Predicted knockback on the attacker's screen, blending into the real path (hits on remote
+  players currently fly back after one round trip).
 - Steam relay networking (internet play milestone).
 
 ## References

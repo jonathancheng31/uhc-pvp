@@ -31,6 +31,9 @@ public sealed class SnapshotBuffer
     public double LatestTime => IsEmpty ? 0.0 : _states[^1].Time;
     public PlayerState LatestState => IsEmpty ? default : _states[^1].State;
 
+    /// <summary>Forgets stored states, so the next one shows instantly (e.g. after a respawn teleport).</summary>
+    public void Clear() => _states.Clear();
+
     /// <summary>Adds a state stamped with host time. Older or repeated states are ignored.</summary>
     public bool Push(double time, PlayerState state)
     {

@@ -36,7 +36,12 @@ final result matters, not build effort.
 | Platform | Windows first. Keyboard and mouse only |
 | Combat numbers | Start from exact Minecraft 1.8.9 values (all in `scripts/Core/Tuning.cs`), then tune |
 | Block-hitting | Not included |
-| Armor | A fixed armor set so fights last about as long as UHC Duels |
+| Kit | Diamond sword (8 damage). Fixed armor worth 18 points (diamond helmet and chestplate, iron leggings and boots), so a sword hit does 2.24 and a kill takes 9 hits (about 6 with crits). Tunable in `Tuning.cs` |
+| Friendly fire | Off: hits on teammates do nothing (default; open to change) |
+| Miss delay | Kept from 1.8: clicking at nothing (no player in reach, no block within 4.5) blocks attacks for half a second. Easy to remove if it feels bad |
+| W-tapping | Works exactly like 1.8: after a sprint hit, the next hit only gets sprint knockback once you stop and restart sprinting |
+| Respawning | Respawn at your team's spawn 3 seconds after dying (rounds come in the match-flow milestone) |
+| Practice bots | Run by the host; stand still, strafe, or fight back (sprinting, strafing, clicking about 9 times a second, w-tapping). They heal after 5 seconds without a hit |
 | Mouse and FOV | Match Minecraft's sensitivity curve and FOV so aim muscle memory carries over |
 | Simulation rate | 60 ticks per second (Minecraft uses 20); Minecraft's per-tick values are converted |
 | Netcode | Each player's game owns its own movement and hits, with fairness fixes. See [netcode.md](netcode.md) |
@@ -57,10 +62,12 @@ sprint-jump, strafing, air control, block collision. Tests that compare against 
 of 1.8.9's movement code. Sprint FOV change. Smooth camera between ticks. Walk and sneak
 animations on other players. Details in [movement.md](movement.md).
 
-### 2. Melee
+### 2. Melee (done)
 Sword and clicking. 3-block reach checked against what the attacker saw, with the lag cap.
 Damage, half-second hit immunity, crits, sprint-hit knockback (applied by the victim's
-game), red hurt flash, hit sounds. Health and hearts on screen, armor, death and respawn.
+game), w-tap rule, red hurt flash, hurt camera tilt, hit sound, crit sparks. Hearts, armor
+and hotbar on screen, combo and reach readout, kill feed, death and respawn. Practice mode
+with bots (still, strafing, fighting). Details in [combat.md](combat.md).
 
 ### 3. Fishing rod
 Cast, bobber flight, hooking players, the rod hit and its knockback, reeling in.
@@ -82,10 +89,20 @@ Bow, water and lava buckets, building, golden apples and golden heads, more aren
 spin-off ideas (draft kits, new items), a real name, Steam store page, rented servers
 for 6v6, anti-cheat if we add ranked play.
 
+## Current status / next up
+
+*Updated at the end of each milestone, so a new session knows where things stand.*
+
+- **Done:** setup, movement (milestone 1), melee and practice bots (milestone 2). Version 0.3.0.
+- **Next up:** milestone 3, the fishing rod: cast, bobber physics, hooking players and the rod
+  hit's knockback (1.8.9's EntityFishHook), plus a hotbar with sword and rod (keys 1/2 or scroll).
+- **Waiting on the owner:** feedback on how hits and knockback feel in practice mode.
+
 ## Open questions
 
 - Rounds (eliminated until next round) or respawns?
-- Friendly fire on or off?
+- Friendly fire on or off? (Off for now.)
+- Keep 1.8's half-second miss delay, or drop it?
 - Arena size and layout for bigger team fights.
 - Which healing items are in the base kit?
 - The game's real name.
