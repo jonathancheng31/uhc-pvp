@@ -10,8 +10,6 @@ namespace UhcPvp.Tests;
 
 public class CombatRuleTests : TestCase
 {
-    private static readonly int N = Tuning.SubticksPerMcTick;
-
     public void TestDamageAndArmorMatchMinecraft()
     {
         CheckNear(CombatRules.RawDamage(Tuning.SwordDamage, false), 8.0, 1e-12, "diamond sword");
@@ -24,22 +22,36 @@ public class CombatRuleTests : TestCase
     public void TestHitProtectionMatchesMinecraft()
     {
         var v = new Vitality();
-        CheckEqual(v.TakeHit(8, 0), HitResult.Hurt, "first hit");
+        CheckEqual(v.TakeHit(8, 0, 100), HitResult.Hurt, "first hit");
         CheckNear(v.Health, 12, 1e-12, "health after hit");
-        for (int i = 0; i < 10 * N - 1; i++)
-        {
-            v.Tick();
-        }
-        CheckEqual(v.TakeHit(8, 0), HitResult.Ignored, "same damage just before half a second: ignored");
-        CheckEqual(v.TakeHit(12, 0), HitResult.Stronger, "a stronger hit during protection counts");
+        CheckEqual(v.TakeHit(8, 0, 109), HitResult.Ignored, "same damage 9 ticks later: ignored");
+        CheckEqual(v.TakeHit(12, 0, 109), HitResult.Stronger, "a stronger hit during protection counts");
         CheckNear(v.Health, 8, 1e-12, "only the extra 4 damage applied");
-        v.Tick();
-        CheckEqual(v.TakeHit(8, 0), HitResult.Hurt, "after exactly 10 MC ticks a new full hit lands");
+        CheckEqual(v.TakeHit(12, 0, 109), HitResult.Ignored, "not stronger than the last (crit) hit");
+        CheckEqual(v.TakeHit(8, 0, 110), HitResult.Hurt, "10 ticks after the full hit, a new full hit lands");
         CheckNear(v.Health, 0, 1e-12, "dead");
         Check(v.IsDead, "is dead");
-        CheckEqual(v.TakeHit(8, 0), HitResult.Ignored, "can't hit the dead");
+        CheckEqual(v.TakeHit(8, 0, 200), HitResult.Ignored, "can't hit the dead");
         v.Reset();
         CheckNear(v.Health, Tuning.MaxHealth, 1e-12, "respawn heals");
+        CheckEqual(v.TakeHit(8, 0, 201), HitResult.Hurt, "respawning clears hit protection");
+    }
+
+    public void TestHitProtectionCountsOnTheTickGrid()
+    {
+        // Two clicks land 10 Minecraft ticks apart when the 1/20 s ticks they fall in are 10
+        // apart: from 450 ms (first click late in its tick) to 500 ms (early in its tick).
+        static HitResult Second(double first, double second)
+        {
+            var p = new HitProtection();
+            p.Hit(8, HitProtection.TickAt(first));
+            return p.Hit(8, HitProtection.TickAt(second)).Result;
+        }
+        CheckEqual(Second(10.049, 10.501), HitResult.Hurt, "452 ms after a click late in its tick");
+        CheckEqual(Second(10.001, 10.499), HitResult.Ignored, "498 ms after a click early in its tick");
+        CheckEqual(Second(10.001, 10.501), HitResult.Hurt, "500 ms always lands");
+        CheckEqual(Second(10.049, 10.449), HitResult.Ignored, "400 ms never lands");
+        CheckEqual(HitProtection.TickAt(-0.01), -1L, "ticks round down, also before zero");
     }
 
     public void TestKitTakesNineSwordHitsToKill()
@@ -48,14 +60,18 @@ public class CombatRuleTests : TestCase
         int hits = 0;
         while (!v.IsDead)
         {
-            v.TakeHit(Tuning.SwordDamage, Tuning.KitArmorPoints);
+            v.TakeHit(Tuning.SwordDamage, Tuning.KitArmorPoints, hits * 10);
             hits++;
-            for (int i = 0; i < 10 * N; i++)
-            {
-                v.Tick();
-            }
         }
         CheckEqual(hits, 9, "sword hits to kill a player in the kit");
+    }
+
+    public void TestVelocityPacketRounding()
+    {
+        Vec3d v = CombatRules.VelocityPacket(new Vec3d(0.46075, -0.30431, 5));
+        CheckNear(v.X, 3686 / 8000.0, 1e-15, "rounded down to 1/8000");
+        CheckNear(v.Y, -2434 / 8000.0, 1e-15, "negative values round toward zero");
+        CheckNear(v.Z, 31200 / 8000.0, 1e-15, "clamped to 3.9 blocks per tick");
     }
 
     public void TestKnockbackFormula()
@@ -138,11 +154,10 @@ public class CombatMotionTests : TestCase
                 Tick(mc, ours, input);
             }
             Vec3d attacker = mc.Position + new Vec3d(0, 0, 2.5);
-            Vec3d mcMotion = CombatRules.Knockback(mc.Motion, attacker, mc.Position, 0, true, sprintBonus, random);
-            Vec3d ourMotion = CombatRules.Knockback(ours.McMotion, attacker, ours.Position, 0, true, sprintBonus, random);
-            CheckNear((mcMotion - ourMotion).HorizontalLength + Math.Abs(mcMotion.Y - ourMotion.Y), 0, 1e-9, $"{name}: same motion before knockback");
-            mc.Motion = mcMotion;
-            ours.SetMcMotion(ourMotion);
+            Vec3d knockback = CombatRules.VelocityPacket(
+                CombatRules.Knockback(ours.ServerMotion, attacker, ours.Position, 0, true, sprintBonus, random));
+            mc.Motion = knockback;
+            ours.SetMcMotion(knockback);
             CheckTrack(mc, ours, 30, input, name);
         }
     }
@@ -156,7 +171,7 @@ public class CombatMotionTests : TestCase
             Tick(mc, ours, sprint);
         }
         mc.SprintHitSlowdown();
-        ours.OnHitLanded();
+        ours.OnHitLanded(accepted: true);
         Check(!ours.Sprinting, "a sprint hit stops sprinting");
         CheckTrack(mc, ours, 20, sprint, "after a sprint hit, holding sprint");
     }
@@ -174,13 +189,132 @@ public class CombatMotionTests : TestCase
             }
         }
         RunTicks(sprint, 10);
-        Check(ours.OnHitLanded(), "first sprint hit gets sprint knockback");
+        Check(ours.ServerSprinting, "first sprint hit gets sprint knockback");
+        ours.OnHitLanded(accepted: true);
         RunTicks(sprint, 10);
         Check(ours.Sprinting, "holding W and sprint: sprinting again right away");
-        Check(!ours.OnHitLanded(), "but the next hit gets no sprint knockback without a w-tap");
+        Check(!ours.ServerSprinting, "but the next hit gets no sprint knockback without a w-tap");
         RunTicks(release, 1);
         RunTicks(sprint, 2);
-        Check(ours.OnHitLanded(), "after letting go of W for one tick (w-tap), sprint knockback is back");
+        Check(ours.ServerSprinting, "after letting go of W for one tick (w-tap), sprint knockback is back");
+
+        // Clicking a player who is still protected: your own game stops your sprint for a
+        // moment, but the server's sprint flag is only used up by hits that count.
+        for (int phase = 0; phase < N; phase++)
+        {
+            ours.OnHitLanded(accepted: false);
+            RunTicks(sprint, 1);
+            Check(ours.ServerSprinting, $"a click into hit protection keeps sprint knockback (sprint key held, subtick {phase})");
+            ours.Step(sprint);
+        }
+        RunTicks(sprint, 1);
+        var tapSprint = new MovementInput(1, 0, false, false, false, 0);
+        ours.OnHitLanded(accepted: false);
+        RunTicks(tapSprint, 1);
+        Check(!ours.ServerSprinting, "without the sprint key (double-tap W) the stop reaches the server, as in 1.8");
+    }
+
+    /// <summary>A Minecraft player, our motor and Minecraft's server copy, settled on a floor.</summary>
+    private static (McReference Mc, PlayerMotor Ours, McServerCopy Server) WithServer()
+    {
+        VoxelWorld world = FlatWorld();
+        var mc = new McReference(world, Start);
+        var ours = new PlayerMotor(world, Start);
+        var server = new McServerCopy(world, Start);
+        for (int t = 0; t < 5; t++)
+        {
+            TickWithServer(mc, ours, server, new MovementInput(0, 0, false, false, false, 0));
+        }
+        return (mc, ours, server);
+    }
+
+    private static void TickWithServer(McReference mc, PlayerMotor ours, McServerCopy server, MovementInput input)
+    {
+        Tick(mc, ours, input);
+        server.Report(mc.Position, mc.OnGround, mc.Sprinting, input.Yaw);
+    }
+
+    private static double Distance(Vec3d a, Vec3d b)
+    {
+        Vec3d d = a - b;
+        return Math.Sqrt(d.X * d.X + d.Y * d.Y + d.Z * d.Z);
+    }
+
+    public void TestServerCopyMatchesMinecraft()
+    {
+        foreach (var (name, input) in new (string, MovementInput)[]
+        {
+            ("standing", new MovementInput(0, 0, false, false, false, 0)),
+            ("jumping in place", new MovementInput(0, 0, true, false, false, 0)),
+            ("sprint-jumping", new MovementInput(1, 0, true, true, false, 30)),
+            ("walking sideways", new MovementInput(0, 1, false, false, false, 0)),
+            ("sneaking forward", new MovementInput(1, 0, false, false, true, 0)),
+        })
+        {
+            var (mc, ours, server) = WithServer();
+            double worst = 0;
+            for (int t = 0; t < 45; t++)
+            {
+                TickWithServer(mc, ours, server, input);
+                worst = Math.Max(worst, Distance(ours.ServerMotion, server.Motion));
+            }
+            Check(worst < 1e-9, $"{name}: server copy off by {worst:E2}");
+        }
+        var (_, standing, _) = WithServer();
+        CheckNear(standing.ServerMotion.Y, -0.0784, 1e-9, "standing: the copy rests at -0.0784");
+        CheckNear(standing.ServerMotion.HorizontalLength, 0, 1e-12, "standing: no sideways motion");
+    }
+
+    public void TestComboKnockbackMatchesMinecraft()
+    {
+        // Sprint hits every 10 ticks on a victim who doesn't touch the keys, from 2.5 blocks
+        // behind (+Z) with the attacker facing them (yaw 0 faces -Z).
+        var (mc, ours, server) = WithServer();
+        var idle = new MovementInput(0, 0, false, false, false, 0);
+        var random = new Random(5);
+        var lift = new List<double>();
+        for (int hit = 0; hit < 3; hit++)
+        {
+            Vec3d attacker = mc.Position + new Vec3d(0, 0, 2.5);
+            Vec3d ourKnockback = CombatRules.VelocityPacket(
+                CombatRules.Knockback(ours.ServerMotion, attacker, ours.Position, 0, true, true, random));
+            Vec3d mcKnockback = CombatRules.VelocityPacket(
+                CombatRules.Knockback(server.Motion, attacker, mc.Position, 0, true, true, random));
+            CheckNear(Distance(ourKnockback, mcKnockback), 0, 1e-9, $"hit {hit + 1}: same knockback as Minecraft");
+            CheckNear(ourKnockback.HorizontalLength, 0.9, 1e-3, $"hit {hit + 1}: the same 0.9 sideways every hit");
+            lift.Add(ourKnockback.Y);
+            mc.Motion = mcKnockback;
+            ours.SetMcMotion(ourKnockback);
+            double worst = 0;
+            for (int t = 0; t < 10; t++)
+            {
+                TickWithServer(mc, ours, server, idle);
+                worst = Math.Max(worst, Distance(mc.Position, ours.Position) + Distance(ours.ServerMotion, server.Motion));
+            }
+            Check(worst < 1e-9, $"after hit {hit + 1}: flight and server copy off by {worst:E2}");
+        }
+        CheckNear(lift[0], 0.4608, 1e-3, "first hit lifts 0.46");
+        Check(lift[1] < lift[0] - 0.05, $"second hit, still airborne, lifts less ({lift[1]:0.000})");
+        Check(lift[2] < 0.15, $"third hit lifts hardly at all ({lift[2]:0.000})");
+    }
+
+    public void TestStrongerHitPushStaysOnServerCopy()
+    {
+        var (mc, ours, server) = WithServer();
+        var idle = new MovementInput(0, 0, false, false, false, 0);
+        Vec3d push = Vec3d.Forward(0) * Tuning.SprintKnockbackBonus + new Vec3d(0, Tuning.SprintHitVerticalBonus, 0);
+        Vec3d before = ours.Position;
+        ours.PushServerCopy(push);
+        server.Motion += push;
+        double worst = 0;
+        for (int t = 0; t < 6; t++)
+        {
+            TickWithServer(mc, ours, server, idle);
+            worst = Math.Max(worst, Distance(ours.ServerMotion, server.Motion));
+        }
+        Check(worst < 1e-9, $"the leftover push decays like Minecraft's (off by {worst:E2})");
+        CheckNear(Distance(before, ours.Position), 0, 1e-12, "the victim itself didn't move");
+        Check(ours.ServerMotion.HorizontalLength > 0.01, "some of the push is left for the next knockback");
     }
 
     public void TestCriticalHitsNeedFalling()
@@ -293,5 +427,130 @@ public class BotAimTests : TestCase
             AimResult aim = HitScan.Aim(eye, HitScan.LookVector(yaw, pitch), [new AimTarget(9, feet)], world);
             CheckEqual(aim.Kind, AimKind.Player, $"aiming at a player at {feet}");
         }
+    }
+}
+
+public class MissPenaltyTests : TestCase
+{
+    /// <summary>Minecraft.runTick's click handling, with clicks queued until the next tick.</summary>
+    private sealed class McClicks
+    {
+        private readonly List<(int Id, bool Miss)> _queued = new();
+        private int _leftClickCounter;
+        private bool _held;
+        public HashSet<int> Handled { get; } = new();
+
+        public void Press(int id, bool miss)
+        {
+            _queued.Add((id, miss));
+            _held = true;
+        }
+
+        public void Release() => _held = false;
+
+        public void Tick()
+        {
+            if (_leftClickCounter > 0)
+            {
+                --_leftClickCounter;
+            }
+            foreach (var (id, miss) in _queued)
+            {
+                if (_leftClickCounter <= 0)
+                {
+                    Handled.Add(id);
+                    if (miss)
+                    {
+                        _leftClickCounter = 10;
+                    }
+                }
+            }
+            _queued.Clear();
+            if (!_held)
+            {
+                _leftClickCounter = 0; // sendClickBlockToController(false)
+            }
+        }
+    }
+
+    public void TestMatchesMinecraftForAnyClicking()
+    {
+        int presses = 0;
+        int eaten = 0;
+        for (int seed = 0; seed < 300; seed++)
+        {
+            var random = new Random(seed);
+            double cps = 6 + random.NextDouble() * 14;
+            double maxHold = 0.01 + random.NextDouble() * 0.12;
+            var events = new List<(double Time, int Kind, int Id, bool Miss)>(); // kind 0 tick, 1 press, 2 release
+            for (double t = 0.0137; t < 6; t += 0.05)
+            {
+                events.Add((t, 0, -1, false));
+            }
+            double time = 0;
+            for (int id = 0; time < 5.8; id++)
+            {
+                time += (0.4 + random.NextDouble() * 1.2) / cps;
+                double hold = Math.Min(0.005 + random.NextDouble() * maxHold, 0.9 / cps);
+                bool miss = random.NextDouble() < 0.4;
+                events.Add((time, 1, id, miss));
+                events.Add((time + hold, 2, id, false));
+            }
+            events.Sort((a, b) => a.Time.CompareTo(b.Time));
+
+            var mc = new McClicks();
+            var ours = new MissPenalty();
+            var ourHandled = new HashSet<int>();
+            bool held = false;
+            foreach (var (_, kind, id, miss) in events)
+            {
+                switch (kind)
+                {
+                    case 0:
+                        mc.Tick();
+                        ours.Tick(held);
+                        break;
+                    case 1:
+                        presses++;
+                        mc.Press(id, miss);
+                        held = true;
+                        if (!ours.Blocks)
+                        {
+                            ourHandled.Add(id);
+                            if (miss)
+                            {
+                                ours.Missed();
+                            }
+                        }
+                        break;
+                    default:
+                        mc.Release();
+                        held = false;
+                        break;
+                }
+            }
+            mc.Tick();
+            Check(mc.Handled.SetEquals(ourHandled), $"seed {seed}: same clicks go through as in Minecraft");
+            eaten += presses - mc.Handled.Count;
+            presses = 0;
+        }
+        Check(eaten > 0, "the timelines include clicks the penalty eats");
+    }
+
+    public void TestOnlyHeldOrSameTickClicksAreEaten()
+    {
+        var p = new MissPenalty();
+        p.Missed();
+        Check(p.Blocks, "a second click in the same tick as the miss is eaten");
+        p.Tick(buttonHeld: false);
+        Check(!p.Blocks, "letting go clears it at the end of the tick");
+        p.Missed();
+        for (int t = 0; t < 9; t++)
+        {
+            p.Tick(buttonHeld: true);
+            Check(p.Blocks, $"holding the button: still blocked after {t + 1} ticks");
+        }
+        p.Tick(buttonHeld: true);
+        Check(!p.Blocks, "holding the button: the miss wears off after 10 ticks");
     }
 }

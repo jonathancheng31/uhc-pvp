@@ -113,10 +113,11 @@ public static class Tuning
     /// <summary>MC ticks of hit protection after a hit (hurtResistantTime).</summary>
     public const int HurtResistantMcTicks = 20;
     /// <summary>
-    /// While more than this many MC ticks of protection remain (the first half second), hits
-    /// only count if they're stronger than the last one, and give no knockback.
+    /// For this many MC ticks after a full hit (the first half of the protection), hits only
+    /// count if they're stronger than the last one, and give no base knockback. Counted on
+    /// Minecraft's 1/20 s tick grid, like a server does (see HitProtection).
     /// </summary>
-    public const int HurtImmunityThresholdMcTicks = 10;
+    public const int HurtImmunityThresholdMcTicks = HurtResistantMcTicks / 2;
     /// <summary>MC ticks the red hurt flash and camera tilt last.</summary>
     public const int HurtFlashMcTicks = 10;
     public const double KnockbackHorizontal = 0.4;
@@ -129,10 +130,22 @@ public static class Tuning
     /// <summary>MC ticks an arm swing takes.</summary>
     public const int SwingMcTicks = 6;
     /// <summary>
-    /// Minecraft 1.8's "hit delay": clicking at nothing (no player in reach and no block within
-    /// block reach) blocks attacking for this many MC ticks.
+    /// Minecraft 1.8's miss penalty (leftClickCounter): clicking at nothing (no player within
+    /// reach and no block within block reach) blocks clicks for this many MC ticks, but only
+    /// while the button stays held: it clears at the end of any tick the button is up.
     /// </summary>
     public const int MissClickCooldownMcTicks = 10;
+    /// <summary>
+    /// A client reports its position to the server only after moving more than this many blocks
+    /// since its last report (EntityPlayerSP.onUpdateWalkingPlayer)...
+    /// </summary>
+    public const double PositionReportDistance = 0.03;
+    /// <summary>...or after this many MC ticks without a report.</summary>
+    public const int PositionReportMaxTicks = 20;
+    /// <summary>Knockback travels in a velocity packet: each axis clamped to this many blocks per tick...</summary>
+    public const double VelocityPacketClamp = 3.9;
+    /// <summary>...and rounded toward zero to a multiple of 1/8000.</summary>
+    public const double VelocityPacketScale = 8000.0;
     /// <summary>Hits between teammates do nothing.</summary>
     public const bool FriendlyFire = false;
     /// <summary>Seconds before a dead player respawns.</summary>

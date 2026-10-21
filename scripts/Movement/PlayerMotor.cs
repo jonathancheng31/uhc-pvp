@@ -33,11 +33,18 @@ public sealed class PlayerMotor
     /// <summary>Whether the last move ended resting on something.</summary>
     private bool _touchingGround;
     private FrictionRegime _lastRegime = MotionModel.Ground;
+    /// <summary>The last position we reported to the (emulated) server; where its copy of us stands.</summary>
+    private Vec3d _reportedPosition;
+    private int _ticksSinceReport;
+    /// <summary>The on-ground flag of our last report.</summary>
+    private bool _reportedOnGround;
+    private double _yaw;
 
     public PlayerMotor(ICollisionWorld world, Vec3d position)
     {
         _world = world;
         Position = position;
+        _reportedPosition = position;
     }
 
     /// <summary>Feet position: center of the player's box, at its bottom.</summary>
@@ -70,6 +77,17 @@ public sealed class PlayerMotor
     public bool ServerSprinting { get; private set; }
     private bool _toldServerSprinting;
 
+    /// <summary>
+    /// Motion of the server's copy of this player (EntityPlayerMP), in Minecraft units. 1.8.9
+    /// builds knockback from this, not from the player's real motion. The server never sees the
+    /// player's keys, so its copy doesn't move sideways; vertically it sits at -0.0784 on the
+    /// ground and, once it sees the player leave the ground, it starts its own jump and keeps
+    /// falling until its copy touches down. That's why a combo's knockback is the same sideways
+    /// every hit while the lift shrinks as the victim stays airborne. Updated once per Minecraft
+    /// tick, as the server would from our position report. See docs/combat.md.
+    /// </summary>
+    public Vec3d ServerMotion { get; private set; }
+
     /// <summary>Minecraft 1.8 critical hit: falling and not on the ground.</summary>
     public bool CanCrit => FallDistance > 0 && !_touchingGround;
 
@@ -95,6 +113,11 @@ public sealed class PlayerMotor
         OnGround = false;
         Sprinting = false;
         FallDistance = 0;
+        // A fresh copy on the server too.
+        ServerMotion = Vec3d.Zero;
+        _reportedPosition = position;
+        _ticksSinceReport = 0;
+        _reportedOnGround = false;
     }
 
     /// <summary>
@@ -132,24 +155,32 @@ public sealed class PlayerMotor
     }
 
     /// <summary>
-    /// The attacker's side of a hit that landed. Returns whether it gets sprint knockback (what
-    /// the server thinks), and applies what the attacker's own game does: a sprinting attacker
-    /// slows to 60% and stops sprinting.
+    /// The attacker's side of a click on a player. The attacker's own game treats every such
+    /// click as a hit: a sprinting attacker slows to 60% and stops sprinting, even when the
+    /// victim was protected. The server only uses up its sprint flag (and slows its copy) when
+    /// the hit counted (<paramref name="accepted"/>: a full or stronger hit), so a click into
+    /// hit protection keeps the next hit's sprint knockback.
     /// </summary>
-    public bool OnHitLanded()
+    public void OnHitLanded(bool accepted)
     {
-        bool sprintKnockback = ServerSprinting;
         if (Sprinting)
         {
             Velocity = new Vec3d(Velocity.X * Tuning.SprintHitSlowdown, Velocity.Y, Velocity.Z * Tuning.SprintHitSlowdown);
             Sprinting = false;
         }
-        if (sprintKnockback)
+        if (accepted && ServerSprinting)
         {
             ServerSprinting = false;
+            ServerMotion = new Vec3d(
+                ServerMotion.X * Tuning.SprintHitSlowdown, ServerMotion.Y, ServerMotion.Z * Tuning.SprintHitSlowdown);
         }
-        return sprintKnockback;
     }
+
+    /// <summary>
+    /// A push that only reaches the server's copy: a sprint hit that landed during hit
+    /// protection sends the victim nothing, but stays on the copy and adds to the next knockback.
+    /// </summary>
+    public void PushServerCopy(Vec3d mcImpulse) => ServerMotion += mcImpulse;
 
     /// <summary>Ground friction while standing (or on the tick of a jump), air friction otherwise.</summary>
     private FrictionRegime CurrentRegime => OnGround || _groundHold > 0 ? MotionModel.Ground : MotionModel.Air;
@@ -158,6 +189,7 @@ public sealed class PlayerMotor
     public void Step(in MovementInput input)
     {
         bool tickStart = _phase == 0;
+        _yaw = input.Yaw;
         if (tickStart)
         {
             OnGround = _touchingGround;
@@ -283,12 +315,68 @@ public sealed class PlayerMotor
         }
         Velocity = new Vec3d(px * regime.SubFriction, py * vertical.SubFriction, pz * regime.SubFriction);
         _phase = (_phase + 1) % N;
-        if (_phase == 0 && Sprinting != _toldServerSprinting)
+        if (_phase == 0)
         {
-            // End of a Minecraft tick: the client reports a change in sprinting to the server.
-            _toldServerSprinting = Sprinting;
-            ServerSprinting = Sprinting;
+            // End of a Minecraft tick: the client reports a change in sprinting to the server,
+            // then its position.
+            if (Sprinting != _toldServerSprinting)
+            {
+                _toldServerSprinting = Sprinting;
+                ServerSprinting = Sprinting;
+            }
+            ReportToServer();
         }
+    }
+
+    /// <summary>
+    /// What the server does with our end-of-tick report (EntityPlayerSP.onUpdateWalkingPlayer,
+    /// then NetHandlerPlayServer.processPlayer), as far as its copy's motion goes.
+    /// </summary>
+    private void ReportToServer()
+    {
+        // The position is only sent after moving 0.03 blocks, or every 20 ticks.
+        Vec3d last = _reportedPosition;
+        Vec3d moved = Position - last;
+        bool sendsPosition = moved.X * moved.X + moved.Y * moved.Y + moved.Z * moved.Z
+            > Tuning.PositionReportDistance * Tuning.PositionReportDistance
+            || _ticksSinceReport >= Tuning.PositionReportMaxTicks;
+        _ticksSinceReport++;
+        Vec3d reported = last;
+        if (sendsPosition)
+        {
+            reported = Position;
+            _reportedPosition = Position;
+            _ticksSinceReport = 0;
+        }
+
+        // The server runs one tick of its copy with no keys pressed, from the last position
+        // (EntityLivingBase.onLivingUpdate and moveEntityWithHeading), then puts it back there.
+        Vec3d m = ServerMotion;
+        m = new Vec3d(SnapSmall(m.X, Tuning.MinMotion), SnapSmall(m.Y, Tuning.MinMotion), SnapSmall(m.Z, Tuning.MinMotion));
+        double friction = _reportedOnGround ? Tuning.BlockSlipperiness * Tuning.AirFriction : Tuning.AirFriction;
+        Box box = Box.ForPlayer(last, Tuning.PlayerWidth, Tuning.PlayerHeight);
+        (double cx, double cy, double cz) = Clip(box, m.X, m.Y, m.Z);
+        bool copyOnGround = cy != m.Y && m.Y < 0;
+        m = new Vec3d(
+            cx != m.X ? 0 : m.X * friction,
+            ((cy != m.Y ? 0 : m.Y) - Tuning.Gravity) * Tuning.VerticalDrag,
+            cz != m.Z ? 0 : m.Z * friction);
+
+        // Seeing us leave the ground, the server makes its copy jump.
+        if (copyOnGround && !_touchingGround && reported.Y - last.Y > 0)
+        {
+            m = m.WithY(Tuning.JumpVelocity);
+            if (ServerSprinting)
+            {
+                m += Vec3d.Forward(_yaw) * Tuning.SprintJumpBoost;
+            }
+        }
+
+        // Then it moves the copy to the reported position (normally a free move).
+        Vec3d delta = reported - last;
+        (double dx, double dy, double dz) = Clip(box, delta.X, delta.Y, delta.Z);
+        ServerMotion = new Vec3d(dx != delta.X ? 0 : m.X, dy != delta.Y ? 0 : m.Y, dz != delta.Z ? 0 : m.Z);
+        _reportedOnGround = _touchingGround;
     }
 
     private void Jump(double yaw)
@@ -343,24 +431,8 @@ public sealed class PlayerMotor
         double wantX = dx;
         double wantY = dy;
         double wantZ = dz;
-
-        _boxes.Clear();
-        _world.CollectBoxes(box.Stretch(dx, dy, dz), _boxes);
-        foreach (Box solid in _boxes)
-        {
-            dy = solid.ClipY(box, dy);
-        }
-        box = box.Offset(0, dy, 0);
-        foreach (Box solid in _boxes)
-        {
-            dx = solid.ClipX(box, dx);
-        }
-        box = box.Offset(dx, 0, 0);
-        foreach (Box solid in _boxes)
-        {
-            dz = solid.ClipZ(box, dz);
-        }
-        box = box.Offset(0, 0, dz);
+        (dx, dy, dz) = Clip(box, dx, dy, dz);
+        box = box.Offset(dx, dy, dz);
 
         Position = new Vec3d((box.MinX + box.MaxX) / 2, box.MinY, (box.MinZ + box.MaxZ) / 2);
         LastMove = new Vec3d(dx, dy, dz);
@@ -378,6 +450,31 @@ public sealed class PlayerMotor
             FallDistance -= dy;
         }
         return (blockedX, blockedY, blockedZ);
+    }
+
+    /// <summary>
+    /// How far a box can move: slides it along Y, then X, then Z, stopping at every solid box
+    /// (Entity.moveEntity). Doesn't move anything.
+    /// </summary>
+    private (double X, double Y, double Z) Clip(Box box, double dx, double dy, double dz)
+    {
+        _boxes.Clear();
+        _world.CollectBoxes(box.Stretch(dx, dy, dz), _boxes);
+        foreach (Box solid in _boxes)
+        {
+            dy = solid.ClipY(box, dy);
+        }
+        box = box.Offset(0, dy, 0);
+        foreach (Box solid in _boxes)
+        {
+            dx = solid.ClipX(box, dx);
+        }
+        box = box.Offset(dx, 0, 0);
+        foreach (Box solid in _boxes)
+        {
+            dz = solid.ClipZ(box, dz);
+        }
+        return (dx, dy, dz);
     }
 
     private bool IsFree(Box region)

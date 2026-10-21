@@ -85,16 +85,18 @@ It produces `UHC-PvP.exe` plus a `data_UhcPvp_windows_x86_64` folder (the .NET r
 - `scripts/Core/`: engine-light logic with unit tests: `Tuning` (every gameplay number),
   `PlayerState`, `SnapshotBuffer`, `NetClock`, `LagSimulator`, `Team`
 - `scripts/Movement/`: physics in doubles: `Vec3d`, `Box` (Minecraft's collision math),
-  `MotionModel` (20-tick to 60-tick conversion), `PlayerMotor` (also knockback, sprint hits, w-tap)
-- `scripts/Combat/`: `CombatRules` (damage, armor, knockback), `Vitality` (health, hit
-  protection), `HitScan` (Minecraft's aiming and reach)
+  `MotionModel` (20-tick to 60-tick conversion), `PlayerMotor` (also knockback, sprint hits,
+  w-tap, and the emulated server copy of the player that knockback is built from)
+- `scripts/Combat/`: `CombatRules` (damage, armor, knockback, plus `HitProtection` and
+  `Vitality` for health), `MissPenalty` (1.8's miss delay), `HitScan` (Minecraft's aiming and reach)
 - `scripts/Net/Messages.cs`: every network message as a typed record with its binary format
 - `scripts/World/`: `VoxelWorld` (block grid), `ChunkMesher`, `WorldRenderer`, `Arena`, `Blocks`
 - `scripts/Gameplay/`: `Game` (players, sync, practice bots) and `Game.Combat.cs` (attack flow),
   `Player` (local, bot or remote), `PlayerModel`, `ViewModel` (first-person sword), `BotBrain`, `Effects`
 - `scripts/Ui/`: main menu and in-match HUD, both built in code
-- `tests/`: `TestCase` base class, `*Tests.cs` suites, `McReference` (exact Minecraft 1.8.9
-  movement used as the yardstick), run by `tests/test_runner.tscn`. Excluded from release builds.
+- `tests/`: `TestCase` base class, `*Tests.cs` suites, `McReference.cs` (exact Minecraft 1.8.9
+  movement, and `McServerCopy`, the server's copy of a player, used as yardsticks), run by
+  `tests/test_runner.tscn`. Excluded from release builds.
 - `tools/`: test and screenshot scripts, texture and sound generators, Godot/.NET installer
   (used by CI and the startup hook)
 - `.claude/`: the startup hook, project commands (`skills/`), the `mc-researcher` agent

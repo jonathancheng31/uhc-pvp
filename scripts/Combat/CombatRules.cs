@@ -16,7 +16,21 @@ public static class CombatRules
         damage * (25 - Math.Clamp(armorPoints, 0, 20)) / 25.0;
 
     /// <summary>
-    /// The victim's new motion in Minecraft units (blocks per MC tick) after a hit.
+    /// The motion a velocity packet (S12PacketEntityVelocity) delivers: each axis clamped to
+    /// 3.9 and rounded toward zero to a multiple of 1/8000.
+    /// </summary>
+    public static Vec3d VelocityPacket(Vec3d motion)
+    {
+        static double Axis(double v) =>
+            Math.Truncate(Math.Clamp(v, -Tuning.VelocityPacketClamp, Tuning.VelocityPacketClamp) * Tuning.VelocityPacketScale)
+            / Tuning.VelocityPacketScale;
+        return new Vec3d(Axis(motion.X), Axis(motion.Y), Axis(motion.Z));
+    }
+
+    /// <summary>
+    /// Knockback in Minecraft units (blocks per MC tick). <paramref name="motion"/> is the
+    /// motion of the server's copy of the victim (<see cref="PlayerMotor.ServerMotion"/>), which
+    /// is what 1.8.9 starts from, not the victim's real motion.
     /// <paramref name="baseKnockback"/> is EntityLivingBase.knockBack: halve the current motion,
     /// push 0.4 away from the attacker and 0.4 up (capped at 0.4).
     /// <paramref name="sprintBonus"/> is the sprint-hit push from
@@ -67,15 +81,66 @@ public enum HitResult
 }
 
 /// <summary>
-/// A player's health and hit protection, following EntityLivingBase.attackEntityFrom. Owned by
-/// whoever runs that player (their own game, or the host for bots).
+/// Hit protection (EntityLivingBase.attackEntityFrom and hurtResistantTime): for 10 Minecraft
+/// ticks after a full hit, a hit only counts if it's stronger than the last one, and then only
+/// the extra damage applies.
+///
+/// A server only handles clicks at its 1/20 s ticks, so whether a hit comes "too soon" is
+/// decided on that tick grid: two clicks land 10 ticks apart if the ticks they fall in are 10
+/// apart, which in real time is anywhere from 450 to 500 ms. We use the same grid, on the shared
+/// host clock, and the moment of the click (not when it arrives), so lag doesn't change it.
+/// </summary>
+public sealed class HitProtection
+{
+    private long? _lastFullHitTick;
+
+    /// <summary>Raw damage of the last hit that counted.</summary>
+    public double LastDamage { get; private set; }
+
+    /// <summary>The Minecraft tick (on the 20 Hz host-time grid) a moment falls in.</summary>
+    public static long TickAt(double hostTime) => (long)Math.Floor(hostTime * Tuning.McTickRate);
+
+    /// <summary>
+    /// Decides a hit with <paramref name="rawDamage"/> made in Minecraft tick <paramref name="tick"/>
+    /// and records it. Returns what it did and how much damage (before armor) to apply.
+    /// </summary>
+    public (HitResult Result, double Damage) Hit(double rawDamage, long tick)
+    {
+        if (rawDamage <= 0)
+        {
+            return (HitResult.Ignored, 0);
+        }
+        if (_lastFullHitTick is long last && tick - last < Tuning.HurtImmunityThresholdMcTicks)
+        {
+            if (rawDamage <= LastDamage)
+            {
+                return (HitResult.Ignored, 0);
+            }
+            double extra = rawDamage - LastDamage;
+            LastDamage = rawDamage;
+            return (HitResult.Stronger, extra);
+        }
+        _lastFullHitTick = tick;
+        LastDamage = rawDamage;
+        return (HitResult.Hurt, rawDamage);
+    }
+
+    public void Reset()
+    {
+        _lastFullHitTick = null;
+        LastDamage = 0;
+    }
+}
+
+/// <summary>
+/// A player's health and hit protection. Owned by whoever runs that player (their own game, or
+/// the host for bots).
 /// </summary>
 public sealed class Vitality
 {
     private static readonly int N = Tuning.SubticksPerMcTick;
 
-    private double _lastDamage;
-    private int _protection;
+    private readonly HitProtection _protection = new();
 
     public double Health { get; private set; } = Tuning.MaxHealth;
     public bool IsDead => Health <= 0;
@@ -84,36 +149,29 @@ public sealed class Vitality
     /// <summary>1 right after a hit, falling to 0 as the flash ends.</summary>
     public float HurtFlashFraction => HurtFlash / (float)(Tuning.HurtFlashMcTicks * N);
 
-    public HitResult TakeHit(double rawDamage, int armorPoints)
+    /// <summary>A hit made in Minecraft tick <paramref name="tick"/> (see <see cref="HitProtection.TickAt"/>).</summary>
+    public HitResult TakeHit(double rawDamage, int armorPoints, long tick)
     {
-        if (IsDead || rawDamage <= 0)
+        if (IsDead)
         {
             return HitResult.Ignored;
         }
-        if (_protection > Tuning.HurtImmunityThresholdMcTicks * N)
+        (HitResult result, double damage) = _protection.Hit(rawDamage, tick);
+        if (result == HitResult.Ignored)
         {
-            if (rawDamage <= _lastDamage)
-            {
-                return HitResult.Ignored;
-            }
-            Lose(CombatRules.AfterArmor(rawDamage - _lastDamage, armorPoints));
-            _lastDamage = rawDamage;
-            return HitResult.Stronger;
+            return result;
         }
-        _lastDamage = rawDamage;
-        _protection = Tuning.HurtResistantMcTicks * N;
-        Lose(CombatRules.AfterArmor(rawDamage, armorPoints));
-        HurtFlash = Tuning.HurtFlashMcTicks * N;
-        return HitResult.Hurt;
+        Lose(CombatRules.AfterArmor(damage, armorPoints));
+        if (result == HitResult.Hurt)
+        {
+            HurtFlash = Tuning.HurtFlashMcTicks * N;
+        }
+        return result;
     }
 
     /// <summary>Advances one subtick.</summary>
     public void Tick()
     {
-        if (_protection > 0)
-        {
-            _protection--;
-        }
         if (HurtFlash > 0)
         {
             HurtFlash--;
@@ -124,8 +182,7 @@ public sealed class Vitality
     public void Reset()
     {
         Health = Tuning.MaxHealth;
-        _lastDamage = 0;
-        _protection = 0;
+        _protection.Reset();
         HurtFlash = 0;
     }
 

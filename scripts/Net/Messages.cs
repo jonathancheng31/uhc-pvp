@@ -201,8 +201,12 @@ public enum HurtFlags : byte
     Killed = 4,
 }
 
-/// <summary>victim's owner -> host -> all: a hit landed, and the victim's health now.</summary>
-public sealed record Hurt(int VictimId, int AttackerId, float Health, HurtFlags Flags) : IMessage
+/// <summary>
+/// victim's owner -> host -> all: a hit landed (a full hit, or without <see cref="HurtFlags.Fresh"/>
+/// a stronger hit during hit protection), and the victim's health now. <c>AttackTime</c> is the
+/// host time of the click, which hit protection is counted from.
+/// </summary>
+public sealed record Hurt(int VictimId, int AttackerId, float Health, HurtFlags Flags, double AttackTime) : IMessage
 {
     public MsgType Type => MsgType.Hurt;
     public void Write(BinaryWriter w)
@@ -211,8 +215,10 @@ public sealed record Hurt(int VictimId, int AttackerId, float Health, HurtFlags 
         w.Write(AttackerId);
         w.Write(Health);
         w.Write((byte)Flags);
+        w.Write(AttackTime);
     }
-    public static Hurt Read(BinaryReader r) => new(r.ReadInt32(), r.ReadInt32(), r.ReadSingle(), (HurtFlags)r.ReadByte());
+    public static Hurt Read(BinaryReader r) =>
+        new(r.ReadInt32(), r.ReadInt32(), r.ReadSingle(), (HurtFlags)r.ReadByte(), r.ReadDouble());
 }
 
 /// <summary>player -> host -> all: someone swung their arm (attacked, hit or not).</summary>

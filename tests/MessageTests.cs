@@ -25,7 +25,7 @@ public class MessageTests : TestCase
             new Ping(1.5),
             new Pong(1.5, 99.75),
             new Attack(7, -1, 10.5, 10.4, new Vector3(1, 5, 2), 45f, new Vector3(1, 5, -0.5f), AttackFlags.Critical | AttackFlags.SprintKnockback),
-            new Hurt(-1, 7, 14.5f, HurtFlags.Fresh | HurtFlags.Critical),
+            new Hurt(-1, 7, 14.5f, HurtFlags.Fresh | HurtFlags.Critical, 1234.5678),
             new Swing(7),
         ];
         Check(messages.Select(m => m.Type).Distinct().Count() == Enum.GetValues<MsgType>().Length,

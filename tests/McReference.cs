@@ -184,3 +184,108 @@ public sealed class McReference
         return _boxes.TrueForAll(b => !b.Intersects(region));
     }
 }
+
+/// <summary>
+/// The server's copy of a player (EntityPlayerMP) in Minecraft 1.8.9, as the client's report each
+/// tick moves it: EntityPlayerSP.onUpdateWalkingPlayer (when the position is sent), then
+/// NetHandlerPlayServer.processPlayer (onUpdateEntity with no input, the server-side jump, the
+/// move to the reported position). Knockback is built from its <see cref="Motion"/>. The
+/// yardstick for <see cref="PlayerMotor.ServerMotion"/>; it never runs in the game.
+/// </summary>
+public sealed class McServerCopy
+{
+    private readonly ICollisionWorld _world;
+    private readonly List<Box> _boxes = new();
+    private Vec3d _lastReported;
+    private int _positionUpdateTicks;
+
+    public McServerCopy(ICollisionWorld world, Vec3d position)
+    {
+        _world = world;
+        Position = position;
+        _lastReported = position;
+    }
+
+    public Vec3d Position { get; private set; }
+    public Vec3d Motion { get; set; }
+    public bool OnGround { get; private set; }
+
+    /// <summary>One client tick's report: where the client is, whether it's on the ground, and its yaw.</summary>
+    public void Report(Vec3d clientPosition, bool clientOnGround, bool serverSprinting, double yaw)
+    {
+        // EntityPlayerSP.onUpdateWalkingPlayer
+        Vec3d d = clientPosition - _lastReported;
+        bool moving = d.X * d.X + d.Y * d.Y + d.Z * d.Z > 9.0E-4 || _positionUpdateTicks >= 20;
+        ++_positionUpdateTicks;
+        if (moving)
+        {
+            _lastReported = clientPosition;
+            _positionUpdateTicks = 0;
+        }
+
+        // NetHandlerPlayServer.processPlayer
+        Vec3d last = Position;
+        Vec3d packet = moving ? clientPosition : last;
+        // onUpdateEntity -> EntityLivingBase.onLivingUpdate / moveEntityWithHeading, no input
+        double mx = Math.Abs(Motion.X) < 0.005 ? 0 : Motion.X;
+        double my = Math.Abs(Motion.Y) < 0.005 ? 0 : Motion.Y;
+        double mz = Math.Abs(Motion.Z) < 0.005 ? 0 : Motion.Z;
+        double f4 = OnGround ? 0.6 * 0.91 : 0.91;
+        var (x, y, z) = MoveEntity(last, mx, my, mz);
+        OnGround = y != my && my < 0;
+        if (x != mx)
+        {
+            mx = 0;
+        }
+        if (z != mz)
+        {
+            mz = 0;
+        }
+        if (y != my)
+        {
+            my = 0; // Block.onLanded
+        }
+        my = (my - 0.08) * 0.98;
+        mx *= f4;
+        mz *= f4;
+        // setPositionAndRotation(lastPos): the simulated move is thrown away.
+        if (OnGround && !clientOnGround && packet.Y - last.Y > 0)
+        {
+            // EntityLivingBase.jump
+            my = 0.42;
+            if (serverSprinting)
+            {
+                mx -= Math.Sin(yaw * Math.PI / 180) * 0.2;
+                mz -= Math.Cos(yaw * Math.PI / 180) * 0.2;
+            }
+        }
+        Vec3d delta = packet - last;
+        var (dx, dy, dz) = MoveEntity(last, delta.X, delta.Y, delta.Z);
+        Motion = new Vec3d(dx != delta.X ? 0 : mx, dy != delta.Y ? 0 : my, dz != delta.Z ? 0 : mz);
+        OnGround = clientOnGround;
+        Position = packet;
+    }
+
+    /// <summary>Entity.moveEntity's collision for a box at <paramref name="from"/>; returns the allowed move.</summary>
+    private (double X, double Y, double Z) MoveEntity(Vec3d from, double x, double y, double z)
+    {
+        Box box = Box.ForPlayer(from, Tuning.PlayerWidth, Tuning.PlayerHeight);
+        _boxes.Clear();
+        _world.CollectBoxes(box.Stretch(x, y, z), _boxes);
+        foreach (Box b in _boxes)
+        {
+            y = b.ClipY(box, y);
+        }
+        box = box.Offset(0, y, 0);
+        foreach (Box b in _boxes)
+        {
+            x = b.ClipX(box, x);
+        }
+        box = box.Offset(x, 0, 0);
+        foreach (Box b in _boxes)
+        {
+            z = b.ClipZ(box, z);
+        }
+        return (x, y, z);
+    }
+}

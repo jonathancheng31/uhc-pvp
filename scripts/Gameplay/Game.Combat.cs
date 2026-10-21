@@ -13,8 +13,7 @@ namespace UhcPvp.Gameplay;
 /// Combat, following the plan in docs/netcode.md:
 /// 1. The attacker's game decides a hit from exactly what was on its screen (TryAttack).
 /// 2. The hit goes to the game that owns the victim (their own, or the host for bots), which
-///    checks the lag cap and applies damage and knockback to the victim's real motion
-///    (ResolveAttack).
+///    checks the lag cap and hit protection and applies damage and knockback (ResolveAttack).
 /// 3. Everyone is told what happened and plays the hurt effects (ApplyHurt).
 /// </summary>
 public partial class Game
@@ -27,7 +26,12 @@ public partial class Game
     private readonly Random _random = new();
     private readonly List<AimTarget> _aimTargets = new();
     private readonly Dictionary<int, double> _predictedAt = new();
-    private readonly Dictionary<int, double> _lastFreshHurtAt = new();
+    /// <summary>
+    /// Our best guess at the hit protection of players another game runs, kept from the hits we
+    /// make and the hits we hear about. It predicts whether our hit will count before the
+    /// victim's game answers: exact in a 1v1, since protection is counted from click times.
+    /// </summary>
+    private readonly Dictionary<int, HitProtection> _protectionGuess = new();
 
     /// <summary>Hits in a row by the local player without being hit back.</summary>
     public int Combo { get; private set; }
@@ -76,11 +80,7 @@ public partial class Game
         }
 
         bool critical = attacker.Motor.CanCrit;
-        bool sprintKnockback = attacker.Motor.OnHitLanded();
-        if (sprintKnockback)
-        {
-            attacker.Brain?.OnSprintHitLanded();
-        }
+        bool sprintKnockback = attacker.Motor.ServerSprinting;
         double now = Net.HostTime;
         var flags = (critical ? AttackFlags.Critical : 0) | (sprintKnockback ? AttackFlags.SprintKnockback : 0);
         var attack = new Attack(
@@ -89,28 +89,54 @@ public partial class Game
         if (attacker.IsLocal)
         {
             LastReach = aim.Distance;
-            if (!target.IsOwned)
+            if (critical)
+            {
+                // Your own game shows crit sparks on every critical click, like 1.8's client.
+                Effects.CritBurst(this, Chest(target));
+            }
+        }
+
+        HitResult result;
+        if (target.IsOwned)
+        {
+            result = ResolveAttack(attack);
+        }
+        else
+        {
+            double raw = CombatRules.RawDamage(Tuning.SwordDamage, critical);
+            result = GuessProtection(target.PeerId).Hit(raw, HitProtection.TickAt(now)).Result;
+            if (attacker.IsLocal && result == HitResult.Hurt)
             {
                 PredictHurt(target);
             }
+            DeliverAttack(attack);
         }
-        DeliverAttack(attack);
+        bool counted = result != HitResult.Ignored;
+        attacker.Motor.OnHitLanded(counted);
+        if (counted && sprintKnockback)
+        {
+            attacker.Brain?.OnSprintHitLanded();
+        }
+    }
+
+    private HitProtection GuessProtection(int playerId)
+    {
+        if (!_protectionGuess.TryGetValue(playerId, out HitProtection? guess))
+        {
+            guess = new HitProtection();
+            _protectionGuess[playerId] = guess;
+        }
+        return guess;
     }
 
     /// <summary>
     /// Hitting someone whose game is elsewhere: show the flash and sound right away instead of
-    /// waiting a round trip. Skipped if they were just hit (they're probably still protected).
+    /// waiting a round trip.
     /// </summary>
     private void PredictHurt(Player target)
     {
-        double now = Network.Instance.Now;
-        if (now - _lastFreshHurtAt.GetValueOrDefault(target.PeerId, double.NegativeInfinity)
-            < Tuning.HurtImmunityThresholdMcTicks / (double)Tuning.McTickRate)
-        {
-            return;
-        }
-        _predictedAt[target.PeerId] = now;
-        target.ShowHurt(new Hurt(target.PeerId, LocalPlayer.PeerId, (float)target.Health, HurtFlags.Fresh));
+        _predictedAt[target.PeerId] = Network.Instance.Now;
+        target.ShowHurt(new Hurt(target.PeerId, LocalPlayer.PeerId, (float)target.Health, HurtFlags.Fresh, Net.HostTime));
         Effects.PlayHurt(this, Chest(target), killed: false);
     }
 
@@ -132,23 +158,24 @@ public partial class Game
     }
 
     /// <summary>The victim's side: checks the hit and applies damage and knockback.</summary>
-    private void ResolveAttack(Attack attack)
+    private HitResult ResolveAttack(Attack attack)
     {
-        if (!_players.TryGetValue(attack.TargetId, out Player? victim) || victim.Motor is null || victim.IsDead)
+        if (!_players.TryGetValue(attack.TargetId, out Player? victim) || victim.Motor is null || victim.IsDead
+            || !double.IsFinite(attack.AttackTime) || !double.IsFinite(attack.ViewTime))
         {
-            return;
+            return HitResult.Ignored;
         }
         Player? attacker = _players.GetValueOrDefault(attack.AttackerId);
         if (attacker is not null && !Tuning.FriendlyFire && attacker.Team == victim.Team)
         {
-            return;
+            return HitResult.Ignored;
         }
         // The lag cap: the attacker's view of us must not be too old (no ghost hits).
         double staleness = attack.AttackTime - attack.ViewTime;
         if (staleness > Tuning.LagCap + 1.0 / Tuning.SimRate)
         {
             GD.Print($"[combat] ignored a hit on {victim.PlayerName}: attacker's view was {staleness * 1000:0} ms old");
-            return;
+            return HitResult.Ignored;
         }
         Vec3d attackerFeet = Vec3d.From(attack.AttackerFeet);
         Vec3d seenFeet = Vec3d.From(attack.TargetFeet);
@@ -156,28 +183,41 @@ public partial class Game
         if (HitScan.Hitbox(seenFeet).DistanceTo(attackerEye) > Tuning.Reach + ReachTolerance)
         {
             GD.Print($"[combat] ignored a hit on {victim.PlayerName}: too far");
-            return;
+            return HitResult.Ignored;
         }
 
         bool critical = (attack.Flags & AttackFlags.Critical) != 0;
         bool sprintKnockback = (attack.Flags & AttackFlags.SprintKnockback) != 0;
-        HitResult result = victim.Vitality.TakeHit(CombatRules.RawDamage(Tuning.SwordDamage, critical), Tuning.KitArmorPoints);
+        HitResult result = victim.Vitality.TakeHit(
+            CombatRules.RawDamage(Tuning.SwordDamage, critical), Tuning.KitArmorPoints, HitProtection.TickAt(attack.AttackTime));
         if (result == HitResult.Ignored)
         {
-            return;
+            return result;
         }
+        // Knockback starts from the server's copy of the victim, as in 1.8.9 (see PlayerMotor.ServerMotion).
         Vec3d motion = CombatRules.Knockback(
-            victim.Motor.McMotion, attackerFeet, seenFeet, attack.AttackerYaw,
+            victim.Motor.ServerMotion, attackerFeet, seenFeet, attack.AttackerYaw,
             baseKnockback: result == HitResult.Hurt, sprintBonus: sprintKnockback, _random);
-        victim.Motor.SetMcMotion(motion);
+        if (result == HitResult.Hurt)
+        {
+            // The server sends the victim this motion and keeps its own copy as it was.
+            victim.Motor.SetMcMotion(CombatRules.VelocityPacket(motion));
+        }
+        else if (sprintKnockback)
+        {
+            // A stronger hit sends nothing: the victim doesn't move, but a sprint push stays on
+            // the server's copy and adds to the next knockback.
+            victim.Motor.PushServerCopy(motion - victim.Motor.ServerMotion);
+        }
         victim.OnDamaged();
 
         var flags = (result == HitResult.Hurt ? HurtFlags.Fresh : 0)
             | (critical ? HurtFlags.Critical : 0)
             | (victim.IsDead ? HurtFlags.Killed : 0);
-        var hurt = new Hurt(victim.PeerId, attack.AttackerId, (float)victim.Vitality.Health, flags);
+        var hurt = new Hurt(victim.PeerId, attack.AttackerId, (float)victim.Vitality.Health, flags, attack.AttackTime);
         ApplyHurt(hurt);
         SendToAll(hurt);
+        return result;
     }
 
     /// <summary>Everyone: show a hit (flash, sound, sparks, health, combo, kill feed).</summary>
@@ -190,8 +230,20 @@ public partial class Game
         double now = Network.Instance.Now;
         bool fresh = (hurt.Flags & HurtFlags.Fresh) != 0;
         bool killed = (hurt.Flags & HurtFlags.Killed) != 0;
-        bool predicted = hurt.AttackerId == LocalPlayer.PeerId
+        bool critical = (hurt.Flags & HurtFlags.Critical) != 0;
+        bool byMe = hurt.AttackerId == LocalPlayer.PeerId;
+        bool predicted = byMe
             && _predictedAt.Remove(hurt.VictimId, out double predictedAt) && now - predictedAt < PredictionWindow;
+
+        // Keep our guess of this player's hit protection in step with what really happened.
+        if (killed)
+        {
+            _protectionGuess.Remove(hurt.VictimId);
+        }
+        else if (double.IsFinite(hurt.AttackTime))
+        {
+            GuessProtection(hurt.VictimId).Hit(CombatRules.RawDamage(Tuning.SwordDamage, critical), HitProtection.TickAt(hurt.AttackTime));
+        }
 
         victim.ShowHurt(predicted ? hurt with { Flags = hurt.Flags & ~HurtFlags.Fresh } : hurt);
         Vector3 chest = Chest(victim);
@@ -199,16 +251,12 @@ public partial class Game
         {
             Effects.PlayHurt(this, chest, killed);
         }
-        if ((hurt.Flags & HurtFlags.Critical) != 0)
+        if (critical && !byMe)
         {
             Effects.CritBurst(this, chest);
         }
-        if (fresh)
-        {
-            _lastFreshHurtAt[hurt.VictimId] = now;
-        }
 
-        if (hurt.AttackerId == LocalPlayer.PeerId)
+        if (byMe)
         {
             HitsLanded++;
             if (fresh)

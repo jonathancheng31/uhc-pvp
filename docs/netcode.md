@@ -16,10 +16,11 @@ Minecraft 1.8.9 (checked against the decompiled 1.8.9 server code):
   within **6 blocks** (`NetHandlerPlayServer.processUseEntity`, squared distance < 36),
   even though reach is 3. It never checks what the attacker saw. A laggy player swings
   at where you *were* and the 3 blocks of slack let it count.
-- **Inconsistent knockback.** The server computes knockback from its out-of-date view of
-  the victim (`EntityLivingBase.knockBack` halves the victim's current motion first),
-  then sends the victim a velocity packet to apply. The knockback you get depends on
-  both players' connections.
+- **Inconsistent knockback.** The server computes knockback from its own copy of the
+  victim (`EntityLivingBase.knockBack` halves that copy's motion first), then sends the
+  victim a velocity packet to apply. The copy only follows the victim's position reports,
+  so its idea of when the victim left the ground, which decides the lift, is late by the
+  victim's ping. The knockback you get depends on both players' connections.
 
 ## Our approach
 
@@ -27,9 +28,10 @@ Minecraft 1.8.9 (checked against the decompiled 1.8.9 server code):
 |---|---|
 | Movement | Each player's game owns its own movement, like 1.8. Always smooth, never corrected |
 | Hits | The attacker's game decides hits from exactly what was on their screen |
-| Reach | Exactly `Tuning.REACH` (3.0) plus a tiny tolerance. No 6-block slack |
-| Lag cap | Each hit carries the host-clock time of the victim state the attacker was looking at. If that's older than `Tuning.LAG_CAP` (150 ms to start), the hit doesn't count. This stops ghost hits |
-| Knockback | The victim's game applies it using its own real, current motion, so it's the same at any ping |
+| Reach | Exactly `Tuning.Reach` (3.0) plus a tiny tolerance. No 6-block slack |
+| Lag cap | Each hit carries the host-clock time of the victim state the attacker was looking at. If that's older than `Tuning.LagCap` (150 ms to start), the hit doesn't count. This stops ghost hits |
+| Knockback | Built exactly like a 1.8.9 server builds it, from the server's copy of the victim, but that copy is emulated on the victim's own game from its own up-to-date state. Same knockback at any ping |
+| Hit protection | Counted from the click times on the shared host clock, on Minecraft's 1/20 s tick grid, so lag and jitter don't change which hits count |
 | Hit feedback | The attacker sees the hit, sound and predicted knockback instantly |
 | Update rate | 60 states per second each way (Minecraft: 20), so others are shown closer to where they are |
 | Testing | Lag simulator plus bot players, so combos can be tuned at 0/50/100/150 ms |
@@ -71,13 +73,17 @@ packets are never dropped and stay in order, like ENet's reliable channel.
 (`HitScan`) against players where they're drawn on its screen, then sends an `Attack` with the
 host-clock time of the click and of the victim state it was showing, plus where it saw the
 victim. Each player is "owned" by one game: their own, or the host for bots. The owner checks
-the lag cap (view no older than `Tuning.LagCap`) and reach (with 0.5 block tolerance), then
-applies damage and knockback to the victim's real current motion, and sends a `Hurt` to
-everyone. Clients route through the host, which only relays messages from the right owner.
+the lag cap (view no older than `Tuning.LagCap`) and reach (with 0.5 block tolerance) and hit
+protection (from the click's time), then applies damage and knockback (from the victim's
+emulated server copy, `PlayerMotor.ServerMotion`; see [combat.md](combat.md)), and sends a
+`Hurt` with the click time to everyone. Clients route through the host, which only relays
+messages from the right owner.
 
 **Instant feedback.** Hitting a player whose game is elsewhere shows the red flash and hurt
-sound immediately (unless they were hit in the last half second); the confirming `Hurt` doesn't
-replay them. Against host-run bots on the host, everything is local and instant.
+sound immediately, unless the attacker's game expects the hit not to count: it keeps a guess of
+every remote player's hit protection from the click times in the hits it makes and the `Hurt`
+messages it hears (exact in a 1v1). The same guess decides whether the attacker's sprint
+knockback is used up. The confirming `Hurt` doesn't replay the effects. Against host-run bots on the host, everything is local and instant.
 
 **Bots** are owned by the host's game and appear to everyone else as normal players in snapshots.
 

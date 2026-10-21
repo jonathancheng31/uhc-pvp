@@ -39,7 +39,9 @@ public partial class Player : Node3D
     private Vec3d _previousPosition;
     private float _fov = Tuning.Fov;
     private Vector3 _lastShownPosition;
-    private int _missCooldown;
+    private readonly MissPenalty _missPenalty = new();
+    /// <summary>Counts subticks to find Minecraft's 1/20 s client ticks (for the miss penalty).</summary>
+    private int _subtick;
     private double _sinceHurt;
     private double _swingTime = -1;
     private double _flashTime;
@@ -84,7 +86,7 @@ public partial class Player : Node3D
     public bool Sneaking => (Flags & PlayerFlags.Sneaking) != 0;
     /// <summary>Eye position as drawn right now, for aiming (Minecraft lowers it 0.08 when sneaking).</summary>
     public Vec3d Eye => ShownFeet + new Vec3d(0, Tuning.EyeHeight - (Sneaking ? Tuning.SneakEyeDrop : 0), 0);
-    public bool CanAttack => IsOwned && !IsDead && _missCooldown == 0;
+    public bool CanAttack => IsOwned && !IsDead && !_missPenalty.Blocks;
 
     public void Setup(Game game, int id, PlayerKind kind, VoxelWorld world, Vec3d home, float homeYaw)
     {
@@ -161,9 +163,10 @@ public partial class Player : Node3D
             return;
         }
         Vitality.Tick();
-        if (_missCooldown > 0)
+        _subtick = (_subtick + 1) % N;
+        if (_subtick == 0)
         {
-            _missCooldown--;
+            _missPenalty.Tick(AttackHeld);
         }
         if (IsDead)
         {
@@ -246,8 +249,15 @@ public partial class Player : Node3D
         }
     }
 
-    /// <summary>Clicking at nothing: Minecraft 1.8's half-second hit delay.</summary>
-    public void StartMissCooldown() => _missCooldown = Tuning.MissClickCooldownMcTicks * N;
+    /// <summary>Clicking at nothing: Minecraft 1.8's miss penalty (see <see cref="MissPenalty"/>).</summary>
+    public void StartMissCooldown() => _missPenalty.Missed();
+
+    /// <summary>
+    /// Whether the attack button is held down. Bots click (press and release) instantly, so
+    /// they never hold it.
+    /// </summary>
+    private bool AttackHeld =>
+        IsLocal && Brain is null && Input.MouseMode == Input.MouseModeEnum.Captured && Input.IsActionPressed(Controls.Attack);
 
     /// <summary>Shows a hit on this player (flash, health). Sound and particles are played by the game.</summary>
     public void ShowHurt(Hurt hurt)

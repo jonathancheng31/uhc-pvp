@@ -38,7 +38,9 @@ final result matters, not build effort.
 | Block-hitting | Not included |
 | Kit | Diamond sword (8 damage). Fixed armor worth 18 points (diamond helmet and chestplate, iron leggings and boots), so a sword hit does 2.24 and a kill takes 9 hits (about 6 with crits). Tunable in `Tuning.cs` |
 | Friendly fire | Off: hits on teammates do nothing (default; open to change) |
-| Miss delay | Kept from 1.8: clicking at nothing (no player in reach, no block within 4.5) blocks attacks for half a second. Easy to remove if it feels bad |
+| Miss delay | Exactly 1.8's: clicking at nothing (no player in reach, no block within 4.5) blocks clicks for up to half a second, but only while the button stays held; letting go clears it within 1/20 s. The main PvP clients (Lunar, Badlion) keep it. Before 0.3.1 we blocked every click for the full half second, which ate hits |
+| Knockback | Built exactly like a 1.8.9 server: from the server's copy of the victim, which barely moves sideways and keeps falling while the victim is airborne, so every hit pushes the same distance and combos lift less and less. Emulated on the victim's own game, so it's the same at any ping. Before 0.3.1 we started from the victim's real motion, which sent combos too far and too high |
+| Hit protection timing | Half a second after a full hit, counted on Minecraft's 1/20 s ticks from the moment of each click (450 to 500 ms in real time, like a server) |
 | W-tapping | Works exactly like 1.8: after a sprint hit, the next hit only gets sprint knockback once you stop and restart sprinting |
 | Respawning | Respawn at your team's spawn 3 seconds after dying (rounds come in the match-flow milestone) |
 | Practice bots | Run by the host; stand still, strafe, or fight back (sprinting, strafing, clicking about 9 times a second, w-tapping). They heal after 5 seconds without a hit |
@@ -93,17 +95,17 @@ for 6v6, anti-cheat if we add ranked play.
 
 *Updated at the end of each milestone, so a new session knows where things stand.*
 
-- **Done:** setup, movement (milestone 1), melee and practice bots (milestone 2). Version 0.3.0.
+- **Done:** setup, movement (milestone 1), melee and practice bots (milestone 2). Version 0.3.1
+  fixed the owner's first playtest notes (eaten hits, knockback too far and high).
 - **Next up:** milestone 3, the fishing rod: cast, bobber physics, hooking players and the rod
   hit's knockback (1.8.9's EntityFishHook), plus a hotbar with sword and rod (keys 1/2 or scroll).
-- **Waiting on the owner:** feedback on how hits and knockback feel in practice mode. Open
+- **Waiting on the owner:** how 0.3.1's hits and knockback feel in practice mode. Open
   feedback and known gaps are tracked in [playtest-notes.md](playtest-notes.md).
 
 ## Open questions
 
 - Rounds (eliminated until next round) or respawns?
 - Friendly fire on or off? (Off for now.)
-- Keep 1.8's half-second miss delay, or drop it?
 - Arena size and layout for bigger team fights.
 - Which healing items are in the base kit?
 - The game's real name.
