@@ -13,6 +13,11 @@ of the 1.8.9 code.
   (there's no sprint key). Sprint stops when you let go of W,
   sneak, or run into a wall.
 - Jumping, sprint-jumping (the forward boost), holding jump to bunny-hop, air control.
+- Minecraft's late air sprint: in the air, starting or stopping a sprint only changes how fast
+  you speed up from the next 1/20 s tick on, because 1.8.9 sets the air acceleration
+  (`jumpMovementFactor`: 0.02, or 0.026 sprinting) after moving, not before. On the ground,
+  sprint speed changes at once, as in Minecraft. A respawn starts with the walking value, like
+  a newly spawned Minecraft player.
 - Block collision (Minecraft's own box-sliding rules), ceilings, walls.
 - Sneaking stops you at ledges, hanging over the edge like Minecraft.
 - Sprint FOV change (×1.15, eased in like Minecraft), camera drop while sneaking.
@@ -36,9 +41,10 @@ Code: `scripts/Movement/MotionModel.cs` (the math) and `scripts/Movement/PlayerM
 3. **Gravity is the same scheme.** Minecraft's vertical update has the same shape with
    friction 0.98 and a constant acceleration of `-0.08 * 0.98`, so jumps and falls are exact too.
 4. **Minecraft's rhythm.** Minecraft only notices landing, leaving the ground and tiny-speed
-   cleanup once per 1/20 s tick. We keep a phase counter and do those things on the same
-   rhythm. A jump starts instantly whenever you press it and restarts the rhythm, so landing
-   and the next bunny-hop fall exactly where Minecraft's would.
+   cleanup once per 1/20 s tick, and sets the air acceleration at the end of each tick. We keep
+   a phase counter and do those things on the same rhythm (a knockback that arrives mid-tick
+   ends the tick in progress). A jump starts instantly whenever you press it and restarts the
+   rhythm, so landing and the next bunny-hop fall exactly where Minecraft's would.
 
 Between Minecraft's ticks our path follows the smooth curve, so a jump's true peak is a hair
 (under 0.01 block) above Minecraft's tick-sampled 1.2492.

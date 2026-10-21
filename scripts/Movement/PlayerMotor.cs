@@ -30,6 +30,12 @@ public sealed class PlayerMotor
     private bool _previousSneak;
     /// <summary>Which of the N subticks of a Minecraft tick comes next (0 = a tick starts).</summary>
     private int _phase;
+    /// <summary>
+    /// Air acceleration for this Minecraft tick (1.8.9's jumpMovementFactor). Minecraft only
+    /// sets it after moving, from the sprint state then, so in the air a sprint change only
+    /// affects acceleration from the next tick on. Set at the end of each Minecraft tick.
+    /// </summary>
+    private double _airAcceleration = AirAccelerationFor(sprinting: false);
     /// <summary>Whether the last move ended resting on something.</summary>
     private bool _touchingGround;
     private FrictionRegime _lastRegime = MotionModel.Ground;
@@ -112,6 +118,8 @@ public sealed class PlayerMotor
         _touchingGround = false;
         OnGround = false;
         Sprinting = false;
+        // Like a newly spawned Minecraft player.
+        _airAcceleration = AirAccelerationFor(sprinting: false);
         FallDistance = 0;
         // A fresh copy on the server too.
         ServerMotion = Vec3d.Zero;
@@ -150,7 +158,10 @@ public sealed class PlayerMotor
     {
         double k = _lastRegime.ImpulseToState;
         Velocity = new Vec3d(motion.X * k, MotionModel.VerticalStateFromMc(motion.Y), motion.Z * k);
+        // The Minecraft tick in progress ends here, so the air acceleration is set as at any
+        // tick's end.
         _phase = 0;
+        _airAcceleration = AirAccelerationFor(Sprinting);
         _groundHold = 0;
     }
 
@@ -259,7 +270,9 @@ public sealed class PlayerMotor
             if (OnGround && _jumpCooldown == 0)
             {
                 // Jumps start instantly; the Minecraft-tick rhythm restarts from the jump, so
-                // the landing and the next hop fall exactly where Minecraft's would.
+                // the landing and the next hop fall exactly where Minecraft's would. The air
+                // acceleration needs no update here: a jump tick moves with ground acceleration,
+                // and the jump tick's end sets it for the first tick in the air.
                 _phase = 0;
                 Jump(input.Yaw);
                 _jumpCooldown = Tuning.JumpCooldownMcTicks * N;
@@ -287,10 +300,12 @@ public sealed class PlayerMotor
             Velocity = new Vec3d(Velocity.X * scale, Velocity.Y, Velocity.Z * scale);
             _lastRegime = regime;
         }
+        // Ground speed follows sprinting right away (Minecraft reads the live speed attribute);
+        // air acceleration was set at the end of the last Minecraft tick.
         double speedMultiplier = Sprinting ? Tuning.SprintSpeedMultiplier : 1.0;
         double acceleration = groundFriction
             ? MotionModel.GroundAcceleration(Tuning.WalkSpeed * speedMultiplier)
-            : Tuning.AirAcceleration * (Sprinting ? 1 + Tuning.SprintAirAccelerationBonus : 1);
+            : _airAcceleration;
         Vec3d accel = MoveFlying(strafe, forward, acceleration, input.Yaw);
 
         double px = Velocity.X + regime.StateGain * accel.X;
@@ -319,8 +334,10 @@ public sealed class PlayerMotor
         _phase = (_phase + 1) % N;
         if (_phase == 0)
         {
-            // End of a Minecraft tick: the client reports a change in sprinting to the server,
-            // then its position.
+            // End of a Minecraft tick (EntityPlayer.onLivingUpdate after moving): sets the air
+            // acceleration for the next tick from the sprint state now.
+            _airAcceleration = AirAccelerationFor(Sprinting);
+            // The client reports a change in sprinting to the server, then its position.
             if (Sprinting != _toldServerSprinting)
             {
                 _toldServerSprinting = Sprinting;
@@ -391,6 +408,10 @@ public sealed class PlayerMotor
             PushHorizontal(Vec3d.Forward(yaw) * Tuning.SprintJumpBoost);
         }
     }
+
+    /// <summary>Air acceleration in Minecraft units: 0.02, or 0.026 while sprinting.</summary>
+    private static double AirAccelerationFor(bool sprinting) =>
+        Tuning.AirAcceleration * (sprinting ? 1 + Tuning.SprintAirAccelerationBonus : 1);
 
     /// <summary>Minecraft's moveFlying: turns key input into an acceleration (MC units).</summary>
     public static Vec3d MoveFlying(double strafe, double forward, double acceleration, double yaw)
