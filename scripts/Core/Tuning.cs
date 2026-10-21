@@ -151,6 +151,38 @@ public static class Tuning
     /// <summary>Seconds before a dead player respawns.</summary>
     public const double RespawnDelay = 3.0;
 
+    // --- Fishing rod (our own rod; numbers start from 1.8.9's EntityFishHook, per MC tick) ---
+
+    /// <summary>A rod hit's damage: none, it only knocks back (and counts for hit protection).</summary>
+    public const double RodDamage = 0.0;
+    /// <summary>Bobber launch speed, blocks per MC tick.</summary>
+    public const double RodCastSpeed = 1.5;
+    /// <summary>Random spread of the launch direction (each axis of the unit direction gets a gaussian times this).</summary>
+    public const double RodCastSpread = 0.0075;
+    /// <summary>The bobber starts this far below the eyes...</summary>
+    public const double RodCastDrop = 0.1;
+    /// <summary>...and this far to the side of them (Minecraft starts it at the rod hand).</summary>
+    public const double RodCastSideOffset = 0.16;
+    /// <summary>Size of the bobber's (cube) collision box.</summary>
+    public const double BobberSize = 0.25;
+    /// <summary>Speed lost to gravity each MC tick (before drag).</summary>
+    public const double BobberGravity = 0.04;
+    /// <summary>Fraction of its motion the bobber keeps each MC tick in the air...</summary>
+    public const double BobberDrag = 0.92;
+    /// <summary>...and while touching the ground or a wall.</summary>
+    public const double BobberGroundDrag = 0.5;
+    /// <summary>
+    /// Flying into a block stops the bobber where it touches, keeping this fraction of its
+    /// speed (1.8.9's stops dead, then comes loose with a random 0 to 20%).
+    /// </summary>
+    public const double BobberImpactSpeedKept = 0.1;
+    /// <summary>Players count this much bigger on every side for the bobber.</summary>
+    public const double BobberHitboxGrow = 0.3;
+    /// <summary>A caught bobber hangs at this fraction of the player's height.</summary>
+    public const double BobberHookHeight = 0.8;
+    /// <summary>The line breaks (the bobber vanishes) when it's farther than this from the thrower.</summary>
+    public const double RodLineLength = 32.0;
+
     // --- Practice bots ----------------------------------------------------------------------
 
     /// <summary>Seconds before a practice bot comes back after dying.</summary>

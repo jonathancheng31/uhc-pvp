@@ -289,3 +289,35 @@ public sealed class McServerCopy
         return (x, y, z);
     }
 }
+
+/// <summary>
+/// Minecraft 1.8.9's bobber (EntityFishHook) in open air: the cast from a player's eyes
+/// (without the random spread) and the flight, in Minecraft's own angles (yaw 0 faces +Z and
+/// turns right, positive pitch looks down). The yardstick for <see cref="Combat.Bobber"/>.
+/// </summary>
+public sealed class McBobber
+{
+    public McBobber(Vec3d feet, double eyeHeight, double mcYaw, double mcPitch)
+    {
+        double yaw = mcYaw * Math.PI / 180.0;
+        double pitch = mcPitch * Math.PI / 180.0;
+        // Starts at the eyes, 0.16 toward the right hand and 0.1 down.
+        Position = new Vec3d(feet.X - Math.Cos(yaw) * 0.16, feet.Y + eyeHeight - 0.1, feet.Z - Math.Sin(yaw) * 0.16);
+        double mx = -Math.Sin(yaw) * Math.Cos(pitch) * 0.4;
+        double mz = Math.Cos(yaw) * Math.Cos(pitch) * 0.4;
+        double my = -Math.Sin(pitch) * 0.4;
+        // handleHookCasting: normalize, (spread), times 1.5.
+        double f = Math.Sqrt(mx * mx + my * my + mz * mz);
+        Motion = new Vec3d(mx / f * 1.5, my / f * 1.5, mz / f * 1.5);
+    }
+
+    public Vec3d Position { get; private set; }
+    public Vec3d Motion { get; private set; }
+
+    /// <summary>One tick with nothing in the way: move, gravity, air drag.</summary>
+    public void Tick()
+    {
+        Position += Motion;
+        Motion = new Vec3d(Motion.X * 0.92, (Motion.Y - 0.04) * 0.92, Motion.Z * 0.92);
+    }
+}

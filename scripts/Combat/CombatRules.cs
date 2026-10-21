@@ -103,10 +103,12 @@ public sealed class HitProtection
     /// <summary>
     /// Decides a hit with <paramref name="rawDamage"/> made in Minecraft tick <paramref name="tick"/>
     /// and records it. Returns what it did and how much damage (before armor) to apply.
+    /// A rod hit does no damage but still counts: it starts protection (with 0 as the last
+    /// damage, so a sword hit inside it is a stronger hit), and is ignored during protection.
     /// </summary>
     public (HitResult Result, double Damage) Hit(double rawDamage, long tick)
     {
-        if (rawDamage <= 0)
+        if (rawDamage < 0)
         {
             return (HitResult.Ignored, 0);
         }

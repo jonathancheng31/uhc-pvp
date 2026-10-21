@@ -454,30 +454,9 @@ public sealed class PlayerMotor
         return (blockedX, blockedY, blockedZ);
     }
 
-    /// <summary>
-    /// How far a box can move: slides it along Y, then X, then Z, stopping at every solid box
-    /// (Entity.moveEntity). Doesn't move anything.
-    /// </summary>
-    private (double X, double Y, double Z) Clip(Box box, double dx, double dy, double dz)
-    {
-        _boxes.Clear();
-        _world.CollectBoxes(box.Stretch(dx, dy, dz), _boxes);
-        foreach (Box solid in _boxes)
-        {
-            dy = solid.ClipY(box, dy);
-        }
-        box = box.Offset(0, dy, 0);
-        foreach (Box solid in _boxes)
-        {
-            dx = solid.ClipX(box, dx);
-        }
-        box = box.Offset(dx, 0, 0);
-        foreach (Box solid in _boxes)
-        {
-            dz = solid.ClipZ(box, dz);
-        }
-        return (dx, dy, dz);
-    }
+    /// <summary>How far a box can move (Entity.moveEntity). Doesn't move anything.</summary>
+    private (double X, double Y, double Z) Clip(Box box, double dx, double dy, double dz) =>
+        _world.Clip(box, dx, dy, dz, _boxes);
 
     private bool IsFree(Box region)
     {

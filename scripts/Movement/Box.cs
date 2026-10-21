@@ -137,3 +137,33 @@ public interface ICollisionWorld
     /// <summary>Adds the boxes of every solid thing overlapping <paramref name="region"/> to <paramref name="output"/>.</summary>
     void CollectBoxes(Box region, List<Box> output);
 }
+
+public static class CollisionWorldExtensions
+{
+    /// <summary>
+    /// How far a box can move: slides it along Y, then X, then Z, stopping at every solid box
+    /// (Minecraft's Entity.moveEntity). Doesn't move anything. <paramref name="scratch"/> is a
+    /// reusable list, so moving things every tick doesn't allocate.
+    /// </summary>
+    public static (double X, double Y, double Z) Clip(
+        this ICollisionWorld world, Box box, double dx, double dy, double dz, List<Box> scratch)
+    {
+        scratch.Clear();
+        world.CollectBoxes(box.Stretch(dx, dy, dz), scratch);
+        foreach (Box solid in scratch)
+        {
+            dy = solid.ClipY(box, dy);
+        }
+        box = box.Offset(0, dy, 0);
+        foreach (Box solid in scratch)
+        {
+            dx = solid.ClipX(box, dx);
+        }
+        box = box.Offset(dx, 0, 0);
+        foreach (Box solid in scratch)
+        {
+            dz = solid.ClipZ(box, dz);
+        }
+        return (dx, dy, dz);
+    }
+}
