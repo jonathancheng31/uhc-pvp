@@ -19,6 +19,12 @@ public sealed class McReference
     private int _sprintToggleTimer;
     private double _previousForward;
     private bool _previousSneak;
+    /// <summary>
+    /// Air acceleration. EntityPlayer.onLivingUpdate only sets it after super.onLivingUpdate()
+    /// has moved the player, so a tick's air movement uses the sprint state from the end of the
+    /// tick before. A new player starts at 0.02.
+    /// </summary>
+    private double _jumpMovementFactor = 0.02;
 
     public McReference(ICollisionWorld world, Vec3d position)
     {
@@ -80,12 +86,8 @@ public sealed class McReference
             Sprinting = false;
         }
 
-        // EntityPlayer.onLivingUpdate
-        double jumpMovementFactor = 0.02;
-        if (Sprinting)
-        {
-            jumpMovementFactor += 0.02 * 0.3;
-        }
+        // EntityPlayer.getAIMoveSpeed reads the movement speed attribute, which setSprinting
+        // changes right away, so ground speed follows this tick's sprint state.
         double aiMoveSpeed = 0.1 * (Sprinting ? 1.3 : 1.0);
 
         // EntityLivingBase.onLivingUpdate
@@ -123,11 +125,19 @@ public sealed class McReference
             f4 = 0.6 * 0.91;
         }
         double f = 0.16277136 / (f4 * f4 * f4);
-        double f5 = OnGround ? aiMoveSpeed * f : jumpMovementFactor;
+        double f5 = OnGround ? aiMoveSpeed * f : _jumpMovementFactor;
         Motion += PlayerMotor.MoveFlying(moveStrafe, moveForward, f5, input.Yaw);
         MoveEntity(Motion.X, Motion.Y, Motion.Z);
         double motionY = (Motion.Y - 0.08) * 0.98;
         Motion = new Vec3d(Motion.X * f4, motionY, Motion.Z * f4);
+
+        // EntityPlayer.onLivingUpdate, after super.onLivingUpdate(): sets the air acceleration
+        // for the next tick.
+        _jumpMovementFactor = 0.02;
+        if (Sprinting)
+        {
+            _jumpMovementFactor += 0.02 * 0.3;
+        }
     }
 
     private void MoveEntity(double x, double y, double z)

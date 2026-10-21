@@ -241,6 +241,62 @@ public class MovementTests : TestCase
         CheckNear(ourDrift, mcDrift, 1e-9, "distance drifted forward in the air");
     }
 
+    public void TestSprintChangesInTheAirMatchMinecraftExactly()
+    {
+        // 1.8.9 sets the air acceleration (0.02, or 0.026 sprinting) after moving, so in the air
+        // a sprint change only takes effect a tick later. The sprint key is held throughout, as
+        // in our game.
+        foreach (var (name, input) in new (string, Func<int, MovementInput>)[]
+        {
+            ("sprint-jump, then let go of W and strafe", t => new MovementInput(t < 14 ? 1 : 0, t < 14 ? 0 : 1, t == 10, true, false, 20)),
+            ("strafe-jump, then press W in the air", t => new MovementInput(t < 9 ? 0 : 1, 1, t == 5, true, false, -40)),
+            ("walk-jump, then press sprint in the air", t => new MovementInput(1, 0, t == 3, t >= 6, false, 75)),
+            ("bunny hops tapping W every tick", t => new MovementInput(t % 2, -1, true, true, false, 110)),
+        })
+        {
+            var (mc, ours) = Pair(FlatWorld());
+            int airChanges = 0;
+            double worst = 0;
+            int worstTick = -1;
+            for (int t = 0; t < 40; t++)
+            {
+                bool airTick = !mc.OnGround;
+                bool wasSprinting = mc.Sprinting;
+                StepMcTick(mc, ours, input(t));
+                if (airTick && mc.Sprinting != wasSprinting)
+                {
+                    airChanges++;
+                }
+                CheckEqual(ours.Sprinting, mc.Sprinting, $"{name}: sprinting at MC tick {t}");
+                double error = Distance(mc.Position, ours.Position);
+                if (error > worst)
+                {
+                    worst = error;
+                    worstTick = t;
+                }
+            }
+            Check(airChanges > 0, $"{name}: sprint changes in the air ({airChanges} times)");
+            Check(worst < 1e-9, $"{name}: off by {worst:E2} blocks at MC tick {worstTick}");
+        }
+    }
+
+    public void TestRespawnStartsWithoutSprintAirAcceleration()
+    {
+        // A respawned player is a fresh Minecraft player: its first tick is airborne and uses
+        // the walking air acceleration, even if it was sprinting a moment before.
+        VoxelWorld world = FlatWorld();
+        var (_, ours) = Pair(world);
+        for (int s = 0; s < 20 * N; s++)
+        {
+            ours.Step(Sprint());
+        }
+        Check(ours.Sprinting, "sprinting before the respawn");
+        var spawn = new Vec3d(32.5, FloorY + 3, 32.5);
+        ours.Teleport(spawn);
+        var mc = new McReference(world, spawn) { Motion = ours.McMotion };
+        CheckMatchesEveryTick(mc, ours, 30, _ => Sprint(), "sprinting from a respawn in the air");
+    }
+
     public void TestWallStopsPlayerAndSprint()
     {
         VoxelWorld world = FlatWorld();
