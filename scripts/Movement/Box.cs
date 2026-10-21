@@ -24,6 +24,45 @@ public readonly record struct Box(double MinX, double MinY, double MinZ, double 
         x < 0 ? MinX + x : MinX, y < 0 ? MinY + y : MinY, z < 0 ? MinZ + z : MinZ,
         x > 0 ? MaxX + x : MaxX, y > 0 ? MaxY + y : MaxY, z > 0 ? MaxZ + z : MaxZ);
 
+    public Box Grow(double d) => new(MinX - d, MinY - d, MinZ - d, MaxX + d, MaxY + d, MaxZ + d);
+
+    public bool Contains(Vec3d p) =>
+        p.X > MinX && p.X < MaxX && p.Y > MinY && p.Y < MaxY && p.Z > MinZ && p.Z < MaxZ;
+
+    /// <summary>
+    /// Distance along a ray (unit <paramref name="direction"/>) to where it enters this box, or
+    /// null if it misses or the entry is further than <paramref name="maxDistance"/>.
+    /// </summary>
+    public double? RayEntry(Vec3d origin, Vec3d direction, double maxDistance)
+    {
+        double enter = 0;
+        double exit = maxDistance;
+        if (!Slab(origin.X, direction.X, MinX, MaxX, ref enter, ref exit)
+            || !Slab(origin.Y, direction.Y, MinY, MaxY, ref enter, ref exit)
+            || !Slab(origin.Z, direction.Z, MinZ, MaxZ, ref enter, ref exit))
+        {
+            return null;
+        }
+        return enter;
+    }
+
+    private static bool Slab(double origin, double direction, double min, double max, ref double enter, ref double exit)
+    {
+        if (Math.Abs(direction) < 1e-12)
+        {
+            return origin >= min && origin <= max;
+        }
+        double t1 = (min - origin) / direction;
+        double t2 = (max - origin) / direction;
+        if (t1 > t2)
+        {
+            (t1, t2) = (t2, t1);
+        }
+        enter = Math.Max(enter, t1);
+        exit = Math.Min(exit, t2);
+        return enter <= exit;
+    }
+
     public bool Intersects(Box o) =>
         o.MaxX > MinX && o.MinX < MaxX && o.MaxY > MinY && o.MinY < MaxY && o.MaxZ > MinZ && o.MinZ < MaxZ;
 

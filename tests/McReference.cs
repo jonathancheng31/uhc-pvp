@@ -34,6 +34,13 @@ public sealed class McReference
     public bool Sneaking { get; private set; }
     public bool CollidedHorizontally { get; private set; }
 
+    /// <summary>The attacker side of a sprint hit (EntityPlayer.attackTargetEntityWithCurrentItem).</summary>
+    public void SprintHitSlowdown()
+    {
+        Motion = new Vec3d(Motion.X * 0.6, Motion.Y, Motion.Z * 0.6);
+        Sprinting = false;
+    }
+
     public void Tick(MovementInput input)
     {
         // EntityPlayerSP.onLivingUpdate

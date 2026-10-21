@@ -57,6 +57,21 @@ public sealed class PlayerMotor
     public bool Sprinting { get; private set; }
     public bool Sneaking { get; private set; }
     public bool CollidedHorizontally { get; private set; }
+    /// <summary>How far the player has fallen since last on the ground (for critical hits).</summary>
+    public double FallDistance { get; private set; }
+
+    /// <summary>
+    /// Whether Minecraft's server would think we're sprinting. The client tells the server when
+    /// sprinting starts or stops (once per tick, only on a change), and the server switches its
+    /// copy off after a sprint hit without telling the client. So after one sprint hit, the next
+    /// only gets sprint knockback once the player has really stopped and restarted sprinting;
+    /// that's why w-tapping works in 1.8. See docs/combat.md.
+    /// </summary>
+    public bool ServerSprinting { get; private set; }
+    private bool _toldServerSprinting;
+
+    /// <summary>Minecraft 1.8 critical hit: falling and not on the ground.</summary>
+    public bool CanCrit => FallDistance > 0 && !_touchingGround;
 
     public Box Bounds => Box.ForPlayer(Position, Tuning.PlayerWidth, Tuning.PlayerHeight);
 
@@ -72,12 +87,14 @@ public sealed class PlayerMotor
     public void Teleport(Vec3d position)
     {
         Position = position;
+        // Zero in our units is Minecraft's "standing on the ground" motion (0, -0.0784, 0).
         Velocity = Vec3d.Zero;
         LastMove = Vec3d.Zero;
         _groundHold = 0;
         _touchingGround = false;
         OnGround = false;
         Sprinting = false;
+        FallDistance = 0;
     }
 
     /// <summary>
@@ -90,6 +107,48 @@ public sealed class PlayerMotor
         // friction converts it (and this push) on the next move.
         double toState = _lastRegime.ImpulseToState;
         Velocity += new Vec3d(mcImpulse.X * toState, 0, mcImpulse.Z * toState);
+    }
+
+    /// <summary>Motion in Minecraft units (motionX/Y/Z, blocks per MC tick), as of the start of the next tick.</summary>
+    public Vec3d McMotion
+    {
+        get
+        {
+            double k = _lastRegime.ImpulseToState;
+            return new Vec3d(Velocity.X / k, MotionModel.McVerticalFromState(Velocity.Y), Velocity.Z / k);
+        }
+    }
+
+    /// <summary>
+    /// Replaces the motion with one in Minecraft units, the way a Minecraft client applies a
+    /// velocity packet (knockback) between ticks: the next tick starts fresh from it.
+    /// </summary>
+    public void SetMcMotion(Vec3d motion)
+    {
+        double k = _lastRegime.ImpulseToState;
+        Velocity = new Vec3d(motion.X * k, MotionModel.VerticalStateFromMc(motion.Y), motion.Z * k);
+        _phase = 0;
+        _groundHold = 0;
+    }
+
+    /// <summary>
+    /// The attacker's side of a hit that landed. Returns whether it gets sprint knockback (what
+    /// the server thinks), and applies what the attacker's own game does: a sprinting attacker
+    /// slows to 60% and stops sprinting.
+    /// </summary>
+    public bool OnHitLanded()
+    {
+        bool sprintKnockback = ServerSprinting;
+        if (Sprinting)
+        {
+            Velocity = new Vec3d(Velocity.X * Tuning.SprintHitSlowdown, Velocity.Y, Velocity.Z * Tuning.SprintHitSlowdown);
+            Sprinting = false;
+        }
+        if (sprintKnockback)
+        {
+            ServerSprinting = false;
+        }
+        return sprintKnockback;
     }
 
     /// <summary>Ground friction while standing (or on the tick of a jump), air friction otherwise.</summary>
@@ -224,6 +283,12 @@ public sealed class PlayerMotor
         }
         Velocity = new Vec3d(px * regime.SubFriction, py * vertical.SubFriction, pz * regime.SubFriction);
         _phase = (_phase + 1) % N;
+        if (_phase == 0 && Sprinting != _toldServerSprinting)
+        {
+            // End of a Minecraft tick: the client reports a change in sprinting to the server.
+            _toldServerSprinting = Sprinting;
+            ServerSprinting = Sprinting;
+        }
     }
 
     private void Jump(double yaw)
@@ -304,6 +369,14 @@ public sealed class PlayerMotor
         bool blockedZ = wantZ != dz;
         CollidedHorizontally = blockedX || blockedZ;
         _touchingGround = blockedY && wantY < 0;
+        if (_touchingGround)
+        {
+            FallDistance = 0;
+        }
+        else if (dy < 0)
+        {
+            FallDistance -= dy;
+        }
         return (blockedX, blockedY, blockedZ);
     }
 

@@ -98,14 +98,56 @@ public static class Tuning
 
     /// <summary>Max distance from the attacker's eyes to the victim's hitbox, in blocks.</summary>
     public const double Reach = 3.0;
-    /// <summary>Seconds after taking damage during which further hits do nothing (10 MC ticks).</summary>
-    public const double HurtImmunity = 0.5;
+    /// <summary>How far the crosshair looks for blocks. Hits can't go through blocks closer than the target.</summary>
+    public const double BlockReach = 4.5;
+    /// <summary>Hitboxes are this much bigger on every side for aiming (Minecraft's collision border).</summary>
+    public const double HitboxBorder = 0.1;
+    /// <summary>Damage of the kit's sword: a diamond sword (player base 1 + sword 7).</summary>
+    public const double SwordDamage = 8.0;
+    /// <summary>
+    /// Armor points of the kit (out of 20): diamond helmet and chestplate, iron leggings and boots
+    /// (3 + 8 + 5 + 2). Damage is multiplied by (25 - armor) / 25, so a sword hit does 2.24.
+    /// </summary>
+    public const int KitArmorPoints = 18;
     public const double CritMultiplier = 1.5;
+    /// <summary>MC ticks of hit protection after a hit (hurtResistantTime).</summary>
+    public const int HurtResistantMcTicks = 20;
+    /// <summary>
+    /// While more than this many MC ticks of protection remain (the first half second), hits
+    /// only count if they're stronger than the last one, and give no knockback.
+    /// </summary>
+    public const int HurtImmunityThresholdMcTicks = 10;
+    /// <summary>MC ticks the red hurt flash and camera tilt last.</summary>
+    public const int HurtFlashMcTicks = 10;
     public const double KnockbackHorizontal = 0.4;
     public const double KnockbackVertical = 0.4;
     /// <summary>Extra knockback from a sprinting hit; this is what makes w-tapping work.</summary>
     public const double SprintKnockbackBonus = 0.5;
     public const double SprintHitVerticalBonus = 0.1;
+    /// <summary>A sprint hit slows the attacker to this fraction of their speed and stops their sprint.</summary>
+    public const double SprintHitSlowdown = 0.6;
+    /// <summary>MC ticks an arm swing takes.</summary>
+    public const int SwingMcTicks = 6;
+    /// <summary>
+    /// Minecraft 1.8's "hit delay": clicking at nothing (no player in reach and no block within
+    /// block reach) blocks attacking for this many MC ticks.
+    /// </summary>
+    public const int MissClickCooldownMcTicks = 10;
+    /// <summary>Hits between teammates do nothing.</summary>
+    public const bool FriendlyFire = false;
+    /// <summary>Seconds before a dead player respawns.</summary>
+    public const double RespawnDelay = 3.0;
+
+    // --- Practice bots ----------------------------------------------------------------------
+
+    /// <summary>Seconds before a practice bot comes back after dying.</summary>
+    public const double BotRespawnDelay = 2.0;
+    /// <summary>A practice bot heals to full after this many seconds without being hit.</summary>
+    public const double BotHealDelay = 5.0;
+    /// <summary>How far in front of you the practice dummy appears.</summary>
+    public const double PracticeDummyDistance = 5.0;
+    /// <summary>Clicks per second of a fighting bot (average; it varies a bit).</summary>
+    public const double BotClicksPerSecond = 9.0;
 
     // --- Arena -----------------------------------------------------------------------------
 
