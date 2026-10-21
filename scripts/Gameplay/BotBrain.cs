@@ -14,6 +14,8 @@ public enum BotMode
     Strafe,
     /// <summary>Chases the nearest enemy and fights back: sprinting, strafing, clicking, w-tapping.</summary>
     Fight,
+    /// <summary>Moves exactly like <see cref="Fight"/> but never swings: a target that runs at you.</summary>
+    Chase,
     /// <summary>Sprints in circles, hops and sneaks (for automated multiplayer tests).</summary>
     Wander,
 }
@@ -64,7 +66,8 @@ public sealed class BotBrain
         {
             BotMode.Still => Still(self, target, delta),
             BotMode.Strafe => Strafe(self, target, delta),
-            BotMode.Fight => Fight(self, target, delta),
+            BotMode.Fight => Fight(self, target, delta, clicks: true),
+            BotMode.Chase => Fight(self, target, delta, clicks: false),
             _ => Wander(self, delta),
         };
     }
@@ -82,7 +85,7 @@ public sealed class BotBrain
         return new BotIntent(new MovementInput(0, _strafeDirection, false, false, false, self.Yaw), false);
     }
 
-    private BotIntent Fight(Player self, Player? target, double delta)
+    private BotIntent Fight(Player self, Player? target, double delta, bool clicks)
     {
         if (target is null)
         {
@@ -114,7 +117,7 @@ public sealed class BotBrain
 
         bool attack = false;
         _clickTimer -= delta;
-        if (distance < 4.2 && _clickTimer <= 0)
+        if (clicks && distance < 4.2 && _clickTimer <= 0)
         {
             attack = true;
             double cps = Tuning.BotClicksPerSecond * (0.8 + _random.NextDouble() * 0.4);

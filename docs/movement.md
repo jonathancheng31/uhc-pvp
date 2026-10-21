@@ -9,7 +9,8 @@ of the 1.8.9 code.
 
 - Walking, sprinting, sneaking, strafing, backpedaling, diagonal movement (including
   Minecraft's 2% diagonal speed quirk).
-- Sprinting with the sprint key or by double-tapping W; sprint stops when you let go of W,
+- Sprinting is always on: moving forward sprints, as if 1.8's sprint key were always held
+  (there's no sprint key). Sprint stops when you let go of W,
   sneak, or run into a wall.
 - Jumping, sprint-jumping (the forward boost), holding jump to bunny-hop, air control.
 - Block collision (Minecraft's own box-sliding rules), ceilings, walls.

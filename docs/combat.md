@@ -16,7 +16,7 @@ EntityLivingBase.attackEntityFrom and knockBack, EntityRenderer.getMouseOver). N
    penalty clears at the end of any 1/20 s tick the button is up. So it only eats a second
    click in the same tick as the miss, or clicks while the button stayed held (some butterfly
    and drag clicking). Pointing at a nearby block is not a miss.
-3. **Attacker side.** Any click on a player: if you were sprinting, you slow to 60% and stop
+3. **Attacker side.** Any click on a player: if you were sprinting, you slow to 60% but keep
    sprinting (your game does this immediately, like 1.8's client, even if the hit won't
    count). Falling and off the ground makes it a **crit**; your own screen shows crit sparks
    on every critical click.
@@ -44,25 +44,27 @@ EntityLivingBase.attackEntityFrom and knockBack, EntityRenderer.getMouseOver). N
      0.35, then 0.02.
    - **A stronger hit** (during protection) sends the victim no knockback at all; a sprint
      push from it stays on the server's copy and adds half of what's left to the next hit.
-   - **Sprint knockback is used up only by hits that count** (full or stronger). A click into
-     hit protection stops your sprint on your screen for a moment, but if you hold the sprint
-     key you start again in the same tick and the server never notices, so your next hit still
-     gets sprint knockback. With double-tap W sprinting, the stop does reach the server.
+   - **Sprint knockback is used up only by hits that count** (full or stronger), so a click
+     into hit protection keeps your next hit's sprint knockback.
+   - **Hits never stop your sprint** (a deliberate change). 1.8.9's client stops it on every
+     click on a player, but restarts it before you move when the sprint key is held, which our
+     always-on sprint is. So movement is identical to 1.8.9 with the key held; we only skip
+     1.8.9's one-tick FOV dip, and the lost sprint that double-tap-W players had to tap back.
 5. **Everyone** sees the red flash (0.5 s), hears the hurt sound, sees crit sparks, and the
    victim's camera tilts.
 
 ## W-tapping
 
 In 1.8 the client only tells the server when sprinting *changes*, and the server switches its
-own copy off after a sprint hit without telling the client. So holding W and sprint after a
-sprint hit keeps you sprinting on your screen, but your next hit gets no sprint knockback until
-you really stop sprinting for a tick (let go of W, press S, or stop sprinting) and start again.
+own copy off after a sprint hit without telling the client. So holding W after a sprint hit
+keeps you sprinting on your screen, but your next hit gets no sprint knockback until you
+really stop sprinting for a tick (let go of W, press S or sneak) and start again.
 `PlayerMotor.ServerSprinting` reproduces this exactly; F3 shows "Sprint knockback ready".
 
 ## Practice bots
 
 `scripts/Gameplay/BotBrain.cs`. Bots press the same controls a player does and their hits use
-the same rules. Modes: stand still, strafe, fight back (chases, sprints, strafes, sprint-jumps
+the same rules. Modes: stand still, strafe, chase (moves like fight back but never swings), fight back (chases, sprints, strafes, sprint-jumps
 to close distance, clicks about 9 times a second, w-taps after sprint hits, turns at up to
 540 degrees per second with a little wobble). They respawn 2 s after dying and heal to full
 after 5 s without being hit.

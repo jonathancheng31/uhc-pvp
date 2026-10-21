@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Multiplayer smoke test. A host and two network players run headless on this machine, all
-# played by the fighting bot AI; one has simulated lag. The host also adds a still practice
-# dummy. Teams: host + BotA (Red) vs dummy + BotB (Blue).
+# played by the fighting bot AI; one has simulated lag. The host also adds a practice
+# dummy that chases without hitting. Teams: host + BotA (Red) vs dummy + BotB (Blue).
 # Every player must see the other three and land hits, which exercises every combat path:
 # host hitting its own bot, a client hitting a host-run bot, a client hitting the host, and a
 # client hitting another client through the host.
@@ -17,7 +17,7 @@ run() { # name, extra args...
   "$GODOT" --headless --path . -- --name="$name" --bot=fight --port="$PORT" "$@" > "$LOGS/$name.log" 2>&1
 }
 
-run Host --host --dummies=1 --quit-after=15 &
+run Host --host --dummies=1 --dummy-mode=chase --quit-after=15 &
 run BotA --join=127.0.0.1 --quit-after=14 &
 run BotB --join=127.0.0.1 --ping=120 --jitter=20 --loss=2 --quit-after=14 &
 wait

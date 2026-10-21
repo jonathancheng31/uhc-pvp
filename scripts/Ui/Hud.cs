@@ -232,7 +232,7 @@ public partial class Hud : CanvasLayer
         _pauseMenu.Visible = paused;
         if (_botMode is not null && Game is not null)
         {
-            _botMode.Selected = (int)Game.PracticeBotMode;
+            _botMode.Selected = _botMode.GetItemIndex((int)Game.PracticeBotMode);
         }
         Input.MouseMode = paused ? Input.MouseModeEnum.Visible : Input.MouseModeEnum.Captured;
     }
@@ -417,8 +417,9 @@ public partial class Hud : CanvasLayer
             _botMode.AddItem("Bots stand still", (int)BotMode.Still);
             _botMode.AddItem("Bots strafe", (int)BotMode.Strafe);
             _botMode.AddItem("Bots fight back", (int)BotMode.Fight);
-            _botMode.Selected = (int)Game.PracticeBotMode;
-            _botMode.ItemSelected += index => Game.SetPracticeBotMode((BotMode)(int)index);
+            _botMode.AddItem("Bots chase you (no hitting)", (int)BotMode.Chase);
+            _botMode.Selected = _botMode.GetItemIndex((int)Game.PracticeBotMode);
+            _botMode.ItemSelected += index => Game.SetPracticeBotMode((BotMode)_botMode.GetItemId((int)index));
             box.AddChild(_botMode);
             box.AddChild(new HSeparator());
         }

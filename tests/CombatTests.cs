@@ -172,8 +172,37 @@ public class CombatMotionTests : TestCase
         }
         mc.SprintHitSlowdown();
         ours.OnHitLanded(accepted: true);
-        Check(!ours.Sprinting, "a sprint hit stops sprinting");
+        Check(ours.Sprinting, "a sprint hit no longer stops your sprint");
+        // 1.8.9 stops it, but restarts it before moving when the sprint key is held, so the
+        // movement is identical to keeping it.
         CheckTrack(mc, ours, 20, sprint, "after a sprint hit, holding sprint");
+    }
+
+    public void TestDoubleTapSprintSurvivesHits()
+    {
+        var (_, ours) = Pair();
+        var walk = new MovementInput(1, 0, false, false, false, 0);
+        var idle = new MovementInput(0, 0, false, false, false, 0);
+        foreach (MovementInput input in new[] { walk, idle, walk })
+        {
+            for (int i = 0; i < N; i++)
+            {
+                ours.Step(input);
+            }
+        }
+        for (int i = 0; i < 10 * N; i++)
+        {
+            ours.Step(walk);
+        }
+        Check(ours.Sprinting, "double-tapping W sprints");
+        ours.OnHitLanded(accepted: true);
+        for (int i = 0; i < 10 * N; i++)
+        {
+            ours.Step(walk);
+        }
+        Check(ours.Sprinting, "still sprinting after a hit (1.8.9 would stop until the next double-tap)");
+        CheckNear(ours.HorizontalSpeed, 5.612, 0.01, "back to full sprint speed");
+        Check(!ours.ServerSprinting, "sprint knockback still needs a w-tap");
     }
 
     public void TestWTapIsNeededForSprintKnockback()
@@ -198,8 +227,8 @@ public class CombatMotionTests : TestCase
         RunTicks(sprint, 2);
         Check(ours.ServerSprinting, "after letting go of W for one tick (w-tap), sprint knockback is back");
 
-        // Clicking a player who is still protected: your own game stops your sprint for a
-        // moment, but the server's sprint flag is only used up by hits that count.
+        // Clicking a player who is still protected: the server's sprint flag is only used up by
+        // hits that count.
         for (int phase = 0; phase < N; phase++)
         {
             ours.OnHitLanded(accepted: false);
@@ -211,7 +240,7 @@ public class CombatMotionTests : TestCase
         var tapSprint = new MovementInput(1, 0, false, false, false, 0);
         ours.OnHitLanded(accepted: false);
         RunTicks(tapSprint, 1);
-        Check(!ours.ServerSprinting, "without the sprint key (double-tap W) the stop reaches the server, as in 1.8");
+        Check(ours.ServerSprinting, "double-tap sprinting keeps going too, so a click into protection keeps sprint knockback");
     }
 
     /// <summary>A Minecraft player, our motor and Minecraft's server copy, settled on a floor.</summary>

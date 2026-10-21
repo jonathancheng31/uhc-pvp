@@ -156,17 +156,19 @@ public sealed class PlayerMotor
 
     /// <summary>
     /// The attacker's side of a click on a player. The attacker's own game treats every such
-    /// click as a hit: a sprinting attacker slows to 60% and stops sprinting, even when the
-    /// victim was protected. The server only uses up its sprint flag (and slows its copy) when
-    /// the hit counted (<paramref name="accepted"/>: a full or stronger hit), so a click into
-    /// hit protection keeps the next hit's sprint knockback.
+    /// click as a hit: a sprinting attacker slows to 60%, even when the victim was protected.
+    /// Unlike 1.8.9 the attacker keeps sprinting. 1.8.9 stops it, but with the sprint key held
+    /// (our sprint is always held) it restarts before the next move, so only double-tap
+    /// sprinting and a one-tick FOV dip ever showed it. The server only uses up its sprint flag
+    /// (and slows its copy) when the hit counted (<paramref name="accepted"/>: a full or
+    /// stronger hit), so the next hit needs a w-tap for sprint knockback, while a click into
+    /// hit protection keeps it.
     /// </summary>
     public void OnHitLanded(bool accepted)
     {
         if (Sprinting)
         {
             Velocity = new Vec3d(Velocity.X * Tuning.SprintHitSlowdown, Velocity.Y, Velocity.Z * Tuning.SprintHitSlowdown);
-            Sprinting = false;
         }
         if (accepted && ServerSprinting)
         {

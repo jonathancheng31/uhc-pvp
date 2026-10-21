@@ -374,10 +374,11 @@ public partial class Player : Node3D
         }
         double forward = Input.GetActionStrength(Controls.MoveForward) - Input.GetActionStrength(Controls.MoveBack);
         double strafe = Input.GetActionStrength(Controls.MoveLeft) - Input.GetActionStrength(Controls.MoveRight);
+        // Sprinting is always on: moving forward sprints, as if the sprint key were held.
         return new MovementInput(
             forward, strafe,
             Input.IsActionPressed(Controls.Jump),
-            Input.IsActionPressed(Controls.Sprint),
+            Sprint: true,
             Input.IsActionPressed(Controls.Sneak),
             Yaw);
     }

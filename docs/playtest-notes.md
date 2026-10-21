@@ -9,6 +9,14 @@ what we think is causing it. Fixed items move to "Done" with the version that fi
 
 ## Open
 
+- **2026-10-21, 0.3.1, idea: faster strafing** ("we can consider changing the movement patterns
+  so that strafing is a lot faster, adding more skill... that's for later"). Queued in
+  `design.md`, "Later".
+- **2026-10-21, 0.3.1, decision: the fishing rod, our own design.** "We are heavily based on
+  Minecraft, let's move away from that and start building ourselves." Right-click throws the rod
+  (no slot switching, no cooldown); right-click again removes the old bobber and throws a new
+  one; a hit knocks back. Rod hits count for hit protection like 1.8 (owner's choice). Being
+  built now (milestone 3, `design.md`).
 - **0.3.1: how do hits and knockback feel now?** Especially combos on a fighting bot, and
   whether hits still get eaten.
 
@@ -23,6 +31,18 @@ Not bugs: things that are expected to feel off until they're built.
 
 ## Done
 
+- **2026-10-21, 0.3.1, decision: "make sprinting a toggle like Badlion and Lunar Client", then
+  "make it so that sprinting isn't an option at all, it's just the default movement."** **Done in
+  0.3.2:** moving forward always sprints; the sprint key is gone.
+- **2026-10-21, 0.3.1, feel: "don't make players lose sprint after hitting a player, that's not
+  correct."** Cause: 1.8.9 stops your sprint on every click on a player. With the sprint key held
+  (or Lunar/Badlion toggle sprint) it comes straight back before you move, but double-tap-W
+  sprinting stays off until you double-tap again, which is what our game did without the key.
+  **Fixed in 0.3.2:** hits never stop your sprint (you still slow down a little per hit, and
+  w-tapping still resets sprint knockback, like 1.8).
+- **2026-10-21, 0.3.1, idea: "a setting for the bot so that it attacks me but doesn't actually
+  swing its sword... basically running at me."** **Done in 0.3.2:** "Bots chase you (no hitting)"
+  in the pause menu: moves exactly like the fighting bot but never swings.
 - **2026-10-21, 0.3.0, feel: "the knockback feels a little weird... especially sprint knockups.
   Not sure if it's going too far or too high."** Cause: we built knockback from the victim's
   real motion, but 1.8.9 builds it from the server's copy of the player, which doesn't move

@@ -21,7 +21,7 @@ namespace UhcPvp.Autoload;
 /// --bot[=MODE]         Play by itself. MODE is wander (default: run, hop, sneak) or fight.
 /// --practice           Host a solo practice match with a training dummy.
 /// --dummies=N          Host only: add N practice bots.
-/// --dummy-mode=MODE    How practice bots behave: still (default), strafe or fight.
+/// --dummy-mode=MODE    How practice bots behave: still (default), strafe, fight or chase.
 /// --ping=MS            Simulate this much extra ping.
 /// --jitter=MS          Simulate this much random extra delay.
 /// --loss=PERCENT       Simulate this percentage of lost packets.

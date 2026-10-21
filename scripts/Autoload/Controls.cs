@@ -15,7 +15,6 @@ public partial class Controls : Node
     public const string MoveLeft = "move_left";
     public const string MoveRight = "move_right";
     public const string Jump = "jump";
-    public const string Sprint = "sprint";
     public const string Sneak = "sneak";
     public const string Attack = "attack";
     public const string Use = "use";
@@ -31,7 +30,6 @@ public partial class Controls : Node
         [MoveLeft] = Key.A,
         [MoveRight] = Key.D,
         [Jump] = Key.Space,
-        [Sprint] = Key.Ctrl,
         [Sneak] = Key.Shift,
         [Hotbar1] = Key.Key1,
         [Hotbar2] = Key.Key2,
