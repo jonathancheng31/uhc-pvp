@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using Godot;
+using UhcPvp.Movement;
 
 namespace UhcPvp.World;
 
@@ -10,7 +12,7 @@ namespace UhcPvp.World;
 /// The world is split into 16x16x16 chunks for drawing, so that placing or breaking a block
 /// later only needs one chunk redrawn.
 /// </summary>
-public sealed class VoxelWorld
+public sealed class VoxelWorld : ICollisionWorld
 {
     public const int ChunkSize = 16;
 
@@ -59,6 +61,38 @@ public sealed class VoxelWorld
                 for (int x = Math.Min(from.X, to.X); x <= Math.Max(from.X, to.X); x++)
                 {
                     Set(x, y, z, block);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Adds the box of every solid block overlapping <paramref name="region"/>, scanning the same
+    /// block range Minecraft does (floor(min) to floor(max)).
+    /// </summary>
+    public void CollectBoxes(Box region, List<Box> output)
+    {
+        int minX = (int)Math.Floor(region.MinX);
+        int maxX = (int)Math.Floor(region.MaxX);
+        int minY = (int)Math.Floor(region.MinY);
+        int maxY = (int)Math.Floor(region.MaxY);
+        int minZ = (int)Math.Floor(region.MinZ);
+        int maxZ = (int)Math.Floor(region.MaxZ);
+        for (int y = minY; y <= maxY; y++)
+        {
+            for (int z = minZ; z <= maxZ; z++)
+            {
+                for (int x = minX; x <= maxX; x++)
+                {
+                    if (!IsSolid(x, y, z))
+                    {
+                        continue;
+                    }
+                    var block = new Box(x, y, z, x + 1, y + 1, z + 1);
+                    if (block.Intersects(region))
+                    {
+                        output.Add(block);
+                    }
                 }
             }
         }

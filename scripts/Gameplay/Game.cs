@@ -90,7 +90,7 @@ public partial class Game : Node3D
         double now = Net.HostTime;
         foreach (Player player in _remotePlayers.Values)
         {
-            player.UpdateRemote(now);
+            player.UpdateRemote(now, delta);
             TrackSeen(player);
         }
     }
@@ -98,7 +98,7 @@ public partial class Game : Node3D
     private Player SpawnPlayer(int id, bool local)
     {
         var player = new Player();
-        player.Setup(id, local);
+        player.Setup(id, local, World);
         AddChild(player);
         return player;
     }

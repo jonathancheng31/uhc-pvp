@@ -4,8 +4,9 @@ A first-person, block-world PvP game where teams fight teams, from 1v1 up to 6v6
 Combat is inspired by Minecraft 1.8.9 and Hypixel UHC Duels: combos, knockback and the
 fishing rod. It's a spin-off, not a replica.
 
-**Status:** early development. You can host or join a match and see the other players,
-but walking and combat aren't in yet. See the [milestones](docs/design.md#milestones).
+**Status:** early development. Host or join a match and move around with movement that
+matches Minecraft 1.8.9 exactly (sprinting, jumping, bunny-hopping, sneaking). Combat isn't in
+yet. See the [milestones](docs/design.md#milestones).
 
 ## Play the latest build (Windows)
 
@@ -27,7 +28,10 @@ but walking and combat aren't in yet. See the [milestones](docs/design.md#milest
 | Key | Action |
 |---|---|
 | Mouse | Look around |
-| W A S D, Space, Ctrl, Shift | Move, jump, sprint, sneak (coming in the movement milestone) |
+| W A S D | Move |
+| Space | Jump (hold to keep hopping) |
+| Ctrl, or double-tap W | Sprint |
+| Shift | Sneak (stops you at ledges) |
 | Esc | Pause menu (free the mouse, leave the match) |
 | F3 | Show or hide debug info (FPS, ping, position) |
 

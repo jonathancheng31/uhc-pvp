@@ -51,11 +51,11 @@ Godot project, block arena, Host/Join menu, teams up to 6v6, players visible to 
 other, clock sync, smoothing of other players, lag simulator, bot players, unit tests,
 multiplayer smoke test, automatic Windows builds.
 
-### 1. Movement
+### 1. Movement (done)
 Minecraft 1.8.9 movement: walk, sprint (key or double-tap W), sneak (stops at ledges), jump,
 sprint-jump, strafing, air control, block collision. Tests that compare against an exact copy
 of 1.8.9's movement code. Sprint FOV change. Smooth camera between ticks. Walk and sneak
-animations on other players.
+animations on other players. Details in [movement.md](movement.md).
 
 ### 2. Melee
 Sword and clicking. 3-block reach checked against what the attacker saw, with the lag cap.

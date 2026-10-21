@@ -80,6 +80,19 @@ public partial class Hud : CanvasLayer
             $"XYZ: {player.Position.X:0.00} / {player.Position.Y:0.00} / {player.Position.Z:0.00}",
             $"Facing: yaw {player.Yaw:0.0}, pitch {player.Pitch:0.0}",
         };
+        if (player.Motor is { } motor)
+        {
+            var states = new List<string> { motor.OnGround ? "on ground" : "in air" };
+            if (motor.Sprinting)
+            {
+                states.Add("sprinting");
+            }
+            if (motor.Sneaking)
+            {
+                states.Add("sneaking");
+            }
+            lines.Add($"Speed: {motor.HorizontalSpeed:0.00} blocks/s ({string.Join(", ", states)})");
+        }
         if (net.IsLagSimulated)
         {
             lines.Add($"Simulated lag: +{LaunchArgs.Instance.PingMs:0} ms ping");

@@ -6,6 +6,7 @@ Hypixel UHC Duels combat. Built in Godot 4.7 (.NET edition) with C# on .NET 10. 
 Read these first; they hold the plan and every decision made so far:
 - `docs/design.md`: vision, decisions, milestones, open questions
 - `docs/netcode.md`: how lag is handled and why
+- `docs/movement.md`: how movement matches Minecraft 1.8.9 exactly at 60 ticks/s (read before touching movement)
 
 ## Working with the owner
 
