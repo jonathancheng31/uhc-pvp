@@ -96,7 +96,8 @@ for 6v6, anti-cheat if we add ranked play.
 - **Done:** setup, movement (milestone 1), melee and practice bots (milestone 2). Version 0.3.0.
 - **Next up:** milestone 3, the fishing rod: cast, bobber physics, hooking players and the rod
   hit's knockback (1.8.9's EntityFishHook), plus a hotbar with sword and rod (keys 1/2 or scroll).
-- **Waiting on the owner:** feedback on how hits and knockback feel in practice mode.
+- **Waiting on the owner:** feedback on how hits and knockback feel in practice mode. Open
+  feedback and known gaps are tracked in [playtest-notes.md](playtest-notes.md).
 
 ## Open questions
 

@@ -8,6 +8,7 @@ Read these first; they hold the plan and every decision made so far:
 - `docs/netcode.md`: how lag is handled and why
 - `docs/movement.md`: how movement matches Minecraft 1.8.9 exactly at 60 ticks/s (read before touching movement)
 - `docs/combat.md`: melee rules, w-tapping, practice bots
+- `docs/playtest-notes.md`: the owner's feedback on each build, open and done, plus known gaps
 
 `docs/design.md` has a "Current status / next up" section: read it first, and update it when a
 milestone ships.
@@ -26,6 +27,25 @@ milestone ships.
   Check the Build workflow passed before telling the owner a new build is ready.
 - When a decision changes, update `docs/design.md` (and `docs/netcode.md` if relevant) in the same commit.
 
+## How we work
+
+- **One session per milestone.** Start a session with `/next-milestone`; it picks up from the
+  status section in `docs/design.md` and the open items in `docs/playtest-notes.md`. When a
+  session gets long, finish the current step, ship it, update the status section and suggest
+  a fresh session rather than starting something big.
+- **Project commands** (`.claude/skills/`):
+  - `/next-milestone`: catch up, research, plan with the owner, build, ship
+  - `/ship`: checks, commit, push, wait for the Windows build, tell the owner
+  - `/playtest-shot`: screenshots of the game on a virtual display, to check visuals
+  - `/feedback`: log the owner's playtest feedback and act on it
+- **Every piece of feedback goes in `docs/playtest-notes.md`,** typed as `/feedback` or said in
+  plain chat. Fixes record the version that fixed them.
+- **Research happens in helpers.** Look up Minecraft 1.8.9 mechanics with the `mc-researcher`
+  agent (`.claude/agents/`), one per topic, in parallel. Its brief is the starting point;
+  numbers still get parity tests.
+- **Look before asking the owner to look.** Check visual changes with `/playtest-shot` first.
+- **Chat stays short:** outcome first, plain language, one or two specific questions at most.
+
 ## Commands
 
 Cloud sessions run `.claude/hooks/session-start.sh` at startup, which installs the .NET 10 SDK
@@ -36,6 +56,7 @@ dotnet build UhcPvp.csproj            # compile; warnings are errors (nullable +
 dotnet format UhcPvp.csproj           # fix formatting; CI runs it with --verify-no-changes
 tools/run_tests.sh [Filter]          # build + unit tests (tests/*Tests.cs), optionally only matching names
 tools/smoke_test.sh                  # host + 2 players + dummy, all bots fighting over the network (one laggy)
+tools/screenshot.sh [--at=3,3.1] [-- launch options]   # screenshots on a virtual display (see /playtest-shot)
 godot --headless --path . --import   # after adding assets (textures etc.)
 python3 tools/gen_textures.py        # rebuild block atlas and HUD icons, then re-import
 python3 tools/gen_sounds.py          # rebuild sound effects, then re-import
@@ -50,12 +71,8 @@ godot --path . -- --practice --bot=fight          # solo practice; the local pla
 godot --path . -- --host --dummies=2 --dummy-mode=strafe
 ```
 
-To see the game in a cloud session, render to a virtual display and save a screenshot:
-
-```bash
-xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver opengl3 \
-  -- --host --screenshot=/tmp/shot.png --screenshot-at=3 --quit-after=4
-```
+To see the game in a cloud session, use `tools/screenshot.sh`; it runs the game under
+`xvfb-run` with `--screenshot` and `--screenshot-at` (a comma-separated list takes several shots).
 
 Windows export (needs the .NET export templates, see `tools/install_godot.sh --windows-templates`):
 `godot --headless --path . --export-release "Windows Desktop" build/windows/UHC-PvP.exe`.
@@ -78,7 +95,10 @@ It produces `UHC-PvP.exe` plus a `data_UhcPvp_windows_x86_64` folder (the .NET r
 - `scripts/Ui/`: main menu and in-match HUD, both built in code
 - `tests/`: `TestCase` base class, `*Tests.cs` suites, `McReference` (exact Minecraft 1.8.9
   movement used as the yardstick), run by `tests/test_runner.tscn`. Excluded from release builds.
-- `tools/`: test scripts, texture generator, Godot/.NET installer (used by CI and the startup hook)
+- `tools/`: test and screenshot scripts, texture and sound generators, Godot/.NET installer
+  (used by CI and the startup hook)
+- `.claude/`: the startup hook, project commands (`skills/`), the `mc-researcher` agent
+  (`agents/`) and pre-approved commands (`settings.json`)
 
 ## Conventions
 

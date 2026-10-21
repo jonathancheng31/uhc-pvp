@@ -70,7 +70,12 @@ public partial class Game : Node3D
         args.Quitting += PrintTestReport;
         if (args.ScreenshotPath.Length > 0)
         {
-            GetTree().CreateTimer(args.ScreenshotAt).Timeout += TakeScreenshot;
+            IReadOnlyList<double> times = args.ScreenshotTimes;
+            for (int i = 0; i < times.Count; i++)
+            {
+                string path = times.Count == 1 ? args.ScreenshotPath : LaunchArgs.NumberedPath(args.ScreenshotPath, i + 1);
+                GetTree().CreateTimer(times[i]).Timeout += () => TakeScreenshot(path);
+            }
         }
         if (Net.IsHost)
         {
@@ -308,10 +313,9 @@ public partial class Game : Node3D
             + $"kills={Kills} ping_ms={(int)Math.Round(Net.PingSeconds * 1000)}");
     }
 
-    private async void TakeScreenshot()
+    private async void TakeScreenshot(string path)
     {
         await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
-        string path = LaunchArgs.Instance.ScreenshotPath;
         Error err = GetViewport().GetTexture().GetImage().SavePng(path);
         GD.Print($"[game] screenshot saved to {path} ({err})");
     }

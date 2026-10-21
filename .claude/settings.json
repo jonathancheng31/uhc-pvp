@@ -10,5 +10,22 @@
         ]
       }
     ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(tools/run_tests.sh)",
+      "Bash(tools/run_tests.sh *)",
+      "Bash(dotnet build UhcPvp.csproj)",
+      "Bash(dotnet build UhcPvp.csproj *)",
+      "Bash(godot --headless --path . --import)",
+      "Bash(tools/smoke_test.sh)",
+      "Bash(tools/smoke_test.sh *)",
+      "Bash(dotnet format UhcPvp.csproj)",
+      "Bash(dotnet format UhcPvp.csproj *)",
+      "Bash(tools/screenshot.sh)",
+      "Bash(tools/screenshot.sh *)",
+      "WebSearch",
+      "Bash(sha512sum *)"
+    ]
   }
 }

@@ -42,7 +42,7 @@ a large rework.
 
 **Topology.** Everyone connects to one host over ENet (UDP). Peer-to-peer is out because
 12 players would need 66 connections. The host runs inside a player's game for now;
-the same code can run headless on a rented server later. Port: `Tuning.DEFAULT_PORT`.
+the same code can run headless on a rented server later. Port: `Tuning.DefaultPort`.
 
 **Messages** (`scripts/Net/Messages.cs`, sent by `scripts/Autoload/Network.cs`). Every
 message is a typed record with a compact binary format, sent through one reliable and one

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
+using UhcPvp.Autoload;
 using UhcPvp.Core;
 
 namespace UhcPvp.Tests;
@@ -140,4 +141,22 @@ public class TuningTests : TestCase
         Check(state.Has(PlayerFlags.Sprinting) && !state.Has(PlayerFlags.Sneaking), "flags");
         Check(!(state with { Yaw = float.NaN }).IsValid, "NaN rejected");
     }
+}
+
+public class LaunchArgsTests : TestCase
+{
+    public void TestScreenshotTimesParseAList()
+    {
+        double[] times = LaunchArgs.ParseTimes(" 1, 2.5,3 ");
+        Check(times.Length == 3 && times[0] == 1 && times[1] == 2.5 && times[2] == 3, $"got [{string.Join(", ", times)}]");
+    }
+
+    public void TestBadScreenshotTimesFallBackToDefault()
+    {
+        Check(LaunchArgs.ParseTimes("soon,-1").Length == 1, "falls back to one default time");
+        Check(LaunchArgs.ParseTimes("x,4").Length == 1, "skips the bad entry");
+    }
+
+    public void TestNumberedScreenshotPath() =>
+        Check(LaunchArgs.NumberedPath("/tmp/shots/shot.png", 2) == "/tmp/shots/shot_2.png", "inserts the number before .png");
 }
