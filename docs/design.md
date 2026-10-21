@@ -11,6 +11,9 @@ replica: we keep what makes that combat great and are free to change the rest.
 
 Long-term goal: a **Steam release**. Every decision should keep that possible.
 
+Guiding rule: **build the better thing, even when it takes longer or costs more.** The
+final result matters, not build effort.
+
 ## What matters most
 
 1. **Combos and knockback.** The 1.8 feel: no attack cooldown (clicks per second
