@@ -28,12 +28,13 @@ final result matters, not build effort.
 
 | Topic | Decision |
 |---|---|
-| Engine | Godot 4.7, GDScript |
+| Engine | Godot 4.7 (.NET edition) |
+| Language | C# on .NET 10 (switched from GDScript: faster code, more mistakes caught before the game runs, better tooling) |
 | View | First person |
 | World | Made of blocks. No building at first, but the world is stored as blocks so building can be added later |
 | Teams | Team vs team, 1v1 up to 6v6 (12 players max). No big UHC survival mode |
 | Platform | Windows first. Keyboard and mouse only |
-| Combat numbers | Start from exact Minecraft 1.8.9 values (all in `scripts/core/tuning.gd`), then tune |
+| Combat numbers | Start from exact Minecraft 1.8.9 values (all in `scripts/Core/Tuning.cs`), then tune |
 | Block-hitting | Not included |
 | Armor | A fixed armor set so fights last about as long as UHC Duels |
 | Mouse and FOV | Match Minecraft's sensitivity curve and FOV so aim muscle memory carries over |
@@ -51,9 +52,10 @@ other, clock sync, smoothing of other players, lag simulator, bot players, unit 
 multiplayer smoke test, automatic Windows builds.
 
 ### 1. Movement
-Minecraft 1.8.9 movement: walk, sprint, sneak, jump, sprint-jump, strafing, air control,
-block collision. Tests that compare against Minecraft (jump height, sprint speed).
-Sprint FOV change. Smooth camera between ticks.
+Minecraft 1.8.9 movement: walk, sprint (key or double-tap W), sneak (stops at ledges), jump,
+sprint-jump, strafing, air control, block collision. Tests that compare against an exact copy
+of 1.8.9's movement code. Sprint FOV change. Smooth camera between ticks. Walk and sneak
+animations on other players.
 
 ### 2. Melee
 Sword and clicking. 3-block reach checked against what the attacker saw, with the lag cap.

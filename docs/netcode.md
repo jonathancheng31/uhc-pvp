@@ -44,15 +44,16 @@ a large rework.
 12 players would need 66 connections. The host runs inside a player's game for now;
 the same code can run headless on a rented server later. Port: `Tuning.DEFAULT_PORT`.
 
-**Messages** (`scripts/autoload/net.gd`). Every message is an Array whose first element
-is a `Net.Msg` value, sent through one reliable and one unreliable RPC. Joining:
+**Messages** (`scripts/Net/Messages.cs`, sent by `scripts/Autoload/Network.cs`). Every
+message is a typed record with a compact binary format, sent through one reliable and one
+unreliable RPC. Malformed input is dropped, never crashes. Joining:
 `HELLO` -> host assigns a team -> `WELCOME` with the roster; others get `PLAYER_JOINED`.
 
 **Shared clock** (`NetClock`). Players ping the host twice a second and estimate the
 host's clock from the fastest recent round trip. All states and hits are stamped with
 host time, which is what makes the lag cap possible.
 
-**State flow** (`scripts/game/game.gd`). Each player sends its own `PlayerState`
+**State flow** (`scripts/Gameplay/Game.cs`). Each player sends its own `PlayerState`
 (position, yaw, pitch, flags) to the host every tick. The host sends everyone a
 `SNAPSHOT` of all players every tick.
 

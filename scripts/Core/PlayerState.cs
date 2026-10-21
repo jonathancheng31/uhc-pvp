@@ -1,0 +1,37 @@
+using System;
+using Godot;
+
+namespace UhcPvp.Core;
+
+[Flags]
+public enum PlayerFlags : byte
+{
+    None = 0,
+    OnGround = 1,
+    Sprinting = 2,
+    Sneaking = 4,
+}
+
+/// <summary>
+/// The compact state each player sends many times per second.
+/// Yaw and pitch are in degrees. Yaw 0 faces -Z; positive yaw turns left. Positive pitch looks up.
+/// </summary>
+public readonly record struct PlayerState(Vector3 Position, float Yaw, float Pitch, PlayerFlags Flags)
+{
+    public bool IsValid =>
+        float.IsFinite(Position.X) && float.IsFinite(Position.Y) && float.IsFinite(Position.Z)
+        && float.IsFinite(Yaw) && float.IsFinite(Pitch);
+
+    public bool Has(PlayerFlags flag) => (Flags & flag) != 0;
+
+    /// <summary>Blends two states; yaw takes the short way round.</summary>
+    public static PlayerState Blend(PlayerState a, PlayerState b, float t)
+    {
+        float yaw = a.Yaw + Mathf.Wrap(b.Yaw - a.Yaw, -180f, 180f) * t;
+        return new PlayerState(
+            a.Position.Lerp(b.Position, t),
+            yaw,
+            Mathf.Lerp(a.Pitch, b.Pitch, t),
+            t < 0.5f ? a.Flags : b.Flags);
+    }
+}

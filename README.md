@@ -11,7 +11,7 @@ but walking and combat aren't in yet. See the [milestones](docs/design.md#milest
 
 1. Download **[UHC-PvP-Windows.zip](https://github.com/jonathancheng31/uhc-pvp/releases/download/dev-build/UHC-PvP-Windows.zip)**.
    It's rebuilt automatically after every change.
-2. Unzip it and run `UHC-PvP.exe`.
+2. Unzip it and run `UHC-PvP.exe` (keep the `data_...` folder next to it).
 3. Windows may say "Windows protected your PC" because the game isn't signed yet.
    Click **More info**, then **Run anyway**.
 
@@ -38,10 +38,11 @@ but walking and combat aren't in yet. See the [milestones](docs/design.md#milest
 
 ## Development
 
-Built with [Godot 4.7.2](https://godotengine.org) (GDScript). See [CLAUDE.md](CLAUDE.md)
-for commands, project layout and conventions.
+Built with [Godot 4.7.2 .NET](https://godotengine.org) and C# on .NET 10. See
+[CLAUDE.md](CLAUDE.md) for commands, project layout and conventions.
 
 ```bash
+dotnet build UhcPvp.csproj
 godot --headless --path . --import
 tools/run_tests.sh
 tools/smoke_test.sh

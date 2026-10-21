@@ -1,7 +1,7 @@
 # UHC PvP
 
 First-person, block-world, team vs team PvP (1v1 up to 6v6) inspired by Minecraft 1.8.9 /
-Hypixel UHC Duels combat. Built in Godot 4.7 with GDScript. Long-term goal: Steam release.
+Hypixel UHC Duels combat. Built in Godot 4.7 (.NET edition) with C# on .NET 10. Long-term goal: Steam release.
 
 Read these first; they hold the plan and every decision made so far:
 - `docs/design.md`: vision, decisions, milestones, open questions
@@ -23,17 +23,19 @@ Read these first; they hold the plan and every decision made so far:
 
 ## Commands
 
-Cloud sessions run `.claude/hooks/session-start.sh` at startup, which installs Godot
-(`tools/install_godot.sh`, checksum verified) and imports the project.
+Cloud sessions run `.claude/hooks/session-start.sh` at startup, which installs the .NET 10 SDK
+and Godot 4.7.2 .NET (`tools/install_godot.sh`, checksum verified), builds and imports the project.
 
 ```bash
-godot --headless --path . --import   # after adding assets or class_name scripts
-tools/run_tests.sh                   # unit tests (tests/test_*.gd), incl. a check that every script compiles
+dotnet build UhcPvp.csproj            # compile; warnings are errors (nullable + .NET analyzers)
+dotnet format UhcPvp.csproj           # fix formatting; CI runs it with --verify-no-changes
+tools/run_tests.sh [Filter]          # build + unit tests (tests/*Tests.cs), optionally only matching names
 tools/smoke_test.sh                  # host + 2 bots (one laggy) must all see each other moving
+godot --headless --path . --import   # after adding assets (textures etc.)
 python3 tools/gen_textures.py        # rebuild the block texture atlas, then re-import
 ```
 
-Run the game with launch options after `--` (full list in `scripts/autoload/launch_args.gd`):
+Run the game with launch options after `--` (full list in `scripts/Autoload/LaunchArgs.cs`):
 
 ```bash
 godot --path . -- --host --name=Alice
@@ -47,30 +49,42 @@ xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver opengl3
   -- --host --screenshot=/tmp/shot.png --screenshot-at=3 --quit-after=4
 ```
 
-Windows export (needs export templates installed): `godot --headless --path . --export-release "Windows Desktop" build/windows/UHC-PvP.exe`
+Windows export (needs the .NET export templates, see `tools/install_godot.sh --windows-templates`):
+`godot --headless --path . --export-release "Windows Desktop" build/windows/UHC-PvP.exe`.
+It produces `UHC-PvP.exe` plus a `data_UhcPvp_windows_x86_64` folder (the .NET runtime); ship both.
 
 ## Layout
 
-- `scripts/autoload/`: `LaunchArgs` (command-line options), `Controls` (input actions in code),
-  `Net` (ENet host/join, messages, clock sync, lag simulator), `Session` (roster, teams, scene changes)
-- `scripts/core/`: engine-independent logic with unit tests: `Tuning` (every gameplay number),
-  `PlayerState`, `SnapshotBuffer`, `NetClock`, `LagSimulator`
-- `scripts/world/`: `VoxelWorld` (block grid), `ChunkMesher`, `WorldRenderer`, `Arena`, `Blocks`
-- `scripts/game/`: `game.gd` (match scene logic), `Player`, `PlayerModel`
-- `scripts/ui/`: main menu and in-match HUD, both built in code
-- `tests/`: `TestCase` base class and `test_*.gd` files, run by `tests/test_runner.tscn`
-- `tools/`: test scripts, texture generator, Godot installer (used by CI and the startup hook)
+- `scripts/Autoload/`: `LaunchArgs` (command-line options), `Controls` (input actions in code),
+  `Network` (ENet host/join, messages, clock sync, lag simulator), `Session` (roster, teams, scene changes)
+- `scripts/Core/`: engine-light logic with unit tests: `Tuning` (every gameplay number),
+  `PlayerState`, `SnapshotBuffer`, `NetClock`, `LagSimulator`, `Team`
+- `scripts/Movement/`: physics in doubles: `Vec3d`, `Box` (Minecraft's collision math),
+  `MotionModel` (20-tick to 60-tick conversion), `PlayerMotor`
+- `scripts/Net/Messages.cs`: every network message as a typed record with its binary format
+- `scripts/World/`: `VoxelWorld` (block grid), `ChunkMesher`, `WorldRenderer`, `Arena`, `Blocks`
+- `scripts/Gameplay/`: `Game` (match scene logic), `Player`, `PlayerModel`
+- `scripts/Ui/`: main menu and in-match HUD, both built in code
+- `tests/`: `TestCase` base class, `*Tests.cs` suites, `McReference` (exact Minecraft 1.8.9
+  movement used as the yardstick), run by `tests/test_runner.tscn`. Excluded from release builds.
+- `tools/`: test scripts, texture generator, Godot/.NET installer (used by CI and the startup hook)
 
 ## Conventions
 
-- Every gameplay number goes in `scripts/core/tuning.gd`, starting from the 1.8.9 value.
-  Minecraft runs 20 ticks/s and we run 60; constants named `*_PER_MC_TICK` keep Minecraft units.
+- Every gameplay number goes in `scripts/Core/Tuning.cs`, starting from the 1.8.9 value.
+  Minecraft runs 20 ticks/s and we run 60; Minecraft-unit values are converted in `MotionModel`.
+  Movement must stay equal to `McReference` at Minecraft tick boundaries (tests enforce this).
 - Units: blocks and seconds. Yaw/pitch in degrees; yaw 0 faces -Z, positive yaw turns left,
   positive pitch looks up.
-- Block (x, y, z) fills the cube from (x, y, z) to (x+1, y+1, z+1). Players stand on `Tuning.ARENA_FLOOR_Y`.
-- Network messages are Arrays starting with a `Net.Msg` value; validate sizes and types on receipt.
-- Static typing everywhere in GDScript; tabs for indentation.
-- Put logic that can be tested without a scene into `scripts/core/` and add tests for it.
+- Block (x, y, z) fills the cube from (x, y, z) to (x+1, y+1, z+1). Players stand on `Tuning.ArenaFloorY`.
+- C#: file-scoped namespaces (`UhcPvp.*`), nullable enabled, warnings are errors. Godot node
+  scripts are `partial` classes whose name matches the file name. Autoloads expose `Instance`.
+- Subscribe to C# events in `_Ready` and unsubscribe in `_ExitTree` (C# events don't auto-disconnect).
+- Network messages: add a record to `Messages.cs`, append its id to `MsgType` (never reorder),
+  cover it in `MessageTests`, and bump `Network.ProtocolVersion` whenever the wire format changes.
+  Decoding must never throw; bad input becomes null.
+- Put logic that can be tested without a scene into `scripts/Core/` or `scripts/Movement/` and add tests.
   Multiplayer changes must keep `tools/smoke_test.sh` passing.
-- Commit Godot's generated `*.uid` and `*.import` files. Never commit `.godot/` or `build/`.
+- Commit Godot's generated `*.uid` and `*.import` files and `UhcPvp.sln` (export needs it).
+  Never commit `.godot/`, `build/`, `bin/` or `obj/`.
 - Art and sound must be our own; nothing copied from Minecraft.

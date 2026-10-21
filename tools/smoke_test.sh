@@ -5,6 +5,7 @@ set -uo pipefail
 GODOT="${GODOT:-godot}"
 PORT="${PORT:-27777}"
 cd "$(dirname "$0")/.."
+dotnet build UhcPvp.csproj --nologo -v quiet -clp:ErrorsOnly
 LOGS="$(mktemp -d)"
 
 run() { # name, extra args...

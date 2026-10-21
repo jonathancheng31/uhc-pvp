@@ -15,6 +15,8 @@ concurrency:
 
 env:
   GODOT_VERSION: "4.7.2"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"
 
 jobs:
   build:
@@ -23,18 +25,28 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
       - name: Cache Godot
         uses: actions/cache@v4
         with:
           path: |
-            ~/godot
+            ~/godot-mono
             ~/.local/share/godot/export_templates
-          key: godot-${{ env.GODOT_VERSION }}-windows
+          key: godot-mono-${{ env.GODOT_VERSION }}-windows
 
-      - name: Install Godot
+      - name: Install Godot (.NET)
         run: |
-          tools/install_godot.sh --windows-templates
-          echo "$HOME/godot" >> "$GITHUB_PATH"
+          tools/install_godot.sh --windows-templates --skip-dotnet
+          echo "$HOME/godot-mono" >> "$GITHUB_PATH"
+
+      - name: Check formatting
+        run: dotnet format UhcPvp.csproj --verify-no-changes --verbosity minimal
+
+      - name: Build (warnings are errors)
+        run: dotnet build UhcPvp.csproj --nologo
 
       - name: Import project
         run: godot --headless --path . --import
