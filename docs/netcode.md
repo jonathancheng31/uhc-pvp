@@ -79,6 +79,16 @@ emulated server copy, `PlayerMotor.ServerMotion`; see [combat.md](combat.md)), a
 `Hurt` with the click time to everyone. Clients route through the host, which only relays
 messages from the right owner.
 
+**Fishing rod** (`scripts/Gameplay/Game.Rod.cs`, details in [rod.md](rod.md)). A throw sends a
+`RodCast` (host time, start point and launch motion) to everyone, and every game flies the same
+bobber from it. Someone else's bobber is shown on the same delay as they are, so it leaves their
+hand as drawn. The thrower's game checks the bobber's path against players where they're drawn
+on its screen; when it catches someone it sends a `RodHook` to everyone (to show it hanging on
+them) and an `Attack` with the `Rod` flag to the victim's owner, which checks the lag cap, that
+the thrower was within the line's 32 blocks, and hit protection, then applies the knockback like
+a sword hit's. If the thrower's guess of the victim's hit protection says the hit won't count,
+the bobber flies on through instead.
+
 **Instant feedback.** Hitting a player whose game is elsewhere shows the red flash and hurt
 sound immediately, unless the attacker's game expects the hit not to count: it keeps a guess of
 every remote player's hit protection from the click times in the hits it makes and the `Hurt`

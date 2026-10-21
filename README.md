@@ -32,6 +32,7 @@ of you. Press **Esc** to add bots, remove them, or make them strafe or fight bac
 |---|---|
 | Mouse | Look around |
 | Left click | Attack (every click counts, no cooldown) |
+| Right click | Throw your fishing rod (again: the old bobber vanishes and a new one flies) |
 | W A S D | Move (moving forward always sprints) |
 | Space | Jump (hold to keep hopping) |
 | Shift | Sneak (stops you at ledges) |
@@ -43,6 +44,7 @@ of you. Press **Esc** to add bots, remove them, or make them strafe or fight bac
 - [Game design](docs/design.md): the plan, decisions and milestones
 - [Netcode](docs/netcode.md): how lag is handled
 - [Movement](docs/movement.md) and [Combat](docs/combat.md): how they match 1.8.9
+- [Fishing rod](docs/rod.md): our own rod and its numbers
 
 ## Development
 

@@ -9,14 +9,11 @@ what we think is causing it. Fixed items move to "Done" with the version that fi
 
 ## Open
 
+- **0.4.0: how does the rod feel?** Range, knockback, and whether throwing it non-stop (no
+  cooldown) is too strong.
 - **2026-10-21, 0.3.1, idea: faster strafing** ("we can consider changing the movement patterns
   so that strafing is a lot faster, adding more skill... that's for later"). Queued in
   `design.md`, "Later".
-- **2026-10-21, 0.3.1, decision: the fishing rod, our own design.** "We are heavily based on
-  Minecraft, let's move away from that and start building ourselves." Right-click throws the rod
-  (no slot switching, no cooldown); right-click again removes the old bobber and throws a new
-  one; a hit knocks back. Rod hits count for hit protection like 1.8 (owner's choice). Being
-  built now (milestone 3, `design.md`).
 - **0.3.1: how do hits and knockback feel now?** Especially combos on a fighting bot, and
   whether hits still get eaten.
 
@@ -31,6 +28,11 @@ Not bugs: things that are expected to feel off until they're built.
 
 ## Done
 
+- **2026-10-21, 0.3.1, decision: the fishing rod, our own design.** "We are heavily based on
+  Minecraft, let's move away from that and start building ourselves." Right-click throws the rod
+  (no slot switching, no cooldown); right-click again removes the old bobber and throws a new
+  one; a hit knocks back. Rod hits count for hit protection like 1.8 (owner's choice). **Done in
+  0.4.0** (`rod.md`).
 - **2026-10-21, 0.3.1, decision: "make sprinting a toggle like Badlion and Lunar Client", then
   "make it so that sprinting isn't an option at all, it's just the default movement."** **Done in
   0.3.2:** moving forward always sprints; the sprint key is gone.

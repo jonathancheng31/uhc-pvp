@@ -8,6 +8,7 @@ Read these first; they hold the plan and every decision made so far:
 - `docs/netcode.md`: how lag is handled and why
 - `docs/movement.md`: how movement matches Minecraft 1.8.9 exactly at 60 ticks/s (read before touching movement)
 - `docs/combat.md`: melee rules, w-tapping, practice bots
+- `docs/rod.md`: the fishing rod (our own design) and its numbers
 - `docs/playtest-notes.md`: the owner's feedback on each build, open and done, plus known gaps
 
 `docs/design.md` has a "Current status / next up" section: read it first, and update it when a
@@ -88,14 +89,16 @@ It produces `UHC-PvP.exe` plus a `data_UhcPvp_windows_x86_64` folder (the .NET r
   `MotionModel` (20-tick to 60-tick conversion), `PlayerMotor` (also knockback, sprint hits,
   w-tap, and the emulated server copy of the player that knockback is built from)
 - `scripts/Combat/`: `CombatRules` (damage, armor, knockback, plus `HitProtection` and
-  `Vitality` for health), `MissPenalty` (1.8's miss delay), `HitScan` (Minecraft's aiming and reach)
+  `Vitality` for health), `MissPenalty` (1.8's miss delay), `HitScan` (Minecraft's aiming and reach),
+  `Bobber` (the fishing rod's bobber: flight and whom it catches)
 - `scripts/Net/Messages.cs`: every network message as a typed record with its binary format
 - `scripts/World/`: `VoxelWorld` (block grid), `ChunkMesher`, `WorldRenderer`, `Arena`, `Blocks`
-- `scripts/Gameplay/`: `Game` (players, sync, practice bots) and `Game.Combat.cs` (attack flow),
-  `Player` (local, bot or remote), `PlayerModel`, `ViewModel` (first-person sword), `BotBrain`, `Effects`
+- `scripts/Gameplay/`: `Game` (players, sync, practice bots), `Game.Combat.cs` (attack flow) and
+  `Game.Rod.cs` (rod flow), `Player` (local, bot or remote), `PlayerModel`, `ViewModel` (first-person
+  sword and rod), `BobberView` (bobber and line), `BotBrain`, `Effects`
 - `scripts/Ui/`: main menu and in-match HUD, both built in code
 - `tests/`: `TestCase` base class, `*Tests.cs` suites, `McReference.cs` (exact Minecraft 1.8.9
-  movement, and `McServerCopy`, the server's copy of a player, used as yardsticks), run by
+  movement, `McServerCopy`, the server's copy of a player, and `McBobber`, used as yardsticks), run by
   `tests/test_runner.tscn`. Excluded from release builds.
 - `tools/`: test and screenshot scripts, texture and sound generators, Godot/.NET installer
   (used by CI and the startup hook)

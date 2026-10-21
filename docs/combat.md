@@ -3,7 +3,8 @@
 Melee follows Minecraft 1.8.9's code (EntityPlayer.attackTargetEntityWithCurrentItem,
 EntityLivingBase.attackEntityFrom and knockBack, EntityRenderer.getMouseOver). Numbers live in
 `scripts/Core/Tuning.cs`; the rules in `scripts/Combat/`; how hits travel over the network in
-[netcode.md](netcode.md).
+[netcode.md](netcode.md). The fishing rod has its own page, [rod.md](rod.md); its hits go through
+the same hit protection and knockback as sword hits.
 
 ## A hit, step by step
 
@@ -24,7 +25,8 @@ EntityLivingBase.attackEntityFrom and knockBack, EntityRenderer.getMouseOver). N
    18 armor points that's 2.24 (3.36 crit).
    - **Hit protection** (`HitProtection`): after a full hit, for 10 MC ticks further hits only
      count if stronger than the last (a crit after a normal hit), and then only the extra damage
-     applies. A server handles clicks at its 1/20 s ticks, so "10 ticks later" means the tick
+     applies. A rod hit counts as a full hit with no damage, so a sword hit right after it is a
+     stronger hit (full damage, no knockback). A server handles clicks at its 1/20 s ticks, so "10 ticks later" means the tick
      the click falls in: in real time, 450 to 500 ms after the last full hit. We count the same
      way, on the shared host clock, from the moment of the click.
    - **Knockback, from the server's copy of the victim.** 1.8.9 doesn't start from the victim's
@@ -65,7 +67,8 @@ really stop sprinting for a tick (let go of W, press S or sneak) and start again
 
 `scripts/Gameplay/BotBrain.cs`. Bots press the same controls a player does and their hits use
 the same rules. Modes: stand still, strafe, chase (moves like fight back but never swings), fight back (chases, sprints, strafes, sprint-jumps
-to close distance, clicks about 9 times a second, w-taps after sprint hits, turns at up to
+to close distance, clicks about 9 times a second, w-taps after sprint hits, throws its rod at 3.5
+to 8 blocks about every 1.5 seconds, turns at up to
 540 degrees per second with a little wobble). They respawn 2 s after dying and heal to full
 after 5 s without being hit.
 

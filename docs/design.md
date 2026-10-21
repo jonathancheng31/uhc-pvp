@@ -44,8 +44,9 @@ final result matters, not build effort.
 | Hit protection timing | Half a second after a full hit, counted on Minecraft's 1/20 s ticks from the moment of each click (450 to 500 ms in real time, like a server) |
 | Sprinting | Always on: moving forward sprints, like 1.8 with the sprint key always held (or Lunar/Badlion toggle sprint). No sprint key. Hits never stop your sprint (1.8.9 stopped double-tap sprinting on every hit). Changed in 0.3.2 at the owner's request. Faster strafing may come later |
 | W-tapping | Works exactly like 1.8: after a sprint hit, the next hit only gets sprint knockback once you stop and restart sprinting (let go of W for a moment) |
+| Fishing rod | Our own design: always in the other hand, right-click throws, right-click again replaces the bobber, no cooldown. A catch knocks back (no damage) and counts for hit protection like 1.8: a sword hit right after does damage but no knockback, and a rod on a protected player flies through. Numbers start from 1.8.9's. See [rod.md](rod.md) |
 | Respawning | Respawn at your team's spawn 3 seconds after dying (rounds come in the match-flow milestone) |
-| Practice bots | Run by the host; stand still, strafe, chase (run at you without swinging), or fight back (sprinting, strafing, clicking about 9 times a second, w-tapping). They heal after 5 seconds without a hit |
+| Practice bots | Run by the host; stand still, strafe, chase (run at you without swinging), or fight back (sprinting, strafing, clicking about 9 times a second, w-tapping, rodding at 3.5 to 8 blocks). They heal after 5 seconds without a hit |
 | Mouse and FOV | Match Minecraft's sensitivity curve and FOV so aim muscle memory carries over |
 | Simulation rate | 60 ticks per second (Minecraft uses 20); Minecraft's per-tick values are converted |
 | Netcode | Each player's game owns its own movement and hits, with fairness fixes. See [netcode.md](netcode.md) |
@@ -73,12 +74,12 @@ game), w-tap rule, red hurt flash, hurt camera tilt, hit sound, crit sparks. Hea
 and hotbar on screen, combo and reach readout, kill feed, death and respawn. Practice mode
 with bots (still, strafing, chasing without hitting, fighting). Details in [combat.md](combat.md).
 
-### 3. Fishing rod (in progress)
+### 3. Fishing rod (done)
 Our own rod, inspired by 1.8's (the owner's design, 2026-10-21): right-click throws it at any
 time, with no switching slots and no cooldown. Right-clicking again makes the old bobber vanish
 and throws a new one. A bobber that hits a player knocks them back (no damage) and counts as a
-hit for hit protection, like 1.8. Flight and knockback numbers start from 1.8.9's. Practice
-bots use it too.
+hit for hit protection, like 1.8. Flight and knockback numbers start from 1.8.9's. Fighting
+practice bots use it too. Details in [rod.md](rod.md).
 
 ### 4. Match flow
 Rounds, scoreboard, spawns per team, end-of-match screen.
@@ -100,12 +101,14 @@ for 6v6, anti-cheat if we add ranked play.
 
 *Updated at the end of each milestone, so a new session knows where things stand.*
 
-- **Done:** setup, movement (milestone 1), melee and practice bots (milestone 2). Version 0.3.1
-  fixed the owner's first playtest notes (eaten hits, knockback too far and high). 0.3.2: sprint
-  is always on and hits never stop it; practice bots can chase without hitting.
-- **In progress:** milestone 3, the fishing rod, the owner's own design (see the milestone above).
-- **Waiting on the owner:** how 0.3.2's always-on sprint and hits feel. Open feedback and known
-  gaps are tracked in [playtest-notes.md](playtest-notes.md).
+- **Done:** setup, movement (milestone 1), melee and practice bots (milestone 2), the fishing rod
+  (milestone 3, version 0.4.0, the owner's own design). 0.3.2 made sprint always on (hits never
+  stop it) and added chase bots.
+- **Next up:** milestone 4, match flow: rounds, scoreboard, spawns per team, end-of-match screen.
+  Rounds vs respawns is still an open question for the owner (below).
+- **Waiting on the owner:** how the rod feels (range, knockback, whether spamming it is too
+  strong) and how always-on sprint feels. Open feedback and known gaps are tracked in
+  [playtest-notes.md](playtest-notes.md).
 
 ## Open questions
 
