@@ -36,6 +36,14 @@ public sealed class PlayerMotor
     /// affects acceleration from the next tick on. Set at the end of each Minecraft tick.
     /// </summary>
     private double _airAcceleration = AirAccelerationFor(sprinting: false);
+    /// <summary>
+    /// Whether the last Minecraft tick ran into a wall, which keeps sprint off for this whole
+    /// tick. 1.8.9 checks isCollidedHorizontally, set by the tick before's one move, at the start
+    /// of each tick, so the tick that hits a wall still moves (and sets the air acceleration) as a
+    /// sprint. Set at each Minecraft tick start from our last move, which ends where Minecraft's
+    /// move ends (an earlier one can clip a corner or a top edge that Minecraft's move clears).
+    /// </summary>
+    private bool _wallStopsSprint;
     /// <summary>Whether the last move ended resting on something.</summary>
     private bool _touchingGround;
     private FrictionRegime _lastRegime = MotionModel.Ground;
@@ -118,8 +126,10 @@ public sealed class PlayerMotor
         _touchingGround = false;
         OnGround = false;
         Sprinting = false;
-        // Like a newly spawned Minecraft player.
+        // Like a newly spawned Minecraft player: walking air acceleration, no wall hit yet.
         _airAcceleration = AirAccelerationFor(sprinting: false);
+        CollidedHorizontally = false;
+        _wallStopsSprint = false;
         FallDistance = 0;
         // A fresh copy on the server too.
         ServerMotion = Vec3d.Zero;
@@ -207,6 +217,18 @@ public sealed class PlayerMotor
         {
             OnGround = _touchingGround;
         }
+        if (_jumpCooldown > 0)
+        {
+            _jumpCooldown--;
+        }
+        // Jumps start instantly and restart the Minecraft-tick rhythm, so a jump also starts a
+        // new Minecraft tick (decided here because the tick start comes before sprinting).
+        bool jumps = input.Jump && OnGround && _jumpCooldown == 0;
+        bool mcTickStart = tickStart || jumps;
+        if (mcTickStart)
+        {
+            _wallStopsSprint = CollidedHorizontally;
+        }
 
         // --- Input and sprinting (EntityPlayerSP.onLivingUpdate) ---
         if (_sprintToggleTimer > 0)
@@ -243,17 +265,16 @@ public sealed class PlayerMotor
         {
             Sprinting = true;
         }
-        if (Sprinting && (!holdingForward || CollidedHorizontally))
+        // Keys are read every tick, so letting go of W or sneaking stops sprint at once. A wall
+        // only stops it on Minecraft's rhythm, for the whole tick after the hit, so holding the
+        // sprint key can't restart it mid-tick.
+        if (Sprinting && (!holdingForward || _wallStopsSprint))
         {
             Sprinting = false;
         }
 
         // --- Jumping and tiny-speed cleanup (EntityLivingBase.onLivingUpdate) ---
-        if (_jumpCooldown > 0)
-        {
-            _jumpCooldown--;
-        }
-        if (tickStart)
+        if (mcTickStart)
         {
             // Minecraft zeroes speeds under 0.005 blocks/tick once per tick; same threshold here,
             // converted to our units.
@@ -267,7 +288,7 @@ public sealed class PlayerMotor
         }
         if (input.Jump)
         {
-            if (OnGround && _jumpCooldown == 0)
+            if (jumps)
             {
                 // Jumps start instantly; the Minecraft-tick rhythm restarts from the jump, so
                 // the landing and the next hop fall exactly where Minecraft's would. The air

@@ -308,6 +308,143 @@ public class MovementTests : TestCase
         Check(ours.CollidedHorizontally, "knows it hit a wall");
     }
 
+    public void TestSlidingAlongWallsMatchesMinecraftExactly()
+    {
+        // Running into a wall at an angle slides along it. 1.8.9 only notices the hit at the start
+        // of the next tick, when it stops the sprint, so the hit tick still moves (and sets the air
+        // acceleration) as a sprint. Start distances vary so the first touch falls in each of our
+        // three ticks of a Minecraft tick.
+        VoxelWorld walls = FlatWorld();
+        walls.Fill(new Vector3I(0, 4, 30), new Vector3I(63, 6, 30), Block.Stone); // wall at z = 30..31
+        walls.Fill(new Vector3I(10, 4, 31), new Vector3I(10, 6, 63), Block.Stone); // wall at x = 10..11
+        VoxelWorld edges = WallEdgesWorld();
+        var alongZWall = new Vec3d(32.5, FloorY, 34.5);
+        var furtherBack = new Vec3d(32.5, FloorY, 38.5);
+        var alongXWall = new Vec3d(14.5, FloorY, 50.5);
+        var nearWallEnd = new Vec3d(24.5, FloorY, 34.5);
+        foreach (var (name, world, start, ticks, input) in new (string, VoxelWorld, Vec3d, int, Func<int, MovementInput>)[]
+        {
+            ("sprinting along a wall", walls, alongZWall, 40, _ => Sprint(30)),
+            ("sprinting along a wall the other way", walls, alongZWall, 40, _ => Sprint(-50)),
+            ("sprinting along a wall holding W and A", walls, alongZWall, 40, _ => new MovementInput(1, 1, false, true, false, -20)),
+            ("sprinting along a wall on the X side", walls, alongXWall, 40, _ => Sprint(60)),
+            ("sliding, then turning away from the wall", walls, alongZWall, 40, t => Sprint(t < 20 ? 30 : 160)),
+            ("sliding off the end of a wall", edges, nearWallEnd, 40, _ => Sprint(30)),
+            ("sprint-jumping along a wall", walls, alongZWall, 60, _ => new MovementInput(1, 0, true, true, false, 30)),
+            ("sprint-jumping into a wall from further back", walls, furtherBack, 60, _ => new MovementInput(1, 0, true, true, false, 25)),
+            ("sprint-jumping along a wall on the X side", walls, alongXWall, 60, _ => new MovementInput(1, 0, true, true, false, 55)),
+        })
+        {
+            var firstHits = new System.Collections.Generic.HashSet<int>();
+            bool hitInTheAir = false;
+            foreach (double offset in new[] { 0.0, 0.07, 0.13, 0.21, 0.29, 0.34 })
+            {
+                Vec3d from = start == alongXWall ? start + new Vec3d(offset, 0, 0) : start + new Vec3d(0, 0, offset);
+                var (mc, ours) = Pair(world, from);
+                string what = $"{name} (start {offset:F2} further)";
+                double worst = 0;
+                int worstTick = -1;
+                bool hit = false;
+                for (int t = 0; t < ticks; t++)
+                {
+                    MovementInput step = input(t);
+                    mc.Tick(step);
+                    for (int s = 0; s < N; s++)
+                    {
+                        ours.Step(step);
+                        if (!hit && ours.CollidedHorizontally)
+                        {
+                            hit = true;
+                            firstHits.Add(s);
+                            hitInTheAir |= !ours.IsTouchingGround;
+                        }
+                    }
+                    CheckEqual(ours.Sprinting, mc.Sprinting, $"{what}: sprinting at MC tick {t}");
+                    double error = Distance(mc.Position, ours.Position);
+                    if (error > worst)
+                    {
+                        worst = error;
+                        worstTick = t;
+                    }
+                }
+                Check(hit, $"{what}: reaches the wall");
+                Check(worst < 1e-9, $"{what}: off by {worst:E2} blocks at MC tick {worstTick}");
+            }
+            CheckEqual(firstHits.Count, N, $"{name}: first touches cover all {N} of our ticks in a Minecraft tick");
+            if (name.Contains("further back", StringComparison.Ordinal))
+            {
+                Check(hitInTheAir, $"{name}: some runs touch the wall in mid-air");
+            }
+        }
+    }
+
+    public void TestJumpRightAfterAWallHitHasNoSprintBoost()
+    {
+        // A jump can start partway through a Minecraft tick, and starts a new one there. Like any
+        // tick start, it first checks whether the last move hit a wall, so jumping right after a
+        // hit gets no sprint-jump boost, as in Minecraft (the hit tick ends before the jump tick).
+        // The start distances put the hit in each of our three ticks of a Minecraft tick.
+        VoxelWorld world = FlatWorld();
+        world.Fill(new Vector3I(0, 4, 30), new Vector3I(63, 6, 30), Block.Stone); // wall at z = 30..31
+        foreach (double offset in new[] { 0.0, 0.07, 0.13, 0.21, 0.29, 0.34 })
+        {
+            var (_, ours) = Pair(world, new Vec3d(32.5, FloorY, 34.5 + offset));
+            int steps = 0;
+            while (!ours.CollidedHorizontally && steps++ < 600)
+            {
+                ours.Step(Sprint(30));
+            }
+            string what = $"start {offset:F2} further";
+            Check(ours.CollidedHorizontally && ours.Sprinting, $"{what}: still sprinting on the tick that hits the wall");
+            ours.Step(new MovementInput(1, 0, true, true, false, 30));
+            Check(!ours.Sprinting, $"{what}: the jump stops sprint before it pushes");
+            Check(ours.McMotion.Y > 0, $"{what}: jumped");
+        }
+    }
+
+    /// <summary>A short wall (x = 20..32, z = 30..31) and a one-block-high wall (x = 40..64, z = 10..11).</summary>
+    private static VoxelWorld WallEdgesWorld()
+    {
+        VoxelWorld world = FlatWorld();
+        world.Fill(new Vector3I(20, 4, 30), new Vector3I(31, 6, 30), Block.Stone);
+        world.Fill(new Vector3I(40, 4, 10), new Vector3I(63, 4, 10), Block.Stone);
+        return world;
+    }
+
+    public void TestBriefWallTouchesStopSprintLikeMinecraft()
+    {
+        // Clipping a wall's corner or its top edge for a moment: our three short moves meet it a
+        // little differently from Minecraft's one long move, so positions can differ by a few
+        // hundredths of a block, but sprint must stop and restart on the same ticks. That holds
+        // because the wall check uses our last move of each Minecraft tick, which ends where
+        // Minecraft's move ends; an earlier one can touch a corner that Minecraft's move clears.
+        VoxelWorld world = WallEdgesWorld();
+        foreach (var (name, start, input) in new (string, Vec3d, MovementInput)[]
+        {
+            ("cutting the corner at the end of a wall", new Vec3d(22.5, FloorY, 32.5), Sprint(60)),
+            ("sprint-jumping over a one-block wall", new Vec3d(52.5, FloorY, 13.5), new MovementInput(1, 0, true, true, false, 20)),
+        })
+        {
+            foreach (double offset in new[] { 0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35 })
+            {
+                var (mc, ours) = Pair(world, start + new Vec3d(offset, 0, offset));
+                string what = $"{name} (start {offset:F2} further)";
+                bool hit = false;
+                for (int t = 0; t < 40; t++)
+                {
+                    mc.Tick(input);
+                    for (int s = 0; s < N; s++)
+                    {
+                        ours.Step(input);
+                        hit |= ours.CollidedHorizontally;
+                    }
+                    CheckEqual(ours.Sprinting, mc.Sprinting, $"{what}: sprinting at MC tick {t}");
+                }
+                Check(hit, $"{what}: touches the wall");
+            }
+        }
+    }
+
     public void TestNoTunnellingThroughThinWalls()
     {
         VoxelWorld world = FlatWorld();

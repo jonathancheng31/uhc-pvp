@@ -103,7 +103,9 @@ for 6v6, anti-cheat if we add ranked play.
 
 - **Done:** setup, movement (milestone 1), melee and practice bots (milestone 2), the fishing rod
   (milestone 3, version 0.4.0, the owner's own design). 0.3.2 made sprint always on (hits never
-  stop it) and added chase bots.
+  stop it) and added chase bots. 0.4.1 fixed two small sprint timing differences from 1.8.9:
+  sprint changes in the air take effect a tick late, and a wall stops sprint a tick late
+  (`movement.md`).
 - **Next up:** milestone 4, match flow: rounds, scoreboard, spawns per team, end-of-match screen.
   Rounds vs respawns is still an open question for the owner (below).
 - **Waiting on the owner:** how the rod feels (range, knockback, whether spamming it is too

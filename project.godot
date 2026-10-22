@@ -12,7 +12,7 @@ config_version=5
 
 config/name="UHC PvP"
 config/description="Team vs team block PvP inspired by Minecraft 1.8.9 combat."
-config/version="0.4.0"
+config/version="0.4.1"
 run/main_scene="res://scenes/main_menu.tscn"
 config/features=PackedStringArray("4.7", "C#", "GL Compatibility")
 config/icon="res://icon.svg"
