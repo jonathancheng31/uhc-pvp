@@ -18,8 +18,6 @@ public partial class Controls : Node
     public const string Sneak = "sneak";
     public const string Attack = "attack";
     public const string Use = "use";
-    public const string Hotbar1 = "hotbar_1";
-    public const string Hotbar2 = "hotbar_2";
     public const string ToggleDebug = "toggle_debug";
     public const string Pause = "pause";
 
@@ -31,8 +29,6 @@ public partial class Controls : Node
         [MoveRight] = Key.D,
         [Jump] = Key.Space,
         [Sneak] = Key.Shift,
-        [Hotbar1] = Key.Key1,
-        [Hotbar2] = Key.Key2,
         [ToggleDebug] = Key.F3,
         [Pause] = Key.Escape,
     };

@@ -48,6 +48,7 @@ final result matters, not build effort.
 | Respawning | Respawn at your team's spawn 3 seconds after dying (rounds come in the match-flow milestone) |
 | Practice bots | Run by the host; stand still, strafe, chase (run at you without swinging), or fight back (sprinting, strafing, clicking about 9 times a second, w-tapping, rodding at 3.5 to 8 blocks). They heal after 5 seconds without a hit |
 | Settings | A Settings screen on the main menu and in the pause menu (Esc): max FPS (30, 60, 75, 120, 144, 165, 240, 360 or Unlimited, the default; the game runs 60 ticks a second either way) and volume (0 to 100%, scaling loudness linearly like Minecraft's slider; letting go plays a hit sound). Changes apply at once and are saved on the player's computer. Added in 0.4.3 at the owner's request ("just basic settings for now"); mouse sensitivity, FOV and key binds could come later |
+| HUD | Crosshair, hearts and armor (centered at the bottom), the rod's cooldown as a small bar under the crosshair, combo and reach readout, kill feed. No hotbar since 0.4.4 (the owner's request): the sword is always in hand and the rod in the other, so there's nothing to switch. It can come back when there are items to pick between |
 | Mouse and FOV | Match Minecraft's sensitivity curve and FOV (70) so aim muscle memory carries over. The view never widens while sprinting (1.8.9's does by up to 15%; removed in 0.4.2 at the owner's request) |
 | Simulation rate | 60 ticks per second (Minecraft uses 20); Minecraft's per-tick values are converted |
 | Netcode | Each player's game owns its own movement and hits, with fairness fixes. See [netcode.md](netcode.md) |
@@ -72,7 +73,7 @@ animations on other players. Details in [movement.md](movement.md).
 Sword and clicking. 3-block reach checked against what the attacker saw, with the lag cap.
 Damage, half-second hit immunity, crits, sprint-hit knockback (applied by the victim's
 game), w-tap rule, red hurt flash, hurt camera tilt, hit sound, crit sparks. Hearts, armor
-and hotbar on screen, combo and reach readout, kill feed, death and respawn. Practice mode
+and hotbar on screen (the hotbar was removed in 0.4.4), combo and reach readout, kill feed, death and respawn. Practice mode
 with bots (still, strafing, chasing without hitting, fighting). Details in [combat.md](combat.md).
 
 ### 3. Fishing rod (done)
@@ -107,7 +108,8 @@ for 6v6, anti-cheat if we add ranked play.
   stop it) and added chase bots. 0.4.1 fixed two small sprint timing differences from 1.8.9:
   sprint changes in the air take effect a tick late, and a wall stops sprint a tick late
   (`movement.md`). 0.4.2, from the owner's feedback: sprinting no longer changes the FOV, and
-  the rod has a 0.75 s cooldown. 0.4.3 added a Settings screen (max FPS, volume).
+  the rod has a 0.75 s cooldown. 0.4.3 added a Settings screen (max FPS, volume). 0.4.4
+  removed the hotbar.
 - **Next up:** milestone 4, match flow: rounds, scoreboard, spawns per team, end-of-match screen.
   Rounds vs respawns is still an open question for the owner (below).
 - **Waiting on the owner:** how the rod feels (range, knockback, the 0.75 s cooldown) and how

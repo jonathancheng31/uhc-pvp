@@ -10,8 +10,9 @@ runs, which is where rod knockback on players comes from). Numbers live in
 - **Right-click throws the rod**: it's always in your other hand, with no slot switching. The
   sword stays in your main hand.
 - **A short cooldown** (0.75 s, since 0.4.2 at the owner's request) stops spamming it: until
-  it's over, right-clicks do nothing and the old bobber stays out. A pale cover on the rod's
-  slot sinks away as it gets ready. It's a bit longer than the half second of hit protection,
+  it's over, right-clicks do nothing and the old bobber stays out. A small bar under the
+  crosshair shows it, emptying as the rod gets ready (since 0.4.4; before, a cover on the
+  rod's hotbar slot). It's a bit longer than the half second of hit protection,
   so rod after rod can't keep someone pinned away. A respawn makes the rod ready at once.
 - **Right-click again** once it's ready and the old bobber vanishes while a new one flies out.
   There's no separate reel-in.

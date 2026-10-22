@@ -28,6 +28,10 @@ Not bugs: things that are expected to feel off until they're built.
 
 ## Done
 
+- **2026-10-22, 0.4.3, decision: "remove the hotbar."** **Done in 0.4.4:** the hotbar and the
+  rod's slot are gone; hearts and armor sit centered at the bottom, and the rod's cooldown is a
+  small bar under the crosshair that shows only right after a throw. Keys 1 and 2 (unused) are
+  unbound.
 - **2026-10-22, 0.4.2, idea: "add settings to adjust fps max and audio. just basic settings for
   now."** **Done in 0.4.3:** a Settings button on the main menu and in the pause menu (Esc) opens
   max FPS (30 to 360, or Unlimited) and a volume slider. Changes apply at once and are kept for

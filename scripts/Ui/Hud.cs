@@ -8,7 +8,7 @@ using UhcPvp.Gameplay;
 namespace UhcPvp.Ui;
 
 /// <summary>
-/// In-match overlay: crosshair, hearts, armor and hotbar, hit readout (combo and reach), kill
+/// In-match overlay: crosshair and rod cooldown, hearts and armor, hit readout (combo and reach), kill
 /// feed, death screen, debug info (F3) and the pause menu (Esc) with practice-bot controls.
 /// </summary>
 public partial class Hud : CanvasLayer
@@ -35,7 +35,8 @@ public partial class Hud : CanvasLayer
     private Label _respawnLabel = null!;
     private VBoxContainer _noticeBox = null!;
     private OptionButton? _botMode;
-    private ColorRect _rodCooldown = null!;
+    private ColorRect _rodCooldownTrack = null!;
+    private ColorRect _rodCooldownFill = null!;
 
     public Game? Game { get; set; }
 
@@ -166,15 +167,25 @@ public partial class Hud : CanvasLayer
     }
 
     /// <summary>
-    /// A pale cover over the rod while it cools down, sinking out of the slot as it gets ready
-    /// (whole GUI pixels, like the rest of the pixel art).
+    /// The rod's cooldown: a small bar under the crosshair, only while it's cooling down, that
+    /// empties as the rod gets ready (whole GUI pixels, like the rest of the pixel art).
     /// </summary>
     private void UpdateRodCooldown(Player me)
     {
-        int height = (int)Math.Ceiling(RodIconSize * me.RodCooldown.FractionLeft);
-        _rodCooldown.Visible = height > 0;
-        _rodCooldown.Position = new Vector2(3, 3 + RodIconSize - height) * GuiScale;
-        _rodCooldown.Size = new Vector2(RodIconSize, height) * GuiScale;
+        int width = (int)Math.Ceiling(RodBarWidth * me.RodCooldown.FractionLeft);
+        bool show = width > 0 && !me.IsDead;
+        _rodCooldownTrack.Visible = show;
+        _rodCooldownFill.Visible = show;
+        if (!show)
+        {
+            return;
+        }
+        Vector2 center = (GetViewport().GetVisibleRect().Size / 2).Floor();
+        var topLeft = new Vector2(center.X - RodBarWidth * GuiScale / 2, center.Y + RodBarBelowCenter);
+        _rodCooldownTrack.Position = topLeft;
+        _rodCooldownTrack.Size = new Vector2(RodBarWidth, RodBarHeight) * GuiScale;
+        _rodCooldownFill.Position = topLeft;
+        _rodCooldownFill.Size = new Vector2(width, RodBarHeight) * GuiScale;
     }
 
     private void UpdateReadout()
@@ -292,8 +303,17 @@ public partial class Hud : CanvasLayer
         _armorEmpty = GD.Load<Texture2D>(HudDir + "armor_empty.png");
     }
 
+    /// <summary>Size of the rod cooldown bar, in GUI pixels, and how far below the screen's center it starts (screen pixels).</summary>
+    private const int RodBarWidth = 16;
+    private const int RodBarHeight = 2;
+    private const int RodBarBelowCenter = 16;
+
     private void BuildCrosshair()
     {
+        _rodCooldownTrack = new ColorRect { Color = new Color(0, 0, 0, 0.45f), MouseFilter = Control.MouseFilterEnum.Ignore, Visible = false };
+        _rodCooldownFill = new ColorRect { Color = new Color(1, 1, 1, 0.85f), MouseFilter = Control.MouseFilterEnum.Ignore, Visible = false };
+        AddChild(_rodCooldownTrack);
+        AddChild(_rodCooldownFill);
         var center = new CenterContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
         center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         AddChild(center);
@@ -326,8 +346,8 @@ public partial class Hud : CanvasLayer
     }
 
     /// <summary>
-    /// Armor, hearts and the hotbar along the bottom middle, like Minecraft's, plus a slot to
-    /// the left for the fishing rod in your other hand (right-click).
+    /// Armor above hearts, centered along the bottom. No hotbar: the sword is always in your
+    /// hand and the rod in the other (right-click), so there's nothing to switch between yet.
     /// </summary>
     private void BuildBottomBar()
     {
@@ -336,68 +356,11 @@ public partial class Hud : CanvasLayer
         bar.SetAnchorsPreset(Control.LayoutPreset.CenterBottom);
         bar.GrowHorizontal = Control.GrowDirection.Both;
         bar.GrowVertical = Control.GrowDirection.Begin;
-        bar.Position += new Vector2(0, -8);
+        bar.Position += new Vector2(0, -12);
         AddChild(bar);
-
-        // Armor and hearts line up with the hotbar's first slot, past the rod's slot.
-        bar.AddChild(Indented(IconRow(_armor, _armorFull), 22 + OffHandGap));
-        bar.AddChild(Indented(IconRow(_hearts, _heartFull), 22 + OffHandGap));
-
-        var hotbar = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
-        hotbar.AddThemeConstantOverride("separation", 0);
-        var slotTexture = GD.Load<Texture2D>(HudDir + "slot.png");
-        var selected = GD.Load<Texture2D>(HudDir + "slot_selected.png");
-        var sword = GD.Load<Texture2D>(HudDir + "sword.png");
-        var rod = GD.Load<Texture2D>(HudDir + "rod.png");
-        // The rod's slot hangs off the left; an equal gap on the right keeps the hotbar centered.
-        var rodSlot = Slot(slotTexture);
-        rodSlot.AddChild(Icon(rod, new Vector2(3, 3) * GuiScale, new Vector2(RodIconSize, RodIconSize) * GuiScale));
-        _rodCooldown = new ColorRect
-        {
-            Color = new Color(1, 1, 1, 0.5f),
-            MouseFilter = Control.MouseFilterEnum.Ignore,
-            Visible = false,
-        };
-        rodSlot.AddChild(_rodCooldown);
-        hotbar.AddChild(rodSlot);
-        hotbar.AddChild(Spacer(OffHandGap));
-        for (int i = 0; i < 9; i++)
-        {
-            var slot = Slot(slotTexture);
-            if (i == 0)
-            {
-                slot.AddChild(Icon(sword, new Vector2(3, 3) * GuiScale, new Vector2(16, 16) * GuiScale));
-                slot.AddChild(Icon(selected, new Vector2(-1, -1) * GuiScale, new Vector2(24, 24) * GuiScale));
-            }
-            hotbar.AddChild(slot);
-        }
-        hotbar.AddChild(Spacer(OffHandGap + 22));
-        bar.AddChild(hotbar);
+        bar.AddChild(IconRow(_armor, _armorFull));
+        bar.AddChild(IconRow(_hearts, _heartFull));
     }
-
-    /// <summary>Gap between the rod's slot and the hotbar, in GUI pixels.</summary>
-    private const int OffHandGap = 6;
-    /// <summary>Size of the rod's icon in its slot, in GUI pixels.</summary>
-    private const int RodIconSize = 16;
-
-    private static TextureRect Slot(Texture2D texture) => new()
-    {
-        Texture = texture,
-        CustomMinimumSize = new Vector2(22, 22) * GuiScale,
-        StretchMode = TextureRect.StretchModeEnum.Scale,
-        TextureFilter = CanvasItem.TextureFilterEnum.Nearest,
-    };
-
-    private static MarginContainer Indented(Control content, int left)
-    {
-        var margin = new MarginContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
-        margin.AddThemeConstantOverride("margin_left", left * GuiScale);
-        margin.AddChild(content);
-        return margin;
-    }
-
-    private static Control Spacer(int width) =>
-        new() { CustomMinimumSize = new Vector2(width, 0) * GuiScale, MouseFilter = Control.MouseFilterEnum.Ignore };
 
     private static HBoxContainer IconRow(List<TextureRect> into, Texture2D texture)
     {
@@ -417,16 +380,6 @@ public partial class Hud : CanvasLayer
         }
         return row;
     }
-
-    private static TextureRect Icon(Texture2D texture, Vector2 position, Vector2 size) => new()
-    {
-        Texture = texture,
-        Position = position,
-        Size = size,
-        StretchMode = TextureRect.StretchModeEnum.Scale,
-        TextureFilter = CanvasItem.TextureFilterEnum.Nearest,
-        MouseFilter = Control.MouseFilterEnum.Ignore,
-    };
 
     private void BuildNoticeBox()
     {
