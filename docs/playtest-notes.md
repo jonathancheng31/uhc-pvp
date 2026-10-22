@@ -11,7 +11,10 @@ what we think is causing it. Fixed items move to "Done" with the version that fi
 
 - **2026-10-22, 0.4.4, decision: our own twists, small changes first, then playtest.** Shortlist
   offered: combo breaker, faster strafing, timing over click speed, better hit feel.
-  - Faster strafing: "interesting, basically changing some movement mechanics." Yes.
+  - Faster strafing: "interesting, basically changing some movement mechanics." Then: "faster
+    sideways same top speed, add a slider so i can play test the feel." **Built in 0.4.5:** Esc
+    menu, "Twists", strafe speed 100% (1.8) to 150%; sideways speed goes up on the ground, never
+    faster than a straight sprint, the air stays 1.8's. Waiting on: which value feels best.
   - Click speed: "I want to get away from the twist idea you have" (saving an early click to land
     the instant protection ends), because "if clicking fast enough, you can guarantee a full
     length hit." But "the general goal of this is nice though. Remove some power from cps." A
@@ -23,8 +26,8 @@ what we think is causing it. Fixed items move to "Done" with the version that fi
 - **0.4.0: how does the rod feel?** Range and knockback. (Spamming it: answered, see the
   0.4.2 cooldown under "Done".) Now also: does the 0.75 s cooldown feel right?
 - **2026-10-21, 0.3.1, idea: faster strafing** ("we can consider changing the movement patterns
-  so that strafing is a lot faster, adding more skill... that's for later"). Queued in
-  `design.md`, "Later".
+  so that strafing is a lot faster, adding more skill... that's for later"). Being playtested
+  as a twist since 0.4.5 (above).
 - **0.3.1: how do hits and knockback feel now?** Especially combos on a fighting bot, and
   whether hits still get eaten.
 

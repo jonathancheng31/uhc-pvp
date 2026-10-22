@@ -34,7 +34,8 @@ final result matters, not build effort.
 | World | Made of blocks. No building at first, but the world is stored as blocks so building can be added later |
 | Teams | Team vs team, 1v1 up to 6v6 (12 players max). No big UHC survival mode |
 | Platform | Windows first. Keyboard and mouse only |
-| Direction | Inspired by Minecraft PvP, not a copy. Since 2026-10-21 the owner wants new features to be our own designs, starting from 1.8.9's numbers where they help. Existing 1.8.9 matches (movement, knockback) stay |
+| Direction | Inspired by Minecraft PvP, not a copy. Since 2026-10-21 the owner wants new features to be our own designs, starting from 1.8.9's numbers where they help. Since 2026-10-22, small twists on the 1.8.9 mechanics too, each one a match rule the host can switch between plain 1.8 and the twist, so it can be playtested ("Twists" below) |
+| Twists | Our changes to 1.8.9's mechanics, set by the host in the pause menu for the whole match and sent to every player (`MatchRules`). **Faster strafing** (0.4.5): sideways speed on the ground up to 150%, never faster than a straight sprint, the air untouched (see [movement.md](movement.md)); default 100% (1.8.9) until playtesting picks a value. Ruled out: a combo breaker (the owner: full combos are hard to land and very satisfying) and saving early clicks to land the instant hit protection ends (spam would guarantee perfectly timed hits). Still to find: a way to take power away from click speed |
 | Combat numbers | Start from exact Minecraft 1.8.9 values (all in `scripts/Core/Tuning.cs`), then tune |
 | Block-hitting | Not included |
 | Kit | Diamond sword (8 damage). Fixed armor worth 18 points (diamond helmet and chestplate, iron leggings and boots), so a sword hit does 2.24 and a kill takes 9 hits (about 6 with crits). Tunable in `Tuning.cs` |
@@ -42,7 +43,7 @@ final result matters, not build effort.
 | Miss delay | Exactly 1.8's: clicking at nothing (no player in reach, no block within 4.5) blocks clicks for up to half a second, but only while the button stays held; letting go clears it within 1/20 s. The main PvP clients (Lunar, Badlion) keep it. Before 0.3.1 we blocked every click for the full half second, which ate hits |
 | Knockback | Built exactly like a 1.8.9 server: from the server's copy of the victim, which barely moves sideways and keeps falling while the victim is airborne, so every hit pushes the same distance and combos lift less and less. Emulated on the victim's own game, so it's the same at any ping. Before 0.3.1 we started from the victim's real motion, which sent combos too far and too high |
 | Hit protection timing | Half a second after a full hit, counted on Minecraft's 1/20 s ticks from the moment of each click (450 to 500 ms in real time, like a server) |
-| Sprinting | Always on: moving forward sprints, like 1.8 with the sprint key always held (or Lunar/Badlion toggle sprint). No sprint key. Hits never stop your sprint (1.8.9 stopped double-tap sprinting on every hit). Changed in 0.3.2 at the owner's request. Faster strafing may come later |
+| Sprinting | Always on: moving forward sprints, like 1.8 with the sprint key always held (or Lunar/Badlion toggle sprint). No sprint key. Hits never stop your sprint (1.8.9 stopped double-tap sprinting on every hit). Changed in 0.3.2 at the owner's request. Faster strafing is a twist (below) |
 | W-tapping | Works exactly like 1.8: after a sprint hit, the next hit only gets sprint knockback once you stop and restart sprinting (let go of W for a moment) |
 | Fishing rod | Our own design: always in the other hand, right-click throws, right-click again replaces the bobber. A 0.75 s cooldown after each throw stops spamming (owner's request, 0.4.2; before that there was none). A catch knocks back (no damage) and counts for hit protection like 1.8: a sword hit right after does damage but no knockback, and a rod on a protected player flies through. Numbers start from 1.8.9's. See [rod.md](rod.md) |
 | Respawning | Respawn at your team's spawn 3 seconds after dying (rounds come in the match-flow milestone) |
@@ -110,11 +111,13 @@ for 6v6, anti-cheat if we add ranked play.
   sprint changes in the air take effect a tick late, and a wall stops sprint a tick late
   (`movement.md`). 0.4.2, from the owner's feedback: sprinting no longer changes the FOV, and
   the rod has a 0.75 s cooldown. 0.4.3 added a Settings screen (max FPS, volume). 0.4.4
-  removed the hotbar.
+  removed the hotbar. 0.4.5 started our own twists: faster strafing, with a slider in the
+  pause menu for playtesting.
 - **Next up:** milestone 4, match flow: rounds, scoreboard, spawns per team, end-of-match screen.
   Rounds vs respawns is still an open question for the owner (below).
-- **Waiting on the owner:** how the rod feels (range, knockback, the 0.75 s cooldown) and how
-  always-on sprint feels. Open feedback and known gaps are tracked in
+- **Waiting on the owner:** which strafe speed feels best (playtest the slider), how to take
+  power away from click speed (ideas offered: wasted clicks cost a moment, or a click speed
+  cap), how the rod feels (range, knockback, the 0.75 s cooldown) and how always-on sprint feels. Open feedback and known gaps are tracked in
   [playtest-notes.md](playtest-notes.md).
 
 ## Open questions

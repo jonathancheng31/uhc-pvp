@@ -35,6 +35,8 @@ public partial class Hud : CanvasLayer
     private Label _respawnLabel = null!;
     private VBoxContainer _noticeBox = null!;
     private OptionButton? _botMode;
+    private HSlider? _strafeSlider;
+    private Label _strafeValue = null!;
     private ColorRect _rodCooldownTrack = null!;
     private ColorRect _rodCooldownFill = null!;
 
@@ -66,6 +68,7 @@ public partial class Hud : CanvasLayer
             Game.Notice += ShowNotice;
         }
         _settings.Closed += CloseSettings;
+        Session.Instance.RulesChanged += OnRulesChanged;
         if (!LaunchArgs.Instance.Bot)
         {
             Input.MouseMode = Input.MouseModeEnum.Captured;
@@ -74,6 +77,10 @@ public partial class Hud : CanvasLayer
         {
             SetPaused(true);
             OpenSettings();
+        }
+        else if (LaunchArgs.Instance.OpenPause)
+        {
+            SetPaused(true);
         }
     }
 
@@ -84,6 +91,7 @@ public partial class Hud : CanvasLayer
             Game.Notice -= ShowNotice;
         }
         _settings.Closed -= CloseSettings;
+        Session.Instance.RulesChanged -= OnRulesChanged;
     }
 
     public override void _UnhandledInput(InputEvent @event)
@@ -261,6 +269,11 @@ public partial class Hud : CanvasLayer
             lines.Add($"Sprint knockback ready: {(motor.ServerSprinting ? "yes" : "no (w-tap)")}");
         }
         lines.Add($"Hits landed: {Game.HitsLanded}, taken: {Game.HitsTaken}");
+        double strafe = Session.Instance.Rules.StrafeSpeed;
+        if (strafe != Tuning.DefaultStrafeSpeed)
+        {
+            lines.Add($"Twist: strafe speed {MatchRules.Percent(strafe)}");
+        }
         if (net.IsLagSimulated)
         {
             lines.Add($"Simulated lag: +{LaunchArgs.Instance.PingMs:0} ms ping");
@@ -273,6 +286,11 @@ public partial class Hud : CanvasLayer
         // The match keeps running while the menu is open; this only frees the mouse.
         _pauseMenu.Visible = paused;
         CloseSettings();
+        ShowRules();
+        if (!paused)
+        {
+            Settings.Instance.Save(); // the host's twist choices, kept for the next match
+        }
         if (_botMode is not null && Game is not null)
         {
             _botMode.Selected = _botMode.GetItemIndex((int)Game.PracticeBotMode);
@@ -464,8 +482,70 @@ public partial class Hud : CanvasLayer
             box.AddChild(_botMode);
             box.AddChild(new HSeparator());
         }
+        BuildTwists(box);
         box.AddChild(MenuButton("Leave match", () => Session.Instance.Leave()));
         AddChild(_pauseMenu);
+    }
+
+    /// <summary>
+    /// Our twists on 1.8, for the whole match: the host sets them (a slider per twist), everyone
+    /// else sees the host's choice.
+    /// </summary>
+    private void BuildTwists(VBoxContainer box)
+    {
+        if (box.GetChild(box.GetChildCount() - 1) is not HSeparator)
+        {
+            box.AddChild(new HSeparator());
+        }
+        box.AddChild(new Label { Text = "Twists (whole match)", HorizontalAlignment = HorizontalAlignment.Center });
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 10);
+        row.AddChild(new Label { Text = "Strafe speed", Modulate = new Color(1, 1, 1, 0.7f) });
+        if (Network.Instance.IsHost)
+        {
+            _strafeSlider = new HSlider
+            {
+                MinValue = 1.0,
+                MaxValue = Tuning.MaxStrafeSpeed,
+                Step = Tuning.StrafeSpeedStep,
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+                Value = Session.Instance.Rules.StrafeSpeed,
+            };
+            _strafeSlider.ValueChanged += value => Session.Instance.SetRules(Session.Instance.Rules with { StrafeSpeed = value });
+            row.AddChild(_strafeSlider);
+        }
+        else
+        {
+            row.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
+        }
+        _strafeValue = new Label { CustomMinimumSize = new Vector2(46, 0), HorizontalAlignment = HorizontalAlignment.Right };
+        row.AddChild(_strafeValue);
+        box.AddChild(row);
+        box.AddChild(new Label
+        {
+            Text = Network.Instance.IsHost
+                ? "100% = Minecraft 1.8. Faster sideways on the ground, never faster than a sprint."
+                : "Set by the host. 100% = Minecraft 1.8.",
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            CustomMinimumSize = new Vector2(260, 0),
+            Modulate = new Color(1, 1, 1, 0.55f),
+        });
+        box.AddChild(new HSeparator());
+        ShowRules();
+    }
+
+    private void OnRulesChanged() => ShowRules();
+
+    /// <summary>Shows the match rules as they are now (the host may have changed them).</summary>
+    private void ShowRules()
+    {
+        MatchRules rules = Session.Instance.Rules;
+        _strafeValue.Text = MatchRules.Percent(rules.StrafeSpeed);
+        if (_strafeSlider is not null && Math.Abs(_strafeSlider.Value - rules.StrafeSpeed) > 1e-9)
+        {
+            _strafeSlider.SetValueNoSignal(rules.StrafeSpeed);
+        }
     }
 
     private static Button MenuButton(string text, Action onPressed)

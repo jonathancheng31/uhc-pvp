@@ -85,7 +85,7 @@ It produces `UHC-PvP.exe` plus a `data_UhcPvp_windows_x86_64` folder (the .NET r
   `Settings` (the player's saved settings, applied at startup), `Network` (ENet host/join,
   messages, clock sync, lag simulator), `Session` (roster, teams, scene changes)
 - `scripts/Core/`: engine-light logic with unit tests: `Tuning` (every gameplay number),
-  `GameSettings` (max FPS and volume rules), `PlayerState`, `SnapshotBuffer`, `NetClock`,
+  `GameSettings` (max FPS and volume rules), `MatchRules` (the host's twists on 1.8.9), `PlayerState`, `SnapshotBuffer`, `NetClock`,
   `LagSimulator`, `Team`
 - `scripts/Movement/`: physics in doubles: `Vec3d`, `Box` (Minecraft's collision math),
   `MotionModel` (20-tick to 60-tick conversion), `PlayerMotor` (also knockback, sprint hits,

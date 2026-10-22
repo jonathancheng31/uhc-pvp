@@ -31,6 +31,31 @@ of the 1.8.9 code.
 - Walk/sprint leg and arm swing and the sneak lean on other players, using Minecraft's
   animation numbers.
 
+## Our twist: faster strafing (since 0.4.5, a match rule)
+
+1.8.9 movement is the default. The host can turn up **strafe speed** in the pause menu (100%,
+which is 1.8.9, to 150%, in 5% steps; the value is kept for their next match), and it applies to
+everyone in the match, bots included. Code: `PlayerMotor.BoostStrafe`.
+
+- **Ground only.** On the ground the sideways part of your acceleration (relative to where you
+  face) is multiplied by the strafe speed. In the air nothing changes, so knockback and combos
+  stay exactly 1.8.9's.
+- **Never faster than before.** If that makes the total more than a straight sprint (or than
+  1.8.9's own total for those keys, which is 2% more for W+A/D), forward or backward speed gives
+  way. Sideways alone tops out there too. Straight ahead and straight back don't change.
+- What it does, at steady speed on the ground (blocks per second):
+
+  | Strafe speed | A or D alone | W+A/D sideways | W+A/D forward |
+  |---|---|---|---|
+  | 100% (1.8.9) | 4.3 | 4.1 | 4.1 |
+  | 115% | 5.0 | 4.7 | 3.3 |
+  | 130% | 5.6 (a sprint) | 5.3 | 2.3 |
+  | 150% | 5.6 | 5.7 | 0 |
+
+- `tests/McReference.cs` applies the same rule when its `StrafeSpeed` is set, and
+  `tests/StrafeTests.cs` checks that our 60 ticks/s movement still lands exactly on it, that
+  nothing beats a straight sprint at any step, and that the air is untouched.
+
 Not yet: step-up onto slabs (no slabs exist), pushing between players, water and lava.
 
 ## How the 60-tick version matches Minecraft exactly

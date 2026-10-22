@@ -39,6 +39,11 @@ public sealed class McReference
     public bool Sprinting { get; private set; }
     public bool Sneaking { get; private set; }
     public bool CollidedHorizontally { get; private set; }
+    /// <summary>
+    /// Our faster strafing (not 1.8.9; off at 1.0), applied to the ground acceleration exactly
+    /// as <see cref="PlayerMotor.BoostStrafe"/> describes, so the motor can be checked against it.
+    /// </summary>
+    public double StrafeSpeed { get; set; } = 1.0;
 
     /// <summary>The attacker side of a sprint hit (EntityPlayer.attackTargetEntityWithCurrentItem).</summary>
     public void SprintHitSlowdown()
@@ -126,7 +131,12 @@ public sealed class McReference
         }
         double f = 0.16277136 / (f4 * f4 * f4);
         double f5 = OnGround ? aiMoveSpeed * f : _jumpMovementFactor;
-        Motion += PlayerMotor.MoveFlying(moveStrafe, moveForward, f5, input.Yaw);
+        Vec3d acceleration = PlayerMotor.MoveFlying(moveStrafe, moveForward, f5, input.Yaw);
+        if (OnGround)
+        {
+            acceleration = PlayerMotor.BoostStrafe(acceleration, input.Yaw, StrafeSpeed, 0.1 * 1.3 * f * 0.98);
+        }
+        Motion += acceleration;
         MoveEntity(Motion.X, Motion.Y, Motion.Z);
         double motionY = (Motion.Y - 0.08) * 0.98;
         Motion = new Vec3d(Motion.X * f4, motionY, Motion.Z * f4);

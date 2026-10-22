@@ -80,6 +80,18 @@ public static class Tuning
     public const double JumpVelocity = 0.42;
     /// <summary>Forward boost from jumping while sprinting.</summary>
     public const double SprintJumpBoost = 0.2;
+
+    // --- Our twists (not 1.8.9; the host sets them for the whole match, see MatchRules) ----
+
+    /// <summary>
+    /// Faster strafing: on the ground, the sideways part of your movement is this many times
+    /// 1.8.9's, but never more than a straight sprint in total (docs/movement.md). 1.0 is 1.8.9.
+    /// The host picks a value between 1 and <see cref="MaxStrafeSpeed"/> in steps of
+    /// <see cref="StrafeSpeedStep"/>.
+    /// </summary>
+    public const double DefaultStrafeSpeed = 1.0;
+    public const double MaxStrafeSpeed = 1.5;
+    public const double StrafeSpeedStep = 0.05;
     /// <summary>Minimum MC ticks between jumps while holding jump.</summary>
     public const int JumpCooldownMcTicks = 10;
     /// <summary>Velocities smaller than this are zeroed each tick.</summary>

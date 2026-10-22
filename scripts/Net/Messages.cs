@@ -23,6 +23,7 @@ public enum MsgType : byte
     Swing,
     RodCast,
     RodHook,
+    RulesUpdate,
 }
 
 /// <summary>A network message. Each one knows how to write itself; <see cref="MessageCodec"/> reads them.</summary>
@@ -273,6 +274,22 @@ public sealed record RodHook(int PlayerId, int VictimId, double Time) : IMessage
     public static RodHook Read(BinaryReader r) => new(r.ReadInt32(), r.ReadInt32(), r.ReadDouble());
 }
 
+/// <summary>
+/// host -> all: the match's rules (our twists, see <see cref="MatchRules"/>), sent to each player
+/// as they join and to everyone whenever the host changes them.
+/// </summary>
+public sealed record RulesUpdate(float StrafeSpeed) : IMessage
+{
+    public MsgType Type => MsgType.RulesUpdate;
+    public void Write(BinaryWriter w) => w.Write(StrafeSpeed);
+    public static RulesUpdate Read(BinaryReader r) => new(r.ReadSingle());
+
+    public static RulesUpdate From(MatchRules rules) => new((float)rules.StrafeSpeed);
+
+    /// <summary>The rules this carries, made valid (a float can't hold 1.15 exactly, and bad values become the default).</summary>
+    public MatchRules ToMatchRules() => new MatchRules(StrafeSpeed).Normalized();
+}
+
 /// <summary>Turns messages into bytes and back. Bad input decodes to null rather than throwing.</summary>
 public static class MessageCodec
 {
@@ -310,6 +327,7 @@ public static class MessageCodec
                 MsgType.Swing => Swing.Read(reader),
                 MsgType.RodCast => RodCast.Read(reader),
                 MsgType.RodHook => RodHook.Read(reader),
+                MsgType.RulesUpdate => RulesUpdate.Read(reader),
                 _ => null,
             };
             // Trailing bytes mean the sender and receiver disagree about the format.

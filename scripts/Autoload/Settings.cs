@@ -7,7 +7,8 @@ namespace UhcPvp.Autoload;
 /// The player's settings (max FPS and volume, see <see cref="GameSettings"/>): loaded from
 /// user://settings.cfg at startup and applied to the engine. The settings screen
 /// (scripts/Ui/SettingsMenu.cs) changes them, which applies at once, and saves when it closes.
-/// The same file also keeps the name and address typed in the main menu.
+/// The same file also keeps the name and address typed in the main menu, and the match rules
+/// (twists) this player last picked as a host.
 /// </summary>
 public partial class Settings : Node
 {
@@ -17,6 +18,9 @@ public partial class Settings : Node
 
     public GameSettings Current { get; private set; } = GameSettings.Default;
 
+    /// <summary>The match rules this player last picked when hosting; the next match they host starts with them.</summary>
+    public MatchRules HostRules { get; private set; } = MatchRules.Default;
+
     private bool _unsaved;
 
     public override void _EnterTree()
@@ -25,6 +29,7 @@ public partial class Settings : Node
         var config = new ConfigFile();
         config.Load(FilePath); // no file yet: everything stays at its default
         Current = Read(config);
+        HostRules = ReadRules(config);
         Apply(Current);
     }
 
@@ -44,6 +49,17 @@ public partial class Settings : Node
         _unsaved = true;
     }
 
+    /// <summary>Remembers the rules picked as a host. <see cref="Save"/> writes them.</summary>
+    public void ChangeHostRules(MatchRules rules)
+    {
+        rules = rules.Normalized();
+        if (rules != HostRules)
+        {
+            HostRules = rules;
+            _unsaved = true;
+        }
+    }
+
     /// <summary>Writes any changes to the file, keeping what else it holds.</summary>
     public void Save()
     {
@@ -54,6 +70,7 @@ public partial class Settings : Node
         var config = new ConfigFile();
         config.Load(FilePath);
         Write(config, Current);
+        WriteRules(config, HostRules);
         Error error = config.Save(FilePath);
         if (error != Error.Ok)
         {
@@ -76,6 +93,16 @@ public partial class Settings : Node
         config.SetValue("video", "max_fps", settings.MaxFps);
         config.SetValue("audio", "volume", settings.VolumePercent);
     }
+
+    public static MatchRules ReadRules(ConfigFile config)
+    {
+        Variant value = config.GetValue("rules", "strafe_speed", Tuning.DefaultStrafeSpeed);
+        double strafe = value.VariantType is Variant.Type.Float or Variant.Type.Int ? value.AsDouble() : Tuning.DefaultStrafeSpeed;
+        return new MatchRules(strafe).Normalized();
+    }
+
+    public static void WriteRules(ConfigFile config, MatchRules rules) =>
+        config.SetValue("rules", "strafe_speed", rules.StrafeSpeed);
 
     private static int ReadInt(ConfigFile config, string section, string key, int fallback)
     {

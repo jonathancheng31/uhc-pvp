@@ -20,6 +20,9 @@ public readonly record struct MovementInput(
 public sealed class PlayerMotor
 {
     private static readonly int N = MotionModel.N;
+    /// <summary>A straight sprint's ground acceleration (MC units): the most faster strafing may reach.</summary>
+    private static readonly double StraightSprintAcceleration =
+        MotionModel.GroundAcceleration(Tuning.WalkSpeed * Tuning.SprintSpeedMultiplier) * Tuning.InputScale;
 
     private readonly ICollisionWorld _world;
     private readonly List<Box> _boxes = new();
@@ -78,6 +81,8 @@ public sealed class PlayerMotor
     public bool Sprinting { get; private set; }
     public bool Sneaking { get; private set; }
     public bool CollidedHorizontally { get; private set; }
+    /// <summary>Our faster strafing (a match rule, see <see cref="BoostStrafe"/>). 1.0 is 1.8.9.</summary>
+    public double StrafeSpeed { get; set; } = Tuning.DefaultStrafeSpeed;
     /// <summary>How far the player has fallen since last on the ground (for critical hits).</summary>
     public double FallDistance { get; private set; }
 
@@ -328,6 +333,10 @@ public sealed class PlayerMotor
             ? MotionModel.GroundAcceleration(Tuning.WalkSpeed * speedMultiplier)
             : _airAcceleration;
         Vec3d accel = MoveFlying(strafe, forward, acceleration, input.Yaw);
+        if (groundFriction)
+        {
+            accel = BoostStrafe(accel, input.Yaw, StrafeSpeed, StraightSprintAcceleration);
+        }
 
         double px = Velocity.X + regime.StateGain * accel.X;
         double pz = Velocity.Z + regime.StateGain * accel.Z;
@@ -433,6 +442,38 @@ public sealed class PlayerMotor
     /// <summary>Air acceleration in Minecraft units: 0.02, or 0.026 while sprinting.</summary>
     private static double AirAccelerationFor(bool sprinting) =>
         Tuning.AirAcceleration * (sprinting ? 1 + Tuning.SprintAirAccelerationBonus : 1);
+
+    /// <summary>
+    /// Our faster strafing (not 1.8.9), used on the ground only so knockback and combos in the
+    /// air stay 1.8's: the sideways part of an acceleration (relative to where you face) is
+    /// multiplied by <paramref name="strafeSpeed"/>. If that makes the total more than
+    /// <paramref name="top"/> (a straight sprint's) or than 1.8.9's own total, whichever is more,
+    /// the forward or backward part gives way, and sideways alone tops out at that limit. So you
+    /// circle and dodge faster but never move faster than you could already.
+    /// </summary>
+    public static Vec3d BoostStrafe(Vec3d accel, double yaw, double strafeSpeed, double top)
+    {
+        if (strafeSpeed == 1.0)
+        {
+            return accel;
+        }
+        Vec3d forwardAxis = Vec3d.Forward(yaw);
+        Vec3d leftAxis = Vec3d.Left(yaw);
+        double forward = accel.X * forwardAxis.X + accel.Z * forwardAxis.Z;
+        double left = (accel.X * leftAxis.X + accel.Z * leftAxis.Z) * strafeSpeed;
+        double limit = Math.Max(top, Math.Sqrt(accel.X * accel.X + accel.Z * accel.Z));
+        if (Math.Abs(left) >= limit)
+        {
+            left = Math.CopySign(limit, left);
+            forward = 0;
+        }
+        else if (forward * forward + left * left > limit * limit)
+        {
+            forward = Math.CopySign(Math.Sqrt(limit * limit - left * left), forward);
+        }
+        return new Vec3d(
+            forwardAxis.X * forward + leftAxis.X * left, accel.Y, forwardAxis.Z * forward + leftAxis.Z * left);
+    }
 
     /// <summary>Minecraft's moveFlying: turns key input into an acceleration (MC units).</summary>
     public static Vec3d MoveFlying(double strafe, double forward, double acceleration, double yaw)

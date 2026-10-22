@@ -25,6 +25,8 @@ public partial class Session : Node
 
     public event Action<int>? PlayerAdded;
     public event Action<int>? PlayerRemoved;
+    /// <summary>The match rules changed (the host moved a twist's slider).</summary>
+    public event Action? RulesChanged;
 
     public string MyName { get; private set; } = "Player";
     /// <summary>Shown on the main menu, e.g. why the last match ended.</summary>
@@ -34,6 +36,9 @@ public partial class Session : Node
     public bool IsPractice { get; private set; }
 
     public IReadOnlyDictionary<int, RosterEntry> Players => _players;
+
+    /// <summary>The match's rules (our twists). The host's choice, the same on every player's game.</summary>
+    public MatchRules Rules { get; private set; } = MatchRules.Default;
 
     private static Network Net => Network.Instance;
 
@@ -61,6 +66,10 @@ public partial class Session : Node
         _players.Clear();
         _players[Network.HostId] = new RosterEntry(Network.HostId, MyName, Team.Red, false);
         _nextBotId = -1;
+        // The host's last choice, kept between matches (or a test's --strafe).
+        Rules = LaunchArgs.Instance.StrafeSpeed is double strafe
+            ? new MatchRules(strafe).Normalized()
+            : Settings.Instance.HostRules;
         GD.Print($"[session] hosting on port {port} as {MyName}");
         EnterMatch();
         return Error.Ok;
@@ -80,6 +89,7 @@ public partial class Session : Node
         Net.Leave();
         _players.Clear();
         _joinAttempt = null;
+        Rules = MatchRules.Default;
         Status = reason;
         if (InMatch)
         {
@@ -102,6 +112,20 @@ public partial class Session : Node
         Net.Broadcast(new PlayerJoined(entry), reliable: true);
         PlayerAdded?.Invoke(id);
         return id;
+    }
+
+    /// <summary>Host only: changes the match rules for everyone, and remembers them for the next match.</summary>
+    public void SetRules(MatchRules rules)
+    {
+        rules = rules.Normalized();
+        if (!Net.IsHost || rules == Rules)
+        {
+            return;
+        }
+        Rules = rules;
+        Settings.Instance.ChangeHostRules(rules);
+        Net.Broadcast(RulesUpdate.From(rules), reliable: true);
+        RulesChanged?.Invoke();
     }
 
     /// <summary>Host only: removes a practice bot.</summary>
@@ -207,6 +231,10 @@ public partial class Session : Node
             case PlayerLeft left when _players.Remove(left.Id):
                 PlayerRemoved?.Invoke(left.Id);
                 break;
+            case RulesUpdate update when from == Network.HostId:
+                Rules = update.ToMatchRules();
+                RulesChanged?.Invoke();
+                break;
         }
     }
 
@@ -231,6 +259,7 @@ public partial class Session : Node
         _players[from] = entry;
         GD.Print($"[session] {entry.Name} joined team {team.DisplayName()}");
         Net.Send(from, new Welcome(from, _players.Values.ToArray()), reliable: true);
+        Net.Send(from, RulesUpdate.From(Rules), reliable: true);
         Net.Broadcast(new PlayerJoined(entry), reliable: true, exceptId: from);
         PlayerAdded?.Invoke(from);
     }

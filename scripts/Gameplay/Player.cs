@@ -191,6 +191,8 @@ public partial class Player : Node3D
         BotIntent? intent = Brain?.Think(this, _game.EnemiesOf(this), delta);
         MovementInput input = intent?.Input ?? KeyboardInput();
         _previousPosition = Motor.Position;
+        // The match's twists, as the host set them (the same for every player).
+        Motor.StrafeSpeed = Session.Instance.Rules.StrafeSpeed;
         Motor.Step(input);
         if (Motor.Position.Y < Tuning.VoidY)
         {

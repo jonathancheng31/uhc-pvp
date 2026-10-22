@@ -310,6 +310,7 @@ public partial class Game : Node3D
         int moving = _seenBounds.Values.Count(b => b.Size.Length() > 1.0f);
         GD.Print($"SMOKE name={LocalPlayer.PlayerName} host={Net.IsHost} players_now={PlayerCount} "
             + $"seen={_seenBounds.Count} moving={moving} landed={HitsLanded} rods={RodHitsLanded} taken={HitsTaken} "
-            + $"kills={Kills} ping_ms={(int)Math.Round(Net.PingSeconds * 1000)}");
+            + $"kills={Kills} ping_ms={(int)Math.Round(Net.PingSeconds * 1000)} "
+            + $"strafe={MatchRules.Percent(Session.Rules.StrafeSpeed)}");
     }
 }

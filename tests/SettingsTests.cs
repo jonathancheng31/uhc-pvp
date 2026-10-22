@@ -68,4 +68,32 @@ public class SettingsTests : TestCase
         edited.SetValue("audio", "volume", 400);
         CheckEqual(Settings.Read(edited), new GameSettings(60, 100), "hand-edited numbers are made valid");
     }
+
+    public void TestMatchRulesStayValid()
+    {
+        CheckEqual(MatchRules.Default.StrafeSpeed, 1.0, "plain 1.8 by default");
+        CheckEqual(new MatchRules(1.3).Normalized().StrafeSpeed, 1.3, "a slider step is kept");
+        CheckEqual(new MatchRules(1.32).Normalized().StrafeSpeed, 1.3, "rounded to the slider's 5% steps");
+        CheckEqual(new MatchRules(3.0).Normalized().StrafeSpeed, Tuning.MaxStrafeSpeed, "capped at the maximum");
+        CheckEqual(new MatchRules(0.5).Normalized().StrafeSpeed, 1.0, "never slower than 1.8");
+        CheckEqual(new MatchRules(double.NaN).Normalized(), MatchRules.Default, "not a number");
+        CheckEqual(new Net.RulesUpdate(1.15f).ToMatchRules().StrafeSpeed, 1.15, "a float on the wire comes back as the exact step");
+        CheckEqual(new Net.RulesUpdate(float.PositiveInfinity).ToMatchRules(), MatchRules.Default, "bad value on the wire");
+        CheckEqual(MatchRules.Percent(1.15), "115%", "shown as a percentage");
+    }
+
+    public void TestHostRulesAreKeptInTheSettingsFile()
+    {
+        var config = new ConfigFile();
+        Settings.Write(config, new GameSettings(144, 35));
+        Settings.WriteRules(config, new MatchRules(1.35));
+        var reloaded = new ConfigFile();
+        CheckEqual(reloaded.Parse(config.EncodeToText()), Error.Ok, "the file parses");
+        CheckEqual(Settings.ReadRules(reloaded), new MatchRules(1.35), "the rules come back");
+        CheckEqual(Settings.Read(reloaded), new GameSettings(144, 35), "next to the other settings");
+        CheckEqual(Settings.ReadRules(new ConfigFile()), MatchRules.Default, "no file: plain 1.8");
+        var broken = new ConfigFile();
+        broken.SetValue("rules", "strafe_speed", "fast");
+        CheckEqual(Settings.ReadRules(broken), MatchRules.Default, "text instead of a number");
+    }
 }
