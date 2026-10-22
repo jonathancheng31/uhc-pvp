@@ -29,6 +29,8 @@ public partial class Hud : CanvasLayer
     private Label _clickHint = null!;
     private Label _practiceHint = null!;
     private Control _pauseMenu = null!;
+    private Control _pauseBox = null!;
+    private SettingsMenu _settings = null!;
     private Control _deathScreen = null!;
     private Label _respawnLabel = null!;
     private VBoxContainer _noticeBox = null!;
@@ -62,9 +64,15 @@ public partial class Hud : CanvasLayer
         {
             Game.Notice += ShowNotice;
         }
+        _settings.Closed += CloseSettings;
         if (!LaunchArgs.Instance.Bot)
         {
             Input.MouseMode = Input.MouseModeEnum.Captured;
+        }
+        if (LaunchArgs.Instance.OpenSettings)
+        {
+            SetPaused(true);
+            OpenSettings();
         }
     }
 
@@ -74,13 +82,22 @@ public partial class Hud : CanvasLayer
         {
             Game.Notice -= ShowNotice;
         }
+        _settings.Closed -= CloseSettings;
     }
 
     public override void _UnhandledInput(InputEvent @event)
     {
         if (@event.IsActionPressed(Controls.Pause))
         {
-            SetPaused(!_pauseMenu.Visible);
+            // Esc in the settings goes back to the pause menu, like Minecraft's screens.
+            if (_settings.Visible)
+            {
+                _settings.Close();
+            }
+            else
+            {
+                SetPaused(!_pauseMenu.Visible);
+            }
             GetViewport().SetInputAsHandled();
         }
         else if (@event.IsActionPressed(Controls.ToggleDebug))
@@ -244,11 +261,25 @@ public partial class Hud : CanvasLayer
     {
         // The match keeps running while the menu is open; this only frees the mouse.
         _pauseMenu.Visible = paused;
+        CloseSettings();
         if (_botMode is not null && Game is not null)
         {
             _botMode.Selected = _botMode.GetItemIndex((int)Game.PracticeBotMode);
         }
         Input.MouseMode = paused ? Input.MouseModeEnum.Visible : Input.MouseModeEnum.Captured;
+    }
+
+    private void OpenSettings()
+    {
+        _pauseBox.Visible = false;
+        _settings.Refresh();
+        _settings.Visible = true;
+    }
+
+    private void CloseSettings()
+    {
+        _settings.Visible = false;
+        _pauseBox.Visible = true;
     }
 
     private void LoadIcons()
@@ -449,13 +480,20 @@ public partial class Hud : CanvasLayer
         var center = new CenterContainer();
         center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         _pauseMenu.AddChild(center);
+        var panel = new PanelContainer();
+        panel.AddThemeStyleboxOverride("panel", SettingsMenu.PanelStyle());
+        center.AddChild(panel);
+        _pauseBox = panel;
         var box = new VBoxContainer { CustomMinimumSize = new Vector2(260, 0) };
         box.AddThemeConstantOverride("separation", 10);
-        center.AddChild(box);
+        panel.AddChild(box);
+        _settings = new SettingsMenu { Visible = false };
+        center.AddChild(_settings);
         var title = new Label { Text = "Paused", HorizontalAlignment = HorizontalAlignment.Center };
         title.AddThemeFontSizeOverride("font_size", 28);
         box.AddChild(title);
         box.AddChild(MenuButton("Back to game", () => SetPaused(false)));
+        box.AddChild(MenuButton("Settings", OpenSettings));
 
         if (Network.Instance.IsHost && Game is not null)
         {

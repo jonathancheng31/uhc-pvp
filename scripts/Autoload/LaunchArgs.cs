@@ -26,9 +26,12 @@ namespace UhcPvp.Autoload;
 /// --jitter=MS          Simulate this much random extra delay.
 /// --loss=PERCENT       Simulate this percentage of lost packets.
 /// --quit-after=SECONDS Quit after this many seconds.
-/// --screenshot=PATH    Save a screenshot of the match (needs a real display).
-/// --screenshot-at=SEC  Seconds into the match to take the screenshot (default 2). A comma-separated
-///                      list takes several (1,1.1,1.2 saves PATH_1.png, PATH_2.png, PATH_3.png).
+/// --settings           Open the settings screen: on the main menu, or over the pause menu in a match.
+/// --screenshot=PATH    Save a screenshot (needs a real display), of the match or, without
+///                      --host/--join/--practice, of the main menu.
+/// --screenshot-at=SEC  Seconds into the match (or after the menu opens) to take the screenshot
+///                      (default 2). A comma-separated list takes several (1,1.1,1.2 saves
+///                      PATH_1.png, PATH_2.png, PATH_3.png).
 /// </summary>
 public partial class LaunchArgs : Node
 {
@@ -51,6 +54,7 @@ public partial class LaunchArgs : Node
     public double JitterMs { get; private set; }
     public double LossPercent { get; private set; }
     public double QuitAfter { get; private set; }
+    public bool OpenSettings { get; private set; }
     public string ScreenshotPath { get; private set; } = "";
     public IReadOnlyList<double> ScreenshotTimes { get; private set; } = DefaultScreenshotTimes;
 
@@ -97,6 +101,7 @@ public partial class LaunchArgs : Node
                 case "--jitter": JitterMs = ParseDouble(value); break;
                 case "--loss": LossPercent = ParseDouble(value); break;
                 case "--quit-after": QuitAfter = ParseDouble(value); break;
+                case "--settings": OpenSettings = true; break;
                 case "--screenshot": ScreenshotPath = value; break;
                 case "--screenshot-at": ScreenshotTimes = ParseTimes(value); break;
                 case "--filter": break; // the test runner's option (tests/TestRunner.cs)
@@ -117,6 +122,24 @@ public partial class LaunchArgs : Node
             }
         }
         return times.Count > 0 ? times.ToArray() : DefaultScreenshotTimes;
+    }
+
+    /// <summary>Takes the --screenshot shots, timed from now (the match starting, or the main menu opening).</summary>
+    public void ScheduleScreenshots()
+    {
+        IReadOnlyList<double> times = ScreenshotTimes;
+        for (int i = 0; i < times.Count && ScreenshotPath.Length > 0; i++)
+        {
+            string path = times.Count == 1 ? ScreenshotPath : NumberedPath(ScreenshotPath, i + 1);
+            GetTree().CreateTimer(times[i]).Timeout += () => TakeScreenshot(path);
+        }
+    }
+
+    private async void TakeScreenshot(string path)
+    {
+        await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+        Error err = GetViewport().GetTexture().GetImage().SavePng(path);
+        GD.Print($"[screenshot] saved to {path} ({err})");
     }
 
     /// <summary>"/tmp/shot.png" and 2 become "/tmp/shot_2.png".</summary>

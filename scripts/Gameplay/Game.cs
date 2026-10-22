@@ -68,15 +68,7 @@ public partial class Game : Node3D
         Session.PlayerRemoved += OnPlayerRemoved;
         Net.MessageReceived += OnMessage;
         args.Quitting += PrintTestReport;
-        if (args.ScreenshotPath.Length > 0)
-        {
-            IReadOnlyList<double> times = args.ScreenshotTimes;
-            for (int i = 0; i < times.Count; i++)
-            {
-                string path = times.Count == 1 ? args.ScreenshotPath : LaunchArgs.NumberedPath(args.ScreenshotPath, i + 1);
-                GetTree().CreateTimer(times[i]).Timeout += () => TakeScreenshot(path);
-            }
-        }
+        args.ScheduleScreenshots();
         if (Net.IsHost)
         {
             int dummies = args.Dummies + (Session.IsPractice ? 1 : 0);
@@ -319,12 +311,5 @@ public partial class Game : Node3D
         GD.Print($"SMOKE name={LocalPlayer.PlayerName} host={Net.IsHost} players_now={PlayerCount} "
             + $"seen={_seenBounds.Count} moving={moving} landed={HitsLanded} rods={RodHitsLanded} taken={HitsTaken} "
             + $"kills={Kills} ping_ms={(int)Math.Round(Net.PingSeconds * 1000)}");
-    }
-
-    private async void TakeScreenshot(string path)
-    {
-        await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
-        Error err = GetViewport().GetTexture().GetImage().SavePng(path);
-        GD.Print($"[game] screenshot saved to {path} ({err})");
     }
 }

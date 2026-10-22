@@ -21,6 +21,7 @@ the repo. Read the script's header for every option.
 | Several strafing bots | `tools/screenshot.sh --out=DIR -- --host --bot=fight --dummies=3 --dummy-mode=strafe` |
 | A player as seen through lag | `tools/screenshot.sh --out=DIR --host-args="--dummies=1 --dummy-mode=fight" -- --join=127.0.0.1 --bot=fight --ping=150 --jitter=20` |
 | The main menu | `tools/screenshot.sh --out=DIR -- --name=Me` |
+| The settings screen | `tools/screenshot.sh --out=DIR -- --name=Me --settings` (or in a match: `-- --practice --bot=fight --settings`) |
 
 - `--at=3` sets when to shoot (seconds after the match starts). For motion, take a burst:
   `--at=3,3.05,3.1,3.15` (one frame every few ticks; a sword swing lasts 0.3 s).

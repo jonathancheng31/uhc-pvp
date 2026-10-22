@@ -5,11 +5,13 @@ using UhcPvp.Core;
 
 namespace UhcPvp.Ui;
 
-/// <summary>Title screen: pick a name, then host a match or join one by address.</summary>
+/// <summary>Title screen: pick a name, then host a match or join one by address. Also opens the settings.</summary>
 public partial class MainMenu : Control
 {
-    private const string SettingsPath = "user://settings.cfg";
+    private const string SettingsPath = Settings.FilePath;
 
+    private Control _menu = null!;
+    private SettingsMenu _settings = null!;
     private LineEdit _nameEdit = null!;
     private LineEdit _addressEdit = null!;
     private Label _status = null!;
@@ -22,10 +24,44 @@ public partial class MainMenu : Control
         BuildUi();
         LoadSettings();
         _status.Text = Session.Status;
-        if (LaunchArgs.Instance.WantsAutoStart)
+        _settings.Closed += CloseSettings;
+        var args = LaunchArgs.Instance;
+        if (args.WantsAutoStart)
         {
             Callable.From(AutoStart).CallDeferred();
         }
+        else
+        {
+            args.ScheduleScreenshots(); // a match takes its own when it starts
+            if (args.OpenSettings)
+            {
+                OpenSettings();
+            }
+        }
+    }
+
+    public override void _ExitTree() => _settings.Closed -= CloseSettings;
+
+    public override void _UnhandledInput(InputEvent @event)
+    {
+        if (@event.IsActionPressed(Controls.Pause) && _settings.Visible)
+        {
+            _settings.Close();
+            GetViewport().SetInputAsHandled();
+        }
+    }
+
+    private void OpenSettings()
+    {
+        _menu.Visible = false;
+        _settings.Refresh();
+        _settings.Visible = true;
+    }
+
+    private void CloseSettings()
+    {
+        _settings.Visible = false;
+        _menu.Visible = true;
     }
 
     public override void _Process(double delta)
@@ -97,6 +133,9 @@ public partial class MainMenu : Control
         var box = new VBoxContainer { CustomMinimumSize = new Vector2(340, 0) };
         box.AddThemeConstantOverride("separation", 10);
         center.AddChild(box);
+        _menu = box;
+        _settings = new SettingsMenu { Visible = false };
+        center.AddChild(_settings);
 
         var title = new Label { Text = "UHC PvP", HorizontalAlignment = HorizontalAlignment.Center };
         title.AddThemeFontSizeOverride("font_size", 48);
@@ -134,6 +173,10 @@ public partial class MainMenu : Control
             Modulate = new Color(1, 0.85f, 0.5f),
         };
         box.AddChild(_status);
+
+        var settingsButton = new Button { Text = "Settings", CustomMinimumSize = new Vector2(0, 40) };
+        settingsButton.Pressed += OpenSettings;
+        box.AddChild(settingsButton);
 
         var quitButton = new Button { Text = "Quit" };
         quitButton.Pressed += () => GetTree().Quit();

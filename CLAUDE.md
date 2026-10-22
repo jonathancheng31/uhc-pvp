@@ -82,9 +82,11 @@ It produces `UHC-PvP.exe` plus a `data_UhcPvp_windows_x86_64` folder (the .NET r
 ## Layout
 
 - `scripts/Autoload/`: `LaunchArgs` (command-line options), `Controls` (input actions in code),
-  `Network` (ENet host/join, messages, clock sync, lag simulator), `Session` (roster, teams, scene changes)
+  `Settings` (the player's saved settings, applied at startup), `Network` (ENet host/join,
+  messages, clock sync, lag simulator), `Session` (roster, teams, scene changes)
 - `scripts/Core/`: engine-light logic with unit tests: `Tuning` (every gameplay number),
-  `PlayerState`, `SnapshotBuffer`, `NetClock`, `LagSimulator`, `Team`
+  `GameSettings` (max FPS and volume rules), `PlayerState`, `SnapshotBuffer`, `NetClock`,
+  `LagSimulator`, `Team`
 - `scripts/Movement/`: physics in doubles: `Vec3d`, `Box` (Minecraft's collision math),
   `MotionModel` (20-tick to 60-tick conversion), `PlayerMotor` (also knockback, sprint hits,
   w-tap, and the emulated server copy of the player that knockback is built from)
@@ -96,7 +98,7 @@ It produces `UHC-PvP.exe` plus a `data_UhcPvp_windows_x86_64` folder (the .NET r
 - `scripts/Gameplay/`: `Game` (players, sync, practice bots), `Game.Combat.cs` (attack flow) and
   `Game.Rod.cs` (rod flow), `Player` (local, bot or remote), `PlayerModel`, `ViewModel` (first-person
   sword and rod), `BobberView` (bobber and line), `BotBrain`, `Effects`
-- `scripts/Ui/`: main menu and in-match HUD, both built in code
+- `scripts/Ui/`: main menu, in-match HUD and the settings screen (`SettingsMenu`), all built in code
 - `tests/`: `TestCase` base class, `*Tests.cs` suites, `McReference.cs` (exact Minecraft 1.8.9
   movement, `McServerCopy`, the server's copy of a player, and `McBobber`, used as yardsticks), run by
   `tests/test_runner.tscn`. Excluded from release builds.

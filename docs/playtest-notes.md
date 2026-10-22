@@ -28,6 +28,10 @@ Not bugs: things that are expected to feel off until they're built.
 
 ## Done
 
+- **2026-10-22, 0.4.2, idea: "add settings to adjust fps max and audio. just basic settings for
+  now."** **Done in 0.4.3:** a Settings button on the main menu and in the pause menu (Esc) opens
+  max FPS (30 to 360, or Unlimited) and a volume slider. Changes apply at once and are kept for
+  next time.
 - **2026-10-22, 0.4.1, decision: "add a cd to fishing rod so u cant just spam it. still p short
   cd tho."** Cause: the rod had no cooldown by design, so right-clicking non-stop threw a new
   bobber every click. **Done in 0.4.2:** after a throw, the rod can't be thrown again for 0.75 s

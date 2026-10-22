@@ -36,7 +36,7 @@ of you. Press **Esc** to add bots, remove them, or make them strafe or fight bac
 | W A S D | Move (moving forward always sprints) |
 | Space | Jump (hold to keep hopping) |
 | Shift | Sneak (stops you at ledges) |
-| Esc | Pause menu (free the mouse, practice bot options, leave the match) |
+| Esc | Pause menu (free the mouse, settings, practice bot options, leave the match) |
 | F3 | Show or hide debug info (FPS, ping, position) |
 
 ## Docs
