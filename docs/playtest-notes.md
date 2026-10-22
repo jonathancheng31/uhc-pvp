@@ -9,6 +9,17 @@ what we think is causing it. Fixed items move to "Done" with the version that fi
 
 ## Open
 
+- **2026-10-22, 0.4.4, decision: our own twists, small changes first, then playtest.** Shortlist
+  offered: combo breaker, faster strafing, timing over click speed, better hit feel.
+  - Faster strafing: "interesting, basically changing some movement mechanics." Yes.
+  - Click speed: "I want to get away from the twist idea you have" (saving an early click to land
+    the instant protection ends), because "if clicking fast enough, you can guarantee a full
+    length hit." But "the general goal of this is nice though. Remove some power from cps." A
+    different way to do that is being worked out.
+  - Combo breaker: no. "It's very difficult to land full combos in minecraft pvp and they are
+    already a very satisfying part of the pvp that i enjoy."
+  - Better hit feel: later ("kinda qol and vfx that we can add to more later"). Queued in
+    `design.md`, "Later".
 - **0.4.0: how does the rod feel?** Range and knockback. (Spamming it: answered, see the
   0.4.2 cooldown under "Done".) Now also: does the 0.75 s cooldown feel right?
 - **2026-10-21, 0.3.1, idea: faster strafing** ("we can consider changing the movement patterns

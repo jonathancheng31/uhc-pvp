@@ -95,7 +95,8 @@ Steam invites and Steam's relay network (gets through home routers, free during
 development), so friends can join without router setup.
 
 ### Later
-Faster strafing to add skill (the owner's idea, 2026-10-21: "not yet"), bow, water and lava buckets, building, golden apples and golden heads, more arenas,
+Better hit feel (a hit-landed sound, a small screen kick, a stronger crit effect, a low-health
+heartbeat; the owner, 2026-10-22: "we can add to more later"), bow, water and lava buckets, building, golden apples and golden heads, more arenas,
 spin-off ideas (draft kits, new items), a real name, Steam store page, rented servers
 for 6v6, anti-cheat if we add ranked play.
 
