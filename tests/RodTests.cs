@@ -178,4 +178,54 @@ public class RodTests : TestCase
         Check(worstAngle < 2.5, $"at most a couple of degrees off the crosshair (worst {worstAngle:0.00})");
         Check(worstAngle > 0.1, "but not perfectly straight");
     }
+
+    public void TestRodCooldownBlocksSpam()
+    {
+        // 0.75 s: short, but longer than the half second of hit protection, so back-to-back
+        // rods can't keep someone pinned away.
+        double seconds = RodCooldown.Ticks / (double)Tuning.SimRate;
+        CheckNear(seconds, 0.75, 1e-9, "cooldown length (seconds)");
+        Check(Tuning.RodCooldownMcTicks > Tuning.HurtImmunityThresholdMcTicks, "longer than hit protection");
+
+        var cooldown = new RodCooldown();
+        Check(cooldown.Ready && cooldown.FractionLeft == 0, "ready at the start");
+        Check(cooldown.TryThrow(), "first right-click throws");
+        CheckNear(cooldown.FractionLeft, 1, 1e-12, "full cooldown right after a throw");
+        int throws = 0;
+        double lastFraction = cooldown.FractionLeft;
+        bool shrinking = true;
+        for (int t = 1; t < RodCooldown.Ticks; t++)
+        {
+            cooldown.Tick();
+            shrinking &= cooldown.FractionLeft < lastFraction;
+            lastFraction = cooldown.FractionLeft;
+            // Spam-clicking every tick of the cooldown does nothing.
+            throws += cooldown.TryThrow() ? 1 : 0;
+        }
+        CheckEqual(throws, 0, "right-clicks during the cooldown that threw");
+        Check(shrinking, "the cooldown shown on the slot shrinks every tick");
+        Check(!cooldown.Ready, "still cooling down one tick before the end");
+        cooldown.Tick();
+        Check(cooldown.Ready && cooldown.FractionLeft == 0, "ready after exactly the cooldown");
+        Check(cooldown.TryThrow(), "throws again once ready");
+
+        cooldown.Reset();
+        Check(cooldown.Ready && cooldown.TryThrow(), "a respawn makes the rod ready at once");
+    }
+
+    public void TestSpammingThrowsAtMostOncePerCooldown()
+    {
+        // Right-clicking 20 times a second for 3 seconds throws once per 0.75 s: 4 times.
+        var cooldown = new RodCooldown();
+        int throws = 0;
+        for (int t = 0; t < 3 * Tuning.SimRate; t++)
+        {
+            if (t % 3 == 0)
+            {
+                throws += cooldown.TryThrow() ? 1 : 0;
+            }
+            cooldown.Tick();
+        }
+        CheckEqual(throws, 4, "throws in 3 s of spam-clicking");
+    }
 }

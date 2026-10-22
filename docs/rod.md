@@ -7,10 +7,14 @@ runs, which is where rod knockback on players comes from). Numbers live in
 
 ## How it plays
 
-- **Right-click throws the rod**, any time: it's always in your other hand, with no slot
-  switching and no cooldown. The sword stays in your main hand.
-- **Right-click again** and the old bobber vanishes while a new one flies out. There's no
-  separate reel-in.
+- **Right-click throws the rod**: it's always in your other hand, with no slot switching. The
+  sword stays in your main hand.
+- **A short cooldown** (0.75 s, since 0.4.2 at the owner's request) stops spamming it: until
+  it's over, right-clicks do nothing and the old bobber stays out. A pale cover on the rod's
+  slot sinks away as it gets ready. It's a bit longer than the half second of hit protection,
+  so rod after rod can't keep someone pinned away. A respawn makes the rod ready at once.
+- **Right-click again** once it's ready and the old bobber vanishes while a new one flies out.
+  There's no separate reel-in.
 - **A bobber that hits an enemy catches them:** it knocks them back away from you and hangs on
   their chest. No damage, no pull.
 - **It counts as a hit for hit protection** (the owner's choice, like 1.8):
@@ -33,6 +37,7 @@ runs, which is where rod knockback on players comes from). Numbers live in
 | Knockback | an unsprinted sword hit's: from the victim's server copy, halve its motion, 0.4 away from the thrower's feet, 0.4 up | 1.8 servers |
 | Hangs at | 0.6 of the player's height (chest) | ours (1.8.9: 0.8, the neck) |
 | Line breaks at | 32 blocks | 1.8.9 |
+| Cooldown | 15 ticks (0.75 s) after each throw | ours (1.8 has none; switching to the rod and back slowed it) |
 
 A level throw lands about 10.6 blocks away; thrown 20 degrees up, about 15.6.
 
@@ -41,23 +46,27 @@ A level throw lands about 10.6 blocks away; thrown 20 degrees up, about 15.6.
 - `scripts/Combat/Bobber.cs`: the flight, worked out once per Minecraft tick from the cast
   alone, so every game computes the same path. Between ticks it moves in a straight line, and
   that line is what's checked for players, the way Minecraft checks projectiles.
+- `scripts/Combat/RodCooldown.cs`: the cooldown, counted in our 1/60 s ticks on the thrower's
+  game (each player's own game decides when they can throw, like their clicks).
 - `scripts/Gameplay/Game.Rod.cs`: throwing, catching and showing bobbers. The netcode follows
   the sword's (see [netcode.md](netcode.md)): the thrower's game decides whom its bobber
   catches, from where players are drawn on its screen, and the victim's game applies the hit.
 - `scripts/Gameplay/BobberView.cs`: the bobber and its sagging line, drawn after the players
   move so the line stays on the rod tip.
 - Practice bots that fight back throw their rod at enemies 3.5 to 8 blocks away, about every
-  1.5 seconds. Chase bots don't.
+  1.5 seconds, and follow the same cooldown. Chase bots don't.
 
 ## Verified
 
 `tests/RodTests.cs`: the cast and flight match a port of 1.8.9's bobber (`McBobber` in
 `tests/McReference.cs`) at every tick, a level throw lands where 1.8.9's does, bobbers never
 pass through walls and slide down them, which player it catches (enlarged box, nearest first,
-edges, over the head), hooking and dropping, and how rod hits count for hit protection.
+edges, over the head), hooking and dropping, how rod hits count for hit protection, and that
+spam-clicking throws only once per cooldown.
 `tools/smoke_test.sh` requires every bot player, including the laggy one, to land rod hits.
 
 ## Open questions
 
-- Balance: with no cooldown, a player can rod someone every half second to keep them away.
-  1.8 players had to switch to the rod and back. Watch for this in playtests.
+- Balance: whether 0.75 s is the right cooldown (one number, `RodCooldownMcTicks` in
+  `Tuning.cs`). Before 0.4.2 there was none, and a player could rod someone every half second
+  to keep them away.

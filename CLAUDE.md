@@ -90,7 +90,7 @@ It produces `UHC-PvP.exe` plus a `data_UhcPvp_windows_x86_64` folder (the .NET r
   w-tap, and the emulated server copy of the player that knockback is built from)
 - `scripts/Combat/`: `CombatRules` (damage, armor, knockback, plus `HitProtection` and
   `Vitality` for health), `MissPenalty` (1.8's miss delay), `HitScan` (Minecraft's aiming and reach),
-  `Bobber` (the fishing rod's bobber: flight and whom it catches)
+  `Bobber` (the fishing rod's bobber: flight and whom it catches), `RodCooldown`
 - `scripts/Net/Messages.cs`: every network message as a typed record with its binary format
 - `scripts/World/`: `VoxelWorld` (block grid), `ChunkMesher`, `WorldRenderer`, `Arena`, `Blocks`
 - `scripts/Gameplay/`: `Game` (players, sync, practice bots), `Game.Combat.cs` (attack flow) and

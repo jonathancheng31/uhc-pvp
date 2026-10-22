@@ -10,8 +10,8 @@ using UhcPvp.Net;
 namespace UhcPvp.Gameplay;
 
 /// <summary>
-/// The fishing rod (docs/rod.md). Right-click throws it; right-clicking again makes the old
-/// bobber vanish and throws a new one. Like a sword hit, the thrower's game decides whom its
+/// The fishing rod (docs/rod.md). Right-click throws it; right-clicking again, once the short
+/// cooldown is over, makes the old bobber vanish and throws a new one. Like a sword hit, the thrower's game decides whom its
 /// bobber catches, from what it shows, and the victim's game applies the hit (ResolveAttack):
 /// no damage, knockback away from the thrower, and it counts for hit protection.
 ///
@@ -26,10 +26,10 @@ public partial class Game
     /// <summary>Rod hits by the local player.</summary>
     public int RodHitsLanded { get; private set; }
 
-    /// <summary>A right-click by a player this game runs (you or a bot).</summary>
+    /// <summary>A right-click by a player this game runs (you or a bot). Does nothing during the cooldown.</summary>
     public void ThrowRod(Player thrower)
     {
-        if (!thrower.IsOwned || thrower.IsDead)
+        if (!thrower.IsOwned || thrower.IsDead || !thrower.RodCooldown.TryThrow())
         {
             return;
         }

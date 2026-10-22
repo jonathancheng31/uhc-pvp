@@ -26,7 +26,8 @@ of the 1.8.9 code.
   a newly spawned Minecraft player.
 - Block collision (Minecraft's own box-sliding rules), ceilings, walls.
 - Sneaking stops you at ledges, hanging over the edge like Minecraft.
-- Sprint FOV change (×1.15, eased in like Minecraft), camera drop while sneaking.
+- Camera drop while sneaking. Unlike 1.8.9, the view doesn't widen while sprinting (removed in
+  0.4.2 at the owner's request).
 - Walk/sprint leg and arm swing and the sneak lean on other players, using Minecraft's
   animation numbers.
 

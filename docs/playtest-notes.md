@@ -9,8 +9,8 @@ what we think is causing it. Fixed items move to "Done" with the version that fi
 
 ## Open
 
-- **0.4.0: how does the rod feel?** Range, knockback, and whether throwing it non-stop (no
-  cooldown) is too strong.
+- **0.4.0: how does the rod feel?** Range and knockback. (Spamming it: answered, see the
+  0.4.2 cooldown under "Done".) Now also: does the 0.75 s cooldown feel right?
 - **2026-10-21, 0.3.1, idea: faster strafing** ("we can consider changing the movement patterns
   so that strafing is a lot faster, adding more skill... that's for later"). Queued in
   `design.md`, "Later".
@@ -28,6 +28,14 @@ Not bugs: things that are expected to feel off until they're built.
 
 ## Done
 
+- **2026-10-22, 0.4.1, decision: "add a cd to fishing rod so u cant just spam it. still p short
+  cd tho."** Cause: the rod had no cooldown by design, so right-clicking non-stop threw a new
+  bobber every click. **Done in 0.4.2:** after a throw, the rod can't be thrown again for 0.75 s
+  (a bit longer than the half second of hit protection, so rod after rod can't keep someone
+  pinned away). A pale cover on the rod's slot sinks away as it gets ready. Bots follow it too.
+- **2026-10-22, 0.4.1, decision: "stop sprinting from changing fov."** Cause: we copied 1.8.9,
+  which widens the view by up to 15% while sprinting. **Done in 0.4.2:** the view stays at 70
+  degrees all the time.
 - **2026-10-21, 0.3.1, decision: the fishing rod, our own design.** "We are heavily based on
   Minecraft, let's move away from that and start building ourselves." Right-click throws the rod
   (no slot switching, no cooldown); right-click again removes the old bobber and throws a new

@@ -33,6 +33,7 @@ public partial class Hud : CanvasLayer
     private Label _respawnLabel = null!;
     private VBoxContainer _noticeBox = null!;
     private OptionButton? _botMode;
+    private ColorRect _rodCooldown = null!;
 
     public Game? Game { get; set; }
 
@@ -104,6 +105,7 @@ public partial class Hud : CanvasLayer
         }
         Player me = Game.LocalPlayer;
         UpdateBars(me);
+        UpdateRodCooldown(me);
         UpdateReadout();
         UpdateNotices();
         _deathScreen.Visible = me.IsDead;
@@ -144,6 +146,18 @@ public partial class Hud : CanvasLayer
             int left = Tuning.KitArmorPoints - i * 2;
             _armor[i].Texture = left >= 2 ? _armorFull : left >= 1 ? _armorHalf : _armorEmpty;
         }
+    }
+
+    /// <summary>
+    /// A pale cover over the rod while it cools down, sinking out of the slot as it gets ready
+    /// (whole GUI pixels, like the rest of the pixel art).
+    /// </summary>
+    private void UpdateRodCooldown(Player me)
+    {
+        int height = (int)Math.Ceiling(RodIconSize * me.RodCooldown.FractionLeft);
+        _rodCooldown.Visible = height > 0;
+        _rodCooldown.Position = new Vector2(3, 3 + RodIconSize - height) * GuiScale;
+        _rodCooldown.Size = new Vector2(RodIconSize, height) * GuiScale;
     }
 
     private void UpdateReadout()
@@ -306,7 +320,14 @@ public partial class Hud : CanvasLayer
         var rod = GD.Load<Texture2D>(HudDir + "rod.png");
         // The rod's slot hangs off the left; an equal gap on the right keeps the hotbar centered.
         var rodSlot = Slot(slotTexture);
-        rodSlot.AddChild(Icon(rod, new Vector2(3, 3) * GuiScale, new Vector2(16, 16) * GuiScale));
+        rodSlot.AddChild(Icon(rod, new Vector2(3, 3) * GuiScale, new Vector2(RodIconSize, RodIconSize) * GuiScale));
+        _rodCooldown = new ColorRect
+        {
+            Color = new Color(1, 1, 1, 0.5f),
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            Visible = false,
+        };
+        rodSlot.AddChild(_rodCooldown);
         hotbar.AddChild(rodSlot);
         hotbar.AddChild(Spacer(OffHandGap));
         for (int i = 0; i < 9; i++)
@@ -325,6 +346,8 @@ public partial class Hud : CanvasLayer
 
     /// <summary>Gap between the rod's slot and the hotbar, in GUI pixels.</summary>
     private const int OffHandGap = 6;
+    /// <summary>Size of the rod's icon in its slot, in GUI pixels.</summary>
+    private const int RodIconSize = 16;
 
     private static TextureRect Slot(Texture2D texture) => new()
     {

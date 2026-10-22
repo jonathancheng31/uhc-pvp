@@ -32,7 +32,7 @@ of you. Press **Esc** to add bots, remove them, or make them strafe or fight bac
 |---|---|
 | Mouse | Look around |
 | Left click | Attack (every click counts, no cooldown) |
-| Right click | Throw your fishing rod (again: the old bobber vanishes and a new one flies) |
+| Right click | Throw your fishing rod (again, after a 0.75 s cooldown: the old bobber vanishes and a new one flies) |
 | W A S D | Move (moving forward always sprints) |
 | Space | Jump (hold to keep hopping) |
 | Shift | Sneak (stops you at ledges) |

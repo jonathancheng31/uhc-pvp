@@ -39,14 +39,13 @@ public static class Tuning
 
     // --- Camera and mouse -----------------------------------------------------------------
 
-    /// <summary>Vertical field of view in degrees, same as Minecraft's "Normal".</summary>
+    /// <summary>
+    /// Vertical field of view in degrees, same as Minecraft's "Normal". It never changes: unlike
+    /// 1.8.9, sprinting doesn't widen it (the owner's choice, 0.4.2).
+    /// </summary>
     public const float Fov = 70f;
     /// <summary>Minecraft's sensitivity slider value. 0.5 is shown as "100%" in Minecraft.</summary>
     public const double DefaultMouseSensitivity = 0.5;
-    /// <summary>FOV multiplier while sprinting: Minecraft uses ((sprint speed / walk speed) + 1) / 2.</summary>
-    public const double SprintFovMultiplier = (SprintSpeedMultiplier + 1.0) / 2.0;
-    /// <summary>Fraction of the remaining FOV change applied per MC tick.</summary>
-    public const double FovSmoothingPerMcTick = 0.5;
 
     /// <summary>
     /// Degrees the camera turns per mouse count, using Minecraft's sensitivity curve, so
@@ -182,6 +181,12 @@ public static class Tuning
     public const double BobberHookHeight = 0.6;
     /// <summary>The line breaks (the bobber vanishes) when it's farther than this from the thrower.</summary>
     public const double RodLineLength = 32.0;
+    /// <summary>
+    /// After a throw, the rod can't be thrown again for this many MC ticks (0.75 s; the owner's
+    /// choice in 0.4.2, so it can't be spammed). Longer than the half second of hit protection,
+    /// so back-to-back rods can't keep someone pinned away.
+    /// </summary>
+    public const int RodCooldownMcTicks = 15;
 
     // --- Practice bots ----------------------------------------------------------------------
 

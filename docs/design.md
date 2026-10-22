@@ -44,10 +44,10 @@ final result matters, not build effort.
 | Hit protection timing | Half a second after a full hit, counted on Minecraft's 1/20 s ticks from the moment of each click (450 to 500 ms in real time, like a server) |
 | Sprinting | Always on: moving forward sprints, like 1.8 with the sprint key always held (or Lunar/Badlion toggle sprint). No sprint key. Hits never stop your sprint (1.8.9 stopped double-tap sprinting on every hit). Changed in 0.3.2 at the owner's request. Faster strafing may come later |
 | W-tapping | Works exactly like 1.8: after a sprint hit, the next hit only gets sprint knockback once you stop and restart sprinting (let go of W for a moment) |
-| Fishing rod | Our own design: always in the other hand, right-click throws, right-click again replaces the bobber, no cooldown. A catch knocks back (no damage) and counts for hit protection like 1.8: a sword hit right after does damage but no knockback, and a rod on a protected player flies through. Numbers start from 1.8.9's. See [rod.md](rod.md) |
+| Fishing rod | Our own design: always in the other hand, right-click throws, right-click again replaces the bobber. A 0.75 s cooldown after each throw stops spamming (owner's request, 0.4.2; before that there was none). A catch knocks back (no damage) and counts for hit protection like 1.8: a sword hit right after does damage but no knockback, and a rod on a protected player flies through. Numbers start from 1.8.9's. See [rod.md](rod.md) |
 | Respawning | Respawn at your team's spawn 3 seconds after dying (rounds come in the match-flow milestone) |
 | Practice bots | Run by the host; stand still, strafe, chase (run at you without swinging), or fight back (sprinting, strafing, clicking about 9 times a second, w-tapping, rodding at 3.5 to 8 blocks). They heal after 5 seconds without a hit |
-| Mouse and FOV | Match Minecraft's sensitivity curve and FOV so aim muscle memory carries over |
+| Mouse and FOV | Match Minecraft's sensitivity curve and FOV (70) so aim muscle memory carries over. The view never widens while sprinting (1.8.9's does by up to 15%; removed in 0.4.2 at the owner's request) |
 | Simulation rate | 60 ticks per second (Minecraft uses 20); Minecraft's per-tick values are converted |
 | Netcode | Each player's game owns its own movement and hits, with fairness fixes. See [netcode.md](netcode.md) |
 | Hosting | Everyone connects to one host. A player hosts for now; the same host code can run on a rented server later |
@@ -64,7 +64,7 @@ multiplayer smoke test, automatic Windows builds.
 ### 1. Movement (done)
 Minecraft 1.8.9 movement: walk, sprint (always on since 0.3.2), sneak (stops at ledges), jump,
 sprint-jump, strafing, air control, block collision. Tests that compare against an exact copy
-of 1.8.9's movement code. Sprint FOV change. Smooth camera between ticks. Walk and sneak
+of 1.8.9's movement code. Sprint FOV change (removed in 0.4.2). Smooth camera between ticks. Walk and sneak
 animations on other players. Details in [movement.md](movement.md).
 
 ### 2. Melee (done)
@@ -76,7 +76,7 @@ with bots (still, strafing, chasing without hitting, fighting). Details in [comb
 
 ### 3. Fishing rod (done)
 Our own rod, inspired by 1.8's (the owner's design, 2026-10-21): right-click throws it at any
-time, with no switching slots and no cooldown. Right-clicking again makes the old bobber vanish
+time, with no switching slots and no cooldown (0.4.2 added a 0.75 s one). Right-clicking again makes the old bobber vanish
 and throws a new one. A bobber that hits a player knocks them back (no damage) and counts as a
 hit for hit protection, like 1.8. Flight and knockback numbers start from 1.8.9's. Fighting
 practice bots use it too. Details in [rod.md](rod.md).
@@ -105,11 +105,12 @@ for 6v6, anti-cheat if we add ranked play.
   (milestone 3, version 0.4.0, the owner's own design). 0.3.2 made sprint always on (hits never
   stop it) and added chase bots. 0.4.1 fixed two small sprint timing differences from 1.8.9:
   sprint changes in the air take effect a tick late, and a wall stops sprint a tick late
-  (`movement.md`).
+  (`movement.md`). 0.4.2, from the owner's feedback: sprinting no longer changes the FOV, and
+  the rod has a 0.75 s cooldown.
 - **Next up:** milestone 4, match flow: rounds, scoreboard, spawns per team, end-of-match screen.
   Rounds vs respawns is still an open question for the owner (below).
-- **Waiting on the owner:** how the rod feels (range, knockback, whether spamming it is too
-  strong) and how always-on sprint feels. Open feedback and known gaps are tracked in
+- **Waiting on the owner:** how the rod feels (range, knockback, the 0.75 s cooldown) and how
+  always-on sprint feels. Open feedback and known gaps are tracked in
   [playtest-notes.md](playtest-notes.md).
 
 ## Open questions

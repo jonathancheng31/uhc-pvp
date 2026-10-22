@@ -38,7 +38,6 @@ public partial class Player : Node3D
     private readonly double _mouseDegrees = Tuning.DegreesPerMouseCount(Tuning.DefaultMouseSensitivity);
     private Game _game = null!;
     private Vec3d _previousPosition;
-    private float _fov = Tuning.Fov;
     private Vector3 _lastShownPosition;
     private readonly MissPenalty _missPenalty = new();
     /// <summary>Counts subticks to find Minecraft's 1/20 s client ticks (for the miss penalty).</summary>
@@ -69,6 +68,8 @@ public partial class Player : Node3D
     public PlayerMotor? Motor { get; private set; }
     /// <summary>Real health for owned players; for remote players, the last health we heard.</summary>
     public Vitality Vitality { get; } = new();
+    /// <summary>The rod's cooldown after a throw, for players this game runs.</summary>
+    public RodCooldown RodCooldown { get; } = new();
     /// <summary>The AI for bots (and for --bot test players); null for people.</summary>
     public BotBrain? Brain { get; set; }
 
@@ -158,7 +159,7 @@ public partial class Player : Node3D
         }
         else if (@event.IsActionPressed(Controls.Use))
         {
-            // Right-click throws the rod (again: the old bobber vanishes and a new one flies).
+            // Right-click throws the rod (again, after its cooldown: the old bobber vanishes and a new one flies).
             _game.ThrowRod(this);
         }
     }
@@ -170,6 +171,7 @@ public partial class Player : Node3D
             return;
         }
         Vitality.Tick();
+        RodCooldown.Tick();
         _subtick = (_subtick + 1) % N;
         if (_subtick == 0)
         {
@@ -247,7 +249,7 @@ public partial class Player : Node3D
         }
         if (Camera is not null && Motor is not null)
         {
-            UpdateCamera(delta);
+            UpdateCamera();
         }
         Model.SetHealth(Vitality.Health);
         Model.SetSwing(SwingProgress, Pitch);
@@ -324,6 +326,7 @@ public partial class Player : Node3D
             return;
         }
         Vitality.Reset();
+        RodCooldown.Reset();
         Motor.Teleport(Home);
         _previousPosition = Home;
         Look(HomeYaw, 0);
@@ -372,7 +375,7 @@ public partial class Player : Node3D
         Model.Animate(delta, speed, state.Has(PlayerFlags.Sneaking));
     }
 
-    private void UpdateCamera(double delta)
+    private void UpdateCamera()
     {
         if (Camera is null || Motor is null)
         {
@@ -380,11 +383,6 @@ public partial class Player : Node3D
         }
         double eye = IsDead ? 0.3 : Tuning.EyeHeight - (Motor.Sneaking ? Tuning.SneakEyeDrop : 0);
         Camera.Position = new Vector3(0, (float)eye, 0);
-        // Sprinting widens the view like Minecraft, easing in by half the gap per MC tick.
-        double target = Tuning.Fov * (Motor.Sprinting ? Tuning.SprintFovMultiplier : 1.0);
-        double ease = 1 - Math.Pow(1 - Tuning.FovSmoothingPerMcTick, delta * Tuning.McTickRate);
-        _fov += (float)((target - _fov) * ease);
-        Camera.Fov = _fov;
         // Minecraft's hurt camera: a quick tilt that eases back.
         float f = Vitality.HurtFlashFraction;
         float tilt = MathF.Sin(f * f * f * f * MathF.PI) * 14f;
