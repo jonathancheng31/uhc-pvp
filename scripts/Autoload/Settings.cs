@@ -4,7 +4,7 @@ using UhcPvp.Core;
 namespace UhcPvp.Autoload;
 
 /// <summary>
-/// The player's settings (max FPS and volume, see <see cref="GameSettings"/>): loaded from
+/// The player's settings (max FPS, volume, hurt shake, see <see cref="GameSettings"/>): loaded from
 /// user://settings.cfg at startup and applied to the engine. The settings screen
 /// (scripts/Ui/SettingsMenu.cs) changes them, which applies at once, and saves when it closes.
 /// The same file also keeps the name and address typed in the main menu, and the match rules
@@ -85,24 +85,34 @@ public partial class Settings : Node
         GameSettings fallback = GameSettings.Default;
         return new GameSettings(
             ReadInt(config, "video", "max_fps", fallback.MaxFps),
-            ReadInt(config, "audio", "volume", fallback.VolumePercent)).Normalized();
+            ReadInt(config, "audio", "volume", fallback.VolumePercent),
+            ReadInt(config, "video", "hurt_shake", fallback.HurtShakePercent)).Normalized();
     }
 
     public static void Write(ConfigFile config, GameSettings settings)
     {
         config.SetValue("video", "max_fps", settings.MaxFps);
         config.SetValue("audio", "volume", settings.VolumePercent);
+        config.SetValue("video", "hurt_shake", settings.HurtShakePercent);
     }
 
-    public static MatchRules ReadRules(ConfigFile config)
+    public static MatchRules ReadRules(ConfigFile config) => new MatchRules(
+        ReadNumber(config, "rules", "strafe_speed", Tuning.DefaultStrafeSpeed),
+        ReadNumber(config, "rules", "strafe_grip", Tuning.DefaultStrafeGrip),
+        ReadNumber(config, "rules", "wasted_click_delay", Tuning.DefaultWastedClickDelay)).Normalized();
+
+    public static void WriteRules(ConfigFile config, MatchRules rules)
     {
-        Variant value = config.GetValue("rules", "strafe_speed", Tuning.DefaultStrafeSpeed);
-        double strafe = value.VariantType is Variant.Type.Float or Variant.Type.Int ? value.AsDouble() : Tuning.DefaultStrafeSpeed;
-        return new MatchRules(strafe).Normalized();
+        config.SetValue("rules", "strafe_speed", rules.StrafeSpeed);
+        config.SetValue("rules", "strafe_grip", rules.StrafeGrip);
+        config.SetValue("rules", "wasted_click_delay", rules.WastedClickDelay);
     }
 
-    public static void WriteRules(ConfigFile config, MatchRules rules) =>
-        config.SetValue("rules", "strafe_speed", rules.StrafeSpeed);
+    private static double ReadNumber(ConfigFile config, string section, string key, double fallback)
+    {
+        Variant value = config.GetValue(section, key, fallback);
+        return value.VariantType is Variant.Type.Float or Variant.Type.Int ? value.AsDouble() : fallback;
+    }
 
     private static int ReadInt(ConfigFile config, string section, string key, int fallback)
     {

@@ -69,14 +69,13 @@ public partial class Game
         if (aim.Kind == AimKind.Miss)
         {
             attacker.StartMissCooldown();
+            WasteClick(attacker, null);
             return;
         }
-        if (aim.Kind != AimKind.Player || !_players.TryGetValue(aim.TargetId, out Player? target))
+        if (aim.Kind != AimKind.Player || !_players.TryGetValue(aim.TargetId, out Player? target)
+            || (!Tuning.FriendlyFire && target.Team == attacker.Team))
         {
-            return;
-        }
-        if (!Tuning.FriendlyFire && target.Team == attacker.Team)
-        {
+            WasteClick(attacker, null);
             return;
         }
 
@@ -112,11 +111,25 @@ public partial class Game
             }
             DeliverAttack(attack);
         }
+        WasteClick(attacker, result);
         bool counted = result != HitResult.Ignored;
         attacker.Motor.OnHitLanded(counted);
         if (counted && sprintKnockback)
         {
             attacker.Brain?.OnSprintHitLanded();
+        }
+    }
+
+    /// <summary>
+    /// The wasted-clicks twist: a click that did nothing (<see cref="ClickLockout.IsWasted"/>)
+    /// blocks the attacker's clicks for the match's delay (none in 1.8.9). Decided on the
+    /// attacker's game, from what it sees and its guess of the target's hit protection.
+    /// </summary>
+    private static void WasteClick(Player attacker, HitResult? result)
+    {
+        if (ClickLockout.IsWasted(result))
+        {
+            attacker.ClickLockout.Wasted(Session.Rules.WastedClickDelay);
         }
     }
 

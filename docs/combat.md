@@ -53,7 +53,35 @@ the same hit protection and knockback as sword hits.
      always-on sprint is. So movement is identical to 1.8.9 with the key held; we only skip
      1.8.9's one-tick FOV dip, and the lost sprint that double-tap-W players had to tap back.
 5. **Everyone** sees the red flash (0.5 s), hears the hurt sound, sees crit sparks, and the
-   victim's camera tilts.
+   victim's camera tilts: by a quarter of Minecraft's 14 degrees by default, set in Settings
+   (0.4.6, after the owner found the full tilt too much; 0 turns it off).
+
+## Our twist: wasted clicks (since 0.4.6, a match rule)
+
+Off by default (1.8.9). The host can set a **wasted-click delay** (0 to 0.3 s) in the pause menu's
+Twists screen. A click that does nothing blocks your clicks for that long: a miss, a block, a
+teammate, or a player still in hit protection when the hit isn't stronger. A hit that counts,
+even a stronger one (a crit) inside protection, is never wasted. Blocked clicks don't swing and
+don't restart the delay; the crosshair turns red while they're blocked. It's decided on the
+clicker's own game (`ClickLockout`, `Game.WasteClick`), from what it sees and its guess of the
+target's hit protection.
+
+Why: in 1.8.9 the next hit after hit protection goes to whoever clicks first after it ends, so
+clicking faster wins (and butterfly or jitter clicking wins most). With the delay, clicks into
+protection lock you out, so spamming makes your first real hit come later and one well-timed
+click beats it. Average time from protection ending to the next hit landing, with perfect aim
+(`tests/WastedClickTests.cs`):
+
+| Delay | 6 clicks/s | 8 | 10 | 15 | One timed click |
+|---|---|---|---|---|---|
+| Off (1.8.9) | 92 ms | 70 | 55 | 41 | 24 |
+| 0.10 s | 100 | 88 | 86 | 72 | 24 |
+| 0.15 s | 142 | 107 | 108 | 99 | 24 |
+
+At 0.15 s, clicking faster than about 8 times a second gains almost nothing. Clicking into
+protection costs everyone, slow clickers too; what wins is timing. (Ruled out first: saving an
+early click to land the instant protection ends, since spam would then always land the perfectly
+timed hit.)
 
 ## W-tapping
 

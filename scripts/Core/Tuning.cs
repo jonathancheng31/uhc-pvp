@@ -92,6 +92,21 @@ public static class Tuning
     public const double DefaultStrafeSpeed = 1.0;
     public const double MaxStrafeSpeed = 1.5;
     public const double StrafeSpeedStep = 0.05;
+    /// <summary>
+    /// Snappier strafing: on the ground, at each Minecraft tick, your sideways speed covers this
+    /// fraction of the gap to where your keys are taking it, so starting, stopping and switching
+    /// between A and D get quicker (docs/movement.md). 0 is 1.8.9; 1 is instant.
+    /// </summary>
+    public const double DefaultStrafeGrip = 0.0;
+    public const double MaxStrafeGrip = 1.0;
+    public const double StrafeGripStep = 0.05;
+    /// <summary>
+    /// Wasted clicks: a click that does nothing (a miss, or a player still in hit protection)
+    /// blocks clicking for this many seconds (docs/combat.md). 0 is 1.8.9.
+    /// </summary>
+    public const double DefaultWastedClickDelay = 0.0;
+    public const double MaxWastedClickDelay = 0.3;
+    public const double WastedClickDelayStep = 0.05;
     /// <summary>Minimum MC ticks between jumps while holding jump.</summary>
     public const int JumpCooldownMcTicks = 10;
     /// <summary>Velocities smaller than this are zeroed each tick.</summary>
@@ -131,6 +146,8 @@ public static class Tuning
     public const int HurtImmunityThresholdMcTicks = HurtResistantMcTicks / 2;
     /// <summary>MC ticks the red hurt flash and camera tilt last.</summary>
     public const int HurtFlashMcTicks = 10;
+    /// <summary>Minecraft's hurt camera tilt at its peak, degrees. Players scale it in Settings.</summary>
+    public const float HurtTiltDegrees = 14f;
     public const double KnockbackHorizontal = 0.4;
     public const double KnockbackVertical = 0.4;
     /// <summary>Extra knockback from a sprinting hit; this is what makes w-tapping work.</summary>

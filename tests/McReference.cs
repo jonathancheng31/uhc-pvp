@@ -44,6 +44,16 @@ public sealed class McReference
     /// as <see cref="PlayerMotor.BoostStrafe"/> describes, so the motor can be checked against it.
     /// </summary>
     public double StrafeSpeed { get; set; } = 1.0;
+    /// <summary>Our snappier strafing (not 1.8.9; off at 0), as <see cref="PlayerMotor.GripStrafe"/> describes.</summary>
+    public double StrafeGrip { get; set; }
+    private bool _skipGrip;
+
+    /// <summary>A velocity packet (knockback) between ticks: replaces the motion.</summary>
+    public void ReceiveVelocity(Vec3d motion)
+    {
+        Motion = motion;
+        _skipGrip = true;
+    }
 
     /// <summary>The attacker side of a sprint hit (EntityPlayer.attackTargetEntityWithCurrentItem).</summary>
     public void SprintHitSlowdown()
@@ -104,6 +114,17 @@ public sealed class McReference
         double my = Math.Abs(Motion.Y) < 0.005 ? 0 : Motion.Y;
         double mz = Math.Abs(Motion.Z) < 0.005 ? 0 : Motion.Z;
         Motion = new Vec3d(mx, my, mz);
+        bool skipGrip = _skipGrip;
+        _skipGrip = false;
+        if (OnGround && StrafeGrip > 0 && !skipGrip)
+        {
+            // Our snappier strafing (not 1.8.9), with this tick's ground acceleration.
+            const double groundFactor = 0.16277136 / (0.6 * 0.91 * 0.6 * 0.91 * 0.6 * 0.91);
+            Vec3d groundAccel = PlayerMotor.BoostStrafe(
+                PlayerMotor.MoveFlying(moveStrafe * 0.98, moveForward * 0.98, aiMoveSpeed * groundFactor, input.Yaw),
+                input.Yaw, StrafeSpeed, 0.1 * 1.3 * groundFactor * 0.98);
+            Motion = PlayerMotor.GripStrafe(Motion, groundAccel, input.Yaw, StrafeGrip);
+        }
         if (input.Jump)
         {
             if (OnGround && _jumpTicks == 0)

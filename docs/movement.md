@@ -33,7 +33,7 @@ of the 1.8.9 code.
 
 ## Our twist: faster strafing (since 0.4.5, a match rule)
 
-1.8.9 movement is the default. The host can turn up **strafe speed** in the pause menu (100%,
+1.8.9 movement is the default. The host can turn up **strafe speed** in the pause menu's Twists screen (100%,
 which is 1.8.9, to 150%, in 5% steps; the value is kept for their next match), and it applies to
 everyone in the match, bots included. Code: `PlayerMotor.BoostStrafe`.
 
@@ -55,6 +55,31 @@ everyone in the match, bots included. Code: `PlayerMotor.BoostStrafe`.
 - `tests/McReference.cs` applies the same rule when its `StrafeSpeed` is set, and
   `tests/StrafeTests.cs` checks that our 60 ticks/s movement still lands exactly on it, that
   nothing beats a straight sprint at any step, and that the air is untouched.
+
+## Our twist: snappier strafing (since 0.4.6, a match rule)
+
+The owner wanted strafing "faster for changing directions, not just top speed". In 1.8.9 the
+ground's friction already lets you stop almost at once, but reaching full speed the other way
+takes a quarter second. **Strafe snappiness** (0%, which is 1.8.9, to 100%) shortens that: on the
+ground, at the start of each Minecraft tick, your sideways speed covers that fraction of the gap
+to the steady speed your keys lead to. Starting, stopping and switching between A and D all get
+quicker; top speeds don't change. Code: `PlayerMotor.GripStrafe`.
+
+| Snappiness | Switching from A to D (to 90% of full speed) |
+|---|---|
+| Off (1.8.9) | 250 ms |
+| 25% | 200 ms |
+| 50% | 150 ms |
+| 75% | 100 ms |
+| 100% | 50 ms (one tick) |
+
+- **Ground only**, like strafe speed: the air stays 1.8.9's.
+- **Knockback stays whole:** the tick right after a knockback is left alone (then you're
+  airborne), so being hit from the side while holding A or D pushes you exactly as far as in 1.8.9.
+- It works with strafe speed: the steady speed it pulls toward is the boosted one.
+- `McReference` applies the same rule (`StrafeGrip`, and `ReceiveVelocity` for knockback), and
+  `tests/StrafeTests.cs` checks we still land exactly on it, the switch times above, unchanged top
+  speeds, and the knockback path.
 
 Not yet: step-up onto slabs (no slabs exist), pushing between players, water and lava.
 

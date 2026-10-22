@@ -22,14 +22,16 @@ namespace UhcPvp.Autoload;
 /// --practice           Host a solo practice match with a training dummy.
 /// --dummies=N          Host only: add N practice bots.
 /// --dummy-mode=MODE    How practice bots behave: still (default), strafe, fight or chase.
-/// --strafe=PERCENT     Host only: the strafe speed twist for this match (100 is 1.8; default:
-///                      the host's last choice from the pause menu).
+/// --strafe=PERCENT     Host only: twists for this match, overriding the host's last choice
+/// --grip=PERCENT         from the pause menu: strafe speed (100 is 1.8), strafe snappiness
+/// --wasted-clicks=SEC    (0 is 1.8) and the wasted-click delay in seconds (0 is 1.8).
 /// --ping=MS            Simulate this much extra ping.
 /// --jitter=MS          Simulate this much random extra delay.
 /// --loss=PERCENT       Simulate this percentage of lost packets.
 /// --quit-after=SECONDS Quit after this many seconds.
 /// --settings           Open the settings screen: on the main menu, or over the pause menu in a match.
 /// --pause              Open the pause menu when the match starts (for screenshots).
+/// --twists             Open the Twists screen when the match starts (for screenshots).
 /// --screenshot=PATH    Save a screenshot (needs a real display), of the match or, without
 ///                      --host/--join/--practice, of the main menu.
 /// --screenshot-at=SEC  Seconds into the match (or after the menu opens) to take the screenshot
@@ -55,12 +57,21 @@ public partial class LaunchArgs : Node
     public BotMode DummyMode { get; private set; } = Gameplay.BotMode.Still;
     /// <summary>--strafe as a multiplier (1.3 for 130), or null to use the host's saved choice.</summary>
     public double? StrafeSpeed { get; private set; }
+    /// <summary>--grip as a fraction (0.5 for 50), or null.</summary>
+    public double? StrafeGrip { get; private set; }
+    /// <summary>--wasted-clicks in seconds, or null.</summary>
+    public double? WastedClickDelay { get; private set; }
+
+    /// <summary>The host's rules: its saved choice, with any twist given on the command line instead.</summary>
+    public MatchRules RulesFor(MatchRules saved) => new MatchRules(
+        StrafeSpeed ?? saved.StrafeSpeed, StrafeGrip ?? saved.StrafeGrip, WastedClickDelay ?? saved.WastedClickDelay).Normalized();
     public double PingMs { get; private set; }
     public double JitterMs { get; private set; }
     public double LossPercent { get; private set; }
     public double QuitAfter { get; private set; }
     public bool OpenSettings { get; private set; }
     public bool OpenPause { get; private set; }
+    public bool OpenTwists { get; private set; }
     public string ScreenshotPath { get; private set; } = "";
     public IReadOnlyList<double> ScreenshotTimes { get; private set; } = DefaultScreenshotTimes;
 
@@ -104,12 +115,15 @@ public partial class LaunchArgs : Node
                 case "--dummies": Dummies = ParseInt(value, 0); break;
                 case "--dummy-mode": DummyMode = ParseMode(value, Gameplay.BotMode.Still); break;
                 case "--strafe": StrafeSpeed = ParseDouble(value) / 100.0; break;
+                case "--grip": StrafeGrip = ParseDouble(value) / 100.0; break;
+                case "--wasted-clicks": WastedClickDelay = ParseDouble(value); break;
                 case "--ping": PingMs = ParseDouble(value); break;
                 case "--jitter": JitterMs = ParseDouble(value); break;
                 case "--loss": LossPercent = ParseDouble(value); break;
                 case "--quit-after": QuitAfter = ParseDouble(value); break;
                 case "--settings": OpenSettings = true; break;
                 case "--pause": OpenPause = true; break;
+                case "--twists": OpenTwists = true; break;
                 case "--screenshot": ScreenshotPath = value; break;
                 case "--screenshot-at": ScreenshotTimes = ParseTimes(value); break;
                 case "--filter": break; // the test runner's option (tests/TestRunner.cs)

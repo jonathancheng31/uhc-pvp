@@ -92,13 +92,15 @@ It produces `UHC-PvP.exe` plus a `data_UhcPvp_windows_x86_64` folder (the .NET r
   w-tap, and the emulated server copy of the player that knockback is built from)
 - `scripts/Combat/`: `CombatRules` (damage, armor, knockback, plus `HitProtection` and
   `Vitality` for health), `MissPenalty` (1.8's miss delay), `HitScan` (Minecraft's aiming and reach),
-  `Bobber` (the fishing rod's bobber: flight and whom it catches), `RodCooldown`
+  `Bobber` (the fishing rod's bobber: flight and whom it catches), `RodCooldown`, `ClickLockout`
+  (the wasted-clicks twist)
 - `scripts/Net/Messages.cs`: every network message as a typed record with its binary format
 - `scripts/World/`: `VoxelWorld` (block grid), `ChunkMesher`, `WorldRenderer`, `Arena`, `Blocks`
 - `scripts/Gameplay/`: `Game` (players, sync, practice bots), `Game.Combat.cs` (attack flow) and
   `Game.Rod.cs` (rod flow), `Player` (local, bot or remote), `PlayerModel`, `ViewModel` (first-person
   sword and rod), `BobberView` (bobber and line), `BotBrain`, `Effects`
-- `scripts/Ui/`: main menu, in-match HUD and the settings screen (`SettingsMenu`), all built in code
+- `scripts/Ui/`: main menu, in-match HUD, the settings screen (`SettingsMenu`) and the Twists
+  screen (`TwistsMenu`), all built in code
 - `tests/`: `TestCase` base class, `*Tests.cs` suites, `McReference.cs` (exact Minecraft 1.8.9
   movement, `McServerCopy`, the server's copy of a player, and `McBobber`, used as yardsticks), run by
   `tests/test_runner.tscn`. Excluded from release builds.

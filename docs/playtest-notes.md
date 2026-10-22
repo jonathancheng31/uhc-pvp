@@ -17,8 +17,13 @@ what we think is causing it. Fixed items move to "Done" with the version that fi
     faster than a straight sprint, the air stays 1.8's. Waiting on: which value feels best.
   - Click speed: "I want to get away from the twist idea you have" (saving an early click to land
     the instant protection ends), because "if clicking fast enough, you can guarantee a full
-    length hit." But "the general goal of this is nice though. Remove some power from cps." A
-    different way to do that is being worked out.
+    length hit." But "the general goal of this is nice though. Remove some power from cps."
+    Offered: wasted clicks cost a moment, or a click speed cap. "lets try wasted clicks."
+    **Built in 0.4.6:** Twists screen, "Wasted clicks", off to 0.3 s; the crosshair turns red
+    while clicks are blocked. Waiting on: whether it feels right, and which delay.
+  - Then: "maybe we could try making strafing faster for changing directions not just top
+    speed." **Built in 0.4.6:** "Strafe snappiness", off to 100% (switching A to D from 250 ms
+    down to 50 ms). Waiting on: which value feels best.
   - Combo breaker: no. "It's very difficult to land full combos in minecraft pvp and they are
     already a very satisfying part of the pvp that i enjoy."
   - Better hit feel: later ("kinda qol and vfx that we can add to more later"). Queued in
@@ -42,6 +47,10 @@ Not bugs: things that are expected to feel off until they're built.
 
 ## Done
 
+- **2026-10-22, 0.4.5, feel: "the screen shakes on hit is too much can we remove this or tone it
+  down or change it or smth?"** Cause: we copied 1.8.9's hurt camera tilt (14 degrees). **Done in
+  0.4.6:** it's a setting, "Camera shake when hit", 0 to 100% of Minecraft's, 25% by default;
+  0 turns it off.
 - **2026-10-22, 0.4.3, decision: "remove the hotbar."** **Done in 0.4.4:** the hotbar and the
   rod's slot are gone; hearts and armor sit centered at the bottom, and the rod's cooldown is a
   small bar under the crosshair that shows only right after a throw. Keys 1 and 2 (unused) are

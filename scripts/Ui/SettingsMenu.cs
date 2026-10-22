@@ -9,13 +9,15 @@ namespace UhcPvp.Ui;
 
 /// <summary>
 /// The settings screen, opened from the main menu and from the pause menu (Esc) in a match:
-/// max FPS and volume. Changes apply at once and are saved when it closes.
+/// max FPS, volume and camera shake when hit. Changes apply at once and are saved when it closes.
 /// </summary>
 public partial class SettingsMenu : PanelContainer
 {
     private OptionButton _maxFps = null!;
     private HSlider _volume = null!;
     private Label _volumeValue = null!;
+    private HSlider _shake = null!;
+    private Label _shakeValue = null!;
     private AudioStreamPlayer _preview = null!;
     private bool _refreshing;
 
@@ -94,6 +96,10 @@ public partial class SettingsMenu : PanelContainer
         _preview = new AudioStreamPlayer { Stream = GD.Load<AudioStream>(Effects.HurtSoundPath) };
         AddChild(_preview);
 
+        box.AddChild(Caption("Camera shake when hit (100% = Minecraft's)"));
+        (_shake, _shakeValue) = SliderRow(box, 0, 100, 5);
+        _shake.ValueChanged += OnShakeChanged;
+
         box.AddChild(new Control { CustomMinimumSize = new Vector2(0, 6) });
         var done = new Button { Text = "Done", CustomMinimumSize = new Vector2(0, 40) };
         done.Pressed += Close;
@@ -108,6 +114,8 @@ public partial class SettingsMenu : PanelContainer
         _maxFps.Selected = _maxFps.GetItemIndex(current.MaxFps);
         _volume.Value = current.VolumePercent;
         _volumeValue.Text = VolumeText(current.VolumePercent);
+        _shake.Value = current.HurtShakePercent;
+        _shakeValue.Text = VolumeText(current.HurtShakePercent);
         _refreshing = false;
     }
 
@@ -134,6 +142,36 @@ public partial class SettingsMenu : PanelContainer
         {
             Settings.Change(Settings.Current with { VolumePercent = percent });
         }
+    }
+
+    private void OnShakeChanged(double value)
+    {
+        int percent = (int)Math.Round(value);
+        _shakeValue.Text = VolumeText(percent);
+        if (!_refreshing)
+        {
+            Settings.Change(Settings.Current with { HurtShakePercent = percent });
+        }
+    }
+
+    /// <summary>A slider with its value shown on the right, added to <paramref name="box"/>.</summary>
+    private static (HSlider Slider, Label Value) SliderRow(VBoxContainer box, double min, double max, double step)
+    {
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 12);
+        var slider = new HSlider
+        {
+            MinValue = min,
+            MaxValue = max,
+            Step = step,
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ShrinkCenter,
+        };
+        row.AddChild(slider);
+        var value = new Label { CustomMinimumSize = new Vector2(52, 0), HorizontalAlignment = HorizontalAlignment.Right };
+        row.AddChild(value);
+        box.AddChild(row);
+        return (slider, value);
     }
 
     private static string VolumeText(int percent) =>

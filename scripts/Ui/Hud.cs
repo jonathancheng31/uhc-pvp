@@ -35,8 +35,9 @@ public partial class Hud : CanvasLayer
     private Label _respawnLabel = null!;
     private VBoxContainer _noticeBox = null!;
     private OptionButton? _botMode;
-    private HSlider? _strafeSlider;
-    private Label _strafeValue = null!;
+    private TwistsMenu _twists = null!;
+    private Label _twistsSummary = null!;
+    private readonly List<ColorRect> _crosshair = new();
     private ColorRect _rodCooldownTrack = null!;
     private ColorRect _rodCooldownFill = null!;
 
@@ -68,6 +69,7 @@ public partial class Hud : CanvasLayer
             Game.Notice += ShowNotice;
         }
         _settings.Closed += CloseSettings;
+        _twists.Closed += CloseTwists;
         Session.Instance.RulesChanged += OnRulesChanged;
         if (!LaunchArgs.Instance.Bot)
         {
@@ -77,6 +79,11 @@ public partial class Hud : CanvasLayer
         {
             SetPaused(true);
             OpenSettings();
+        }
+        else if (LaunchArgs.Instance.OpenTwists)
+        {
+            SetPaused(true);
+            OpenTwists();
         }
         else if (LaunchArgs.Instance.OpenPause)
         {
@@ -91,6 +98,7 @@ public partial class Hud : CanvasLayer
             Game.Notice -= ShowNotice;
         }
         _settings.Closed -= CloseSettings;
+        _twists.Closed -= CloseTwists;
         Session.Instance.RulesChanged -= OnRulesChanged;
     }
 
@@ -102,6 +110,10 @@ public partial class Hud : CanvasLayer
             if (_settings.Visible)
             {
                 _settings.Close();
+            }
+            else if (_twists.Visible)
+            {
+                _twists.Close();
             }
             else
             {
@@ -132,6 +144,11 @@ public partial class Hud : CanvasLayer
         Player me = Game.LocalPlayer;
         UpdateBars(me);
         UpdateRodCooldown(me);
+        Color crosshair = me.ClickLockout.Blocks ? CrosshairBlockedColor : CrosshairColor;
+        foreach (ColorRect bar in _crosshair)
+        {
+            bar.Color = crosshair;
+        }
         UpdateReadout();
         UpdateNotices();
         _deathScreen.Visible = me.IsDead;
@@ -269,10 +286,9 @@ public partial class Hud : CanvasLayer
             lines.Add($"Sprint knockback ready: {(motor.ServerSprinting ? "yes" : "no (w-tap)")}");
         }
         lines.Add($"Hits landed: {Game.HitsLanded}, taken: {Game.HitsTaken}");
-        double strafe = Session.Instance.Rules.StrafeSpeed;
-        if (strafe != Tuning.DefaultStrafeSpeed)
+        if (!Session.Instance.Rules.IsMinecraft)
         {
-            lines.Add($"Twist: strafe speed {MatchRules.Percent(strafe)}");
+            lines.Add($"Twists: {TwistsMenu.Summary(Session.Instance.Rules)[4..]}");
         }
         if (net.IsLagSimulated)
         {
@@ -286,6 +302,7 @@ public partial class Hud : CanvasLayer
         // The match keeps running while the menu is open; this only frees the mouse.
         _pauseMenu.Visible = paused;
         CloseSettings();
+        CloseTwists();
         ShowRules();
         if (!paused)
         {
@@ -322,6 +339,10 @@ public partial class Hud : CanvasLayer
     }
 
     /// <summary>Size of the rod cooldown bar, in GUI pixels, and how far below the screen's center it starts (screen pixels).</summary>
+    private static readonly Color CrosshairColor = new(1, 1, 1, 0.85f);
+    /// <summary>The crosshair while a wasted click blocks clicking (the twist).</summary>
+    private static readonly Color CrosshairBlockedColor = new(1, 0.3f, 0.25f, 0.85f);
+
     private const int RodBarWidth = 16;
     private const int RodBarHeight = 2;
     private const int RodBarBelowCenter = 16;
@@ -339,13 +360,15 @@ public partial class Hud : CanvasLayer
         center.AddChild(cross);
         foreach (Rect2 rect in new[] { new Rect2(8, 0, 2, 18), new Rect2(0, 8, 18, 2) })
         {
-            cross.AddChild(new ColorRect
+            var bar = new ColorRect
             {
-                Color = new Color(1, 1, 1, 0.85f),
+                Color = CrosshairColor,
                 Position = rect.Position,
                 Size = rect.Size,
                 MouseFilter = Control.MouseFilterEnum.Ignore,
-            });
+            };
+            _crosshair.Add(bar);
+            cross.AddChild(bar);
         }
     }
 
@@ -460,6 +483,8 @@ public partial class Hud : CanvasLayer
         panel.AddChild(box);
         _settings = new SettingsMenu { Visible = false };
         center.AddChild(_settings);
+        _twists = new TwistsMenu { Visible = false };
+        center.AddChild(_twists);
         var title = new Label { Text = "Paused", HorizontalAlignment = HorizontalAlignment.Center };
         title.AddThemeFontSizeOverride("font_size", 28);
         box.AddChild(title);
@@ -488,8 +513,8 @@ public partial class Hud : CanvasLayer
     }
 
     /// <summary>
-    /// Our twists on 1.8, for the whole match: the host sets them (a slider per twist), everyone
-    /// else sees the host's choice.
+    /// Our twists on 1.8, for the whole match: a button to the Twists screen (the host sets them
+    /// there; everyone else sees the host's choice) and a line saying which are on.
     /// </summary>
     private void BuildTwists(VBoxContainer box)
     {
@@ -497,55 +522,35 @@ public partial class Hud : CanvasLayer
         {
             box.AddChild(new HSeparator());
         }
-        box.AddChild(new Label { Text = "Twists (whole match)", HorizontalAlignment = HorizontalAlignment.Center });
-        var row = new HBoxContainer();
-        row.AddThemeConstantOverride("separation", 10);
-        row.AddChild(new Label { Text = "Strafe speed", Modulate = new Color(1, 1, 1, 0.7f) });
-        if (Network.Instance.IsHost)
+        box.AddChild(MenuButton("Twists", OpenTwists));
+        _twistsSummary = new Label
         {
-            _strafeSlider = new HSlider
-            {
-                MinValue = 1.0,
-                MaxValue = Tuning.MaxStrafeSpeed,
-                Step = Tuning.StrafeSpeedStep,
-                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-                SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
-                Value = Session.Instance.Rules.StrafeSpeed,
-            };
-            _strafeSlider.ValueChanged += value => Session.Instance.SetRules(Session.Instance.Rules with { StrafeSpeed = value });
-            row.AddChild(_strafeSlider);
-        }
-        else
-        {
-            row.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
-        }
-        _strafeValue = new Label { CustomMinimumSize = new Vector2(46, 0), HorizontalAlignment = HorizontalAlignment.Right };
-        row.AddChild(_strafeValue);
-        box.AddChild(row);
-        box.AddChild(new Label
-        {
-            Text = Network.Instance.IsHost
-                ? "100% = Minecraft 1.8. Faster sideways on the ground, never faster than a sprint."
-                : "Set by the host. 100% = Minecraft 1.8.",
+            HorizontalAlignment = HorizontalAlignment.Center,
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
             CustomMinimumSize = new Vector2(260, 0),
-            Modulate = new Color(1, 1, 1, 0.55f),
-        });
+            Modulate = new Color(1, 1, 1, 0.6f),
+        };
+        box.AddChild(_twistsSummary);
         box.AddChild(new HSeparator());
         ShowRules();
     }
 
     private void OnRulesChanged() => ShowRules();
 
-    /// <summary>Shows the match rules as they are now (the host may have changed them).</summary>
-    private void ShowRules()
+    /// <summary>Shows which twists are on (the host may have changed them).</summary>
+    private void ShowRules() => _twistsSummary.Text = TwistsMenu.Summary(Session.Instance.Rules);
+
+    private void OpenTwists()
     {
-        MatchRules rules = Session.Instance.Rules;
-        _strafeValue.Text = MatchRules.Percent(rules.StrafeSpeed);
-        if (_strafeSlider is not null && Math.Abs(_strafeSlider.Value - rules.StrafeSpeed) > 1e-9)
-        {
-            _strafeSlider.SetValueNoSignal(rules.StrafeSpeed);
-        }
+        _pauseBox.Visible = false;
+        _twists.Refresh();
+        _twists.Visible = true;
+    }
+
+    private void CloseTwists()
+    {
+        _twists.Visible = false;
+        _pauseBox.Visible = true;
     }
 
     private static Button MenuButton(string text, Action onPressed)

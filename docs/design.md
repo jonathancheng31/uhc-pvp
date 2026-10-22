@@ -35,7 +35,7 @@ final result matters, not build effort.
 | Teams | Team vs team, 1v1 up to 6v6 (12 players max). No big UHC survival mode |
 | Platform | Windows first. Keyboard and mouse only |
 | Direction | Inspired by Minecraft PvP, not a copy. Since 2026-10-21 the owner wants new features to be our own designs, starting from 1.8.9's numbers where they help. Since 2026-10-22, small twists on the 1.8.9 mechanics too, each one a match rule the host can switch between plain 1.8 and the twist, so it can be playtested ("Twists" below) |
-| Twists | Our changes to 1.8.9's mechanics, set by the host in the pause menu for the whole match and sent to every player (`MatchRules`). **Faster strafing** (0.4.5): sideways speed on the ground up to 150%, never faster than a straight sprint, the air untouched (see [movement.md](movement.md)); default 100% (1.8.9) until playtesting picks a value. Ruled out: a combo breaker (the owner: full combos are hard to land and very satisfying) and saving early clicks to land the instant hit protection ends (spam would guarantee perfectly timed hits). Still to find: a way to take power away from click speed |
+| Twists | Our changes to 1.8.9's mechanics, set by the host in the pause menu's Twists screen for the whole match and sent to every player (`MatchRules`); all default to 1.8.9 until playtesting picks values. **Faster strafing** (0.4.5): sideways speed on the ground up to 150%, never faster than a straight sprint. **Snappier strafing** (0.4.6): starting, stopping and switching A/D on the ground up to instant (1.8.9 takes a quarter second to switch). Both leave the air alone and knockback whole ([movement.md](movement.md)). **Wasted clicks** (0.4.6): a click that does nothing blocks clicking for up to 0.3 s, so timing beats click speed ([combat.md](combat.md)). Ruled out: a combo breaker (the owner: full combos are hard to land and very satisfying) and saving early clicks to land the instant hit protection ends (spam would guarantee perfectly timed hits) |
 | Combat numbers | Start from exact Minecraft 1.8.9 values (all in `scripts/Core/Tuning.cs`), then tune |
 | Block-hitting | Not included |
 | Kit | Diamond sword (8 damage). Fixed armor worth 18 points (diamond helmet and chestplate, iron leggings and boots), so a sword hit does 2.24 and a kill takes 9 hits (about 6 with crits). Tunable in `Tuning.cs` |
@@ -48,7 +48,7 @@ final result matters, not build effort.
 | Fishing rod | Our own design: always in the other hand, right-click throws, right-click again replaces the bobber. A 0.75 s cooldown after each throw stops spamming (owner's request, 0.4.2; before that there was none). A catch knocks back (no damage) and counts for hit protection like 1.8: a sword hit right after does damage but no knockback, and a rod on a protected player flies through. Numbers start from 1.8.9's. See [rod.md](rod.md) |
 | Respawning | Respawn at your team's spawn 3 seconds after dying (rounds come in the match-flow milestone) |
 | Practice bots | Run by the host; stand still, strafe, chase (run at you without swinging), or fight back (sprinting, strafing, clicking about 9 times a second, w-tapping, rodding at 3.5 to 8 blocks). They heal after 5 seconds without a hit |
-| Settings | A Settings screen on the main menu and in the pause menu (Esc): max FPS (30, 60, 75, 120, 144, 165, 240, 360 or Unlimited, the default; the game runs 60 ticks a second either way) and volume (0 to 100%, scaling loudness linearly like Minecraft's slider; letting go plays a hit sound). Changes apply at once and are saved on the player's computer. Added in 0.4.3 at the owner's request ("just basic settings for now"); mouse sensitivity, FOV and key binds could come later |
+| Settings | A Settings screen on the main menu and in the pause menu (Esc): max FPS (30, 60, 75, 120, 144, 165, 240, 360 or Unlimited, the default; the game runs 60 ticks a second either way) and volume (0 to 100%, scaling loudness linearly like Minecraft's slider; letting go plays a hit sound). Changes apply at once and are saved on the player's computer. Added in 0.4.3 at the owner's request ("just basic settings for now"). 0.4.6 added camera shake when hit (0 to 100% of Minecraft's 14 degree tilt, default 25%: the owner found the full tilt too much). Mouse sensitivity, FOV and key binds could come later |
 | HUD | Crosshair, hearts and armor (centered at the bottom), the rod's cooldown as a small bar under the crosshair, combo and reach readout, kill feed. No hotbar since 0.4.4 (the owner's request): the sword is always in hand and the rod in the other, so there's nothing to switch. It can come back when there are items to pick between |
 | Mouse and FOV | Match Minecraft's sensitivity curve and FOV (70) so aim muscle memory carries over. The view never widens while sprinting (1.8.9's does by up to 15%; removed in 0.4.2 at the owner's request) |
 | Simulation rate | 60 ticks per second (Minecraft uses 20); Minecraft's per-tick values are converted |
@@ -112,12 +112,12 @@ for 6v6, anti-cheat if we add ranked play.
   (`movement.md`). 0.4.2, from the owner's feedback: sprinting no longer changes the FOV, and
   the rod has a 0.75 s cooldown. 0.4.3 added a Settings screen (max FPS, volume). 0.4.4
   removed the hotbar. 0.4.5 started our own twists: faster strafing, with a slider in the
-  pause menu for playtesting.
+  pause menu for playtesting. 0.4.6 added two more (snappier strafing, wasted clicks) on a
+  Twists screen, and toned down the camera shake when hit (a setting, 25% by default).
 - **Next up:** milestone 4, match flow: rounds, scoreboard, spawns per team, end-of-match screen.
   Rounds vs respawns is still an open question for the owner (below).
-- **Waiting on the owner:** which strafe speed feels best (playtest the slider), how to take
-  power away from click speed (ideas offered: wasted clicks cost a moment, or a click speed
-  cap), how the rod feels (range, knockback, the 0.75 s cooldown) and how always-on sprint feels. Open feedback and known gaps are tracked in
+- **Waiting on the owner:** which twist values feel best (strafe speed, snappiness, wasted-click
+  delay; playtest the Twists screen), how the rod feels (range, knockback, the 0.75 s cooldown) and how always-on sprint feels. Open feedback and known gaps are tracked in
   [playtest-notes.md](playtest-notes.md).
 
 ## Open questions

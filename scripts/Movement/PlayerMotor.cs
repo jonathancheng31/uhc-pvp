@@ -83,6 +83,10 @@ public sealed class PlayerMotor
     public bool CollidedHorizontally { get; private set; }
     /// <summary>Our faster strafing (a match rule, see <see cref="BoostStrafe"/>). 1.0 is 1.8.9.</summary>
     public double StrafeSpeed { get; set; } = Tuning.DefaultStrafeSpeed;
+    /// <summary>Our snappier strafing (a match rule, see <see cref="GripStrafe"/>). 0 is 1.8.9.</summary>
+    public double StrafeGrip { get; set; } = Tuning.DefaultStrafeGrip;
+    /// <summary>Knockback just arrived: the next Minecraft tick doesn't apply strafe grip, so knockback stays whole.</summary>
+    private bool _skipGrip;
     /// <summary>How far the player has fallen since last on the ground (for critical hits).</summary>
     public double FallDistance { get; private set; }
 
@@ -135,6 +139,7 @@ public sealed class PlayerMotor
         _airAcceleration = AirAccelerationFor(sprinting: false);
         CollidedHorizontally = false;
         _wallStopsSprint = false;
+        _skipGrip = false;
         FallDistance = 0;
         // A fresh copy on the server too.
         ServerMotion = Vec3d.Zero;
@@ -178,6 +183,7 @@ public sealed class PlayerMotor
         _phase = 0;
         _airAcceleration = AirAccelerationFor(Sprinting);
         _groundHold = 0;
+        _skipGrip = true;
     }
 
     /// <summary>
@@ -290,6 +296,20 @@ public sealed class PlayerMotor
                 vy = MotionModel.VerticalStateFromMc(0);
             }
             Velocity = new Vec3d(SnapSmall(Velocity.X, horizontal), vy, SnapSmall(Velocity.Z, horizontal));
+
+            // Our snappier strafing, on the ground only, and never on the tick right after knockback.
+            bool skipGrip = _skipGrip;
+            _skipGrip = false;
+            if (OnGround && StrafeGrip > 0 && !skipGrip)
+            {
+                double k = _lastRegime.ImpulseToState;
+                double speed = MotionModel.GroundAcceleration(Tuning.WalkSpeed * (Sprinting ? Tuning.SprintSpeedMultiplier : 1.0));
+                Vec3d groundAccel = BoostStrafe(
+                    MoveFlying(strafe * Tuning.InputScale, forward * Tuning.InputScale, speed, input.Yaw),
+                    input.Yaw, StrafeSpeed, StraightSprintAcceleration);
+                Vec3d motion = GripStrafe(new Vec3d(Velocity.X / k, 0, Velocity.Z / k), groundAccel, input.Yaw, StrafeGrip);
+                Velocity = new Vec3d(motion.X * k, Velocity.Y, motion.Z * k);
+            }
         }
         if (input.Jump)
         {
@@ -473,6 +493,29 @@ public sealed class PlayerMotor
         }
         return new Vec3d(
             forwardAxis.X * forward + leftAxis.X * left, accel.Y, forwardAxis.Z * forward + leftAxis.Z * left);
+    }
+
+    /// <summary>
+    /// Our snappier strafing (not 1.8.9), done once per Minecraft tick at its start, on the ground:
+    /// the sideways part of <paramref name="motion"/> (MC units, relative to where you face) covers
+    /// <paramref name="grip"/> of the gap to the steady sideways speed this tick's
+    /// <paramref name="groundAccel"/> leads to. 1.8.9's ground friction already gets there, only
+    /// over about five ticks; this gets there sooner, so starting, stopping and switching between
+    /// A and D are quicker while top speeds stay the same.
+    /// </summary>
+    public static Vec3d GripStrafe(Vec3d motion, Vec3d groundAccel, double yaw, double grip)
+    {
+        if (grip <= 0)
+        {
+            return motion;
+        }
+        Vec3d left = Vec3d.Left(yaw);
+        double friction = Tuning.BlockSlipperiness * Tuning.AirFriction;
+        // Where the sideways motion settles (as stored between ticks) if these keys stay held.
+        double target = (groundAccel.X * left.X + groundAccel.Z * left.Z) * friction / (1 - friction);
+        double current = motion.X * left.X + motion.Z * left.Z;
+        double change = (target - current) * grip;
+        return new Vec3d(motion.X + left.X * change, motion.Y, motion.Z + left.Z * change);
     }
 
     /// <summary>Minecraft's moveFlying: turns key input into an acceleration (MC units).</summary>

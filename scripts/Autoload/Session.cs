@@ -66,10 +66,8 @@ public partial class Session : Node
         _players.Clear();
         _players[Network.HostId] = new RosterEntry(Network.HostId, MyName, Team.Red, false);
         _nextBotId = -1;
-        // The host's last choice, kept between matches (or a test's --strafe).
-        Rules = LaunchArgs.Instance.StrafeSpeed is double strafe
-            ? new MatchRules(strafe).Normalized()
-            : Settings.Instance.HostRules;
+        // The host's last choice, kept between matches (or a test's --strafe and friends).
+        Rules = LaunchArgs.Instance.RulesFor(Settings.Instance.HostRules);
         GD.Print($"[session] hosting on port {port} as {MyName}");
         EnterMatch();
         return Error.Ok;

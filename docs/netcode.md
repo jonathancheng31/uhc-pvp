@@ -97,10 +97,10 @@ knockback is used up. The confirming `Hurt` doesn't replay the effects. Against 
 
 **Bots** are owned by the host's game and appear to everyone else as normal players in snapshots.
 
-**Match rules** (`MatchRules`, our twists such as faster strafing). The host picks them in the
-pause menu and sends a `RulesUpdate` to each player as they join and to everyone when they
-change. Every game moves its own player, so they must all use the same rules; a client takes
-them only from the host.
+**Match rules** (`MatchRules`, our twists: strafe speed, strafe snappiness, wasted clicks). The
+host picks them in the pause menu's Twists screen and sends a `RulesUpdate` to each player as they
+join and to everyone when they change. Every game moves its own player and decides its own
+clicks, so they must all use the same rules; a client takes them only from the host.
 
 ## Still to build
 

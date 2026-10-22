@@ -70,6 +70,8 @@ public partial class Player : Node3D
     public Vitality Vitality { get; } = new();
     /// <summary>The rod's cooldown after a throw, for players this game runs.</summary>
     public RodCooldown RodCooldown { get; } = new();
+    /// <summary>The wasted-clicks twist's lockout, for players this game runs.</summary>
+    public ClickLockout ClickLockout { get; } = new();
     /// <summary>The AI for bots (and for --bot test players); null for people.</summary>
     public BotBrain? Brain { get; set; }
 
@@ -89,7 +91,7 @@ public partial class Player : Node3D
     public bool Sneaking => (Flags & PlayerFlags.Sneaking) != 0;
     /// <summary>Eye position as drawn right now, for aiming (Minecraft lowers it 0.08 when sneaking).</summary>
     public Vec3d Eye => ShownFeet + new Vec3d(0, Tuning.EyeHeight - (Sneaking ? Tuning.SneakEyeDrop : 0), 0);
-    public bool CanAttack => IsOwned && !IsDead && !_missPenalty.Blocks;
+    public bool CanAttack => IsOwned && !IsDead && !_missPenalty.Blocks && !ClickLockout.Blocks;
 
     public void Setup(Game game, int id, PlayerKind kind, VoxelWorld world, Vec3d home, float homeYaw)
     {
@@ -172,6 +174,7 @@ public partial class Player : Node3D
         }
         Vitality.Tick();
         RodCooldown.Tick();
+        ClickLockout.Tick();
         _subtick = (_subtick + 1) % N;
         if (_subtick == 0)
         {
@@ -192,7 +195,9 @@ public partial class Player : Node3D
         MovementInput input = intent?.Input ?? KeyboardInput();
         _previousPosition = Motor.Position;
         // The match's twists, as the host set them (the same for every player).
-        Motor.StrafeSpeed = Session.Instance.Rules.StrafeSpeed;
+        MatchRules rules = Session.Instance.Rules;
+        Motor.StrafeSpeed = rules.StrafeSpeed;
+        Motor.StrafeGrip = rules.StrafeGrip;
         Motor.Step(input);
         if (Motor.Position.Y < Tuning.VoidY)
         {
@@ -329,6 +334,7 @@ public partial class Player : Node3D
         }
         Vitality.Reset();
         RodCooldown.Reset();
+        ClickLockout.Reset();
         Motor.Teleport(Home);
         _previousPosition = Home;
         Look(HomeYaw, 0);
@@ -385,9 +391,10 @@ public partial class Player : Node3D
         }
         double eye = IsDead ? 0.3 : Tuning.EyeHeight - (Motor.Sneaking ? Tuning.SneakEyeDrop : 0);
         Camera.Position = new Vector3(0, (float)eye, 0);
-        // Minecraft's hurt camera: a quick tilt that eases back.
+        // Minecraft's hurt camera: a quick tilt that eases back, scaled by the player's setting
+        // (a quarter of Minecraft's by default; 0 turns it off).
         float f = Vitality.HurtFlashFraction;
-        float tilt = MathF.Sin(f * f * f * f * MathF.PI) * 14f;
+        float tilt = MathF.Sin(f * f * f * f * MathF.PI) * Tuning.HurtTiltDegrees * (float)Settings.Instance.Current.HurtShake;
         Camera.RotationDegrees = new Vector3(Pitch, 0, -tilt);
         if (ViewModel is not null)
         {
