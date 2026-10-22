@@ -9,6 +9,9 @@ what we think is causing it. Fixed items move to "Done" with the version that fi
 
 ## Open
 
+- **2026-10-22, 0.4.6, decision: "lets ignore match flow and other aspects for a while, we wanna
+  polish gameplay."** Match flow and internet play wait; the feel pass and the twists come
+  first (`design.md`, "Current status").
 - **2026-10-22, 0.4.4, decision: our own twists, small changes first, then playtest.** Shortlist
   offered: combo breaker, faster strafing, timing over click speed, better hit feel.
   - Faster strafing: "interesting, basically changing some movement mechanics." Then: "faster
