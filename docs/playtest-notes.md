@@ -9,6 +9,13 @@ what we think is causing it. Fixed items move to "Done" with the version that fi
 
 ## Open
 
+- **2026-10-23, 0.4.6, feel and idea: "comboing feels kinda hard. i want comboing to be a bigger
+  part of the game. or maybe im just bad at mc pvp. idk."** Our knockback, hit protection and
+  w-tap rules match 1.8.9 exactly (tested), so this is 1.8.9's own difficulty, maybe made harder
+  by a fighting bot that strafes away and hits back. Being looked into in depth before changing
+  anything: what decides whether a combo carries on (how far each hit pushes versus how fast the
+  attacker catches up, and the victim's ways out), measured in our game, plus how combo-focused
+  servers tune it. Then options to try as twists.
 - **2026-10-23, 0.4.6, decision: hits and the rod first, depth over breadth.** Offered as next
   directions: a bigger kit (healing, bow), hit feel and fairness, team fights, or stranger
   mechanics. "nah lets focus specifically on the hit and rod mechanics for now first. i wanna
