@@ -132,6 +132,28 @@ public partial class Game : Node3D
     public IReadOnlyList<Player> EnemiesOf(Player player) =>
         _players.Values.Where(p => p != player && !p.IsDead && p.Team != player.Team).ToList();
 
+    /// <summary>
+    /// The push on one of our own players (us or a bot) from everyone overlapping it, teammates
+    /// too (the pushing twist; see <see cref="Pushing"/>). Others are where this game sees them:
+    /// our bots where they stand, remote players where they're drawn.
+    /// </summary>
+    public Vec3d PushOn(Player player, double strength)
+    {
+        if (strength <= 0 || player.Motor is null)
+        {
+            return Vec3d.Zero;
+        }
+        Vec3d push = Vec3d.Zero;
+        foreach (Player other in _players.Values)
+        {
+            if (other != player && !other.IsDead)
+            {
+                push += Pushing.Away(player.Feet, other.IsOwned ? other.Feet : other.ShownFeet, strength, player.Motor.OnGround);
+            }
+        }
+        return push;
+    }
+
     /// <summary>Host only: adds a practice bot on the other team, a few blocks in front of you, facing you.</summary>
     public void AddPracticeBot()
     {

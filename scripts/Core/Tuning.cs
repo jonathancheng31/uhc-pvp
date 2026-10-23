@@ -37,6 +37,29 @@ public static class Tuning
     public const double SneakEyeDrop = 0.08;
     public const double MaxHealth = 20.0;
 
+    // --- Players pushing each other (a twist; 1.8.9 has none) -----------------------------
+
+    /// <summary>
+    /// In 1.8.9 players walk straight through each other: its push code only runs on the server,
+    /// whose copy the client overwrites every tick. The "Player pushing" twist (0 off, the 1.8.9
+    /// way) has each game push its own player away from anyone whose box overlaps it, harder the
+    /// deeper the overlap: at 100% and full overlap the push is this, in blocks per Minecraft
+    /// tick. At 100% nobody can run through anyone, head-on or mid-jump, and running into a
+    /// standing player shoves them along at about 2.4 blocks/s (Minecraft 1.9's gentle push tops
+    /// out at 0.044, which you can walk through). See docs/movement.md.
+    /// </summary>
+    public const double PushImpulse = 0.3;
+    /// <summary>
+    /// In the air the push is halved: air keeps speed far longer than the ground does, so a full
+    /// push would fling players apart mid-jump.
+    /// </summary>
+    public const double PushAirFactor = 0.5;
+    /// <summary>Players closer than this (centre to centre) don't push: there's no sensible direction.</summary>
+    public const double PushMinDistance = 0.01;
+    public const double DefaultPushing = 0.0;
+    public const double MaxPushing = 2.0;
+    public const double PushingStep = 0.1;
+
     // --- Camera and mouse -----------------------------------------------------------------
 
     /// <summary>

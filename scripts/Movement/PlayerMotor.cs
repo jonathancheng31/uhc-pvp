@@ -85,8 +85,15 @@ public sealed class PlayerMotor
     public double StrafeSpeed { get; set; } = Tuning.DefaultStrafeSpeed;
     /// <summary>Our snappier strafing (a match rule, see <see cref="GripStrafe"/>). 0 is 1.8.9.</summary>
     public double StrafeGrip { get; set; } = Tuning.DefaultStrafeGrip;
-    /// <summary>Knockback just arrived: the next Minecraft tick doesn't apply strafe grip, so knockback stays whole.</summary>
+    /// <summary>Knockback just arrived: the next Minecraft tick doesn't apply strafe grip or a push, so knockback stays whole.</summary>
     private bool _skipGrip;
+    /// <summary>
+    /// Other players' push on us (the pushing twist, see <see cref="Pushing"/>), in Minecraft
+    /// units. Added at the next Minecraft tick start, where Minecraft 1.9 adds it (after the last
+    /// move, before the tick's tiny-speed cleanup), then cleared. Knockback arriving in between
+    /// replaces it, as a velocity packet would.
+    /// </summary>
+    public Vec3d Push { get; set; }
     /// <summary>How far the player has fallen since last on the ground (for critical hits).</summary>
     public double FallDistance { get; private set; }
 
@@ -140,6 +147,7 @@ public sealed class PlayerMotor
         CollidedHorizontally = false;
         _wallStopsSprint = false;
         _skipGrip = false;
+        Push = Vec3d.Zero;
         FallDistance = 0;
         // A fresh copy on the server too.
         ServerMotion = Vec3d.Zero;
@@ -287,6 +295,11 @@ public sealed class PlayerMotor
         // --- Jumping and tiny-speed cleanup (EntityLivingBase.onLivingUpdate) ---
         if (mcTickStart)
         {
+            if (!_skipGrip)
+            {
+                PushHorizontal(Push);
+            }
+            Push = Vec3d.Zero;
             // Minecraft zeroes speeds under 0.005 blocks/tick once per tick; same threshold here,
             // converted to our units.
             double horizontal = Tuning.MinMotion * _lastRegime.ImpulseToState;

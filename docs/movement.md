@@ -81,7 +81,31 @@ quicker; top speeds don't change. Code: `PlayerMotor.GripStrafe`.
   `tests/StrafeTests.cs` checks we still land exactly on it, the switch times above, unchanged top
   speeds, and the knockback path.
 
-Not yet: step-up onto slabs (no slabs exist), pushing between players, water and lava.
+## Our twist: player pushing (since 0.4.7, a match rule)
+
+In 1.8.9 players walk straight through each other. Its push code only runs on the server, and
+the client overwrites the server's copy of the player every tick, so nobody is ever pushed. (The
+pushes only build up invisibly in the server's copy, which a knockback halves and passes on:
+a tiny extra push on a hit inside someone. We don't copy that.) Minecraft 1.9 added a gentle
+push that you can still walk through.
+
+**Player pushing** (Off, which is 1.8.9, to 200%) makes players solid-ish: each game pushes its
+own player (and its bots) away from anyone whose box overlaps it, teammates too, harder the deeper
+the overlap. Others are pushed by their own games, so it needs nothing over the network.
+
+- At **100%**: at full overlap the push is 0.3 blocks per Minecraft tick. Nobody can run
+  through anyone (walking, sprinting, head-on, sprint-jumping), and running into a standing
+  player shoves them along at about 2.4 blocks/s. Two players spawned inside each other slide
+  apart within a quarter second, as a shove, never a launch.
+- At low values it's soft: at 20% a sprinting player still gets through, slowed.
+- **In the air the push is halved**, since the air keeps speed far longer than the ground.
+- It's added once per Minecraft tick, after the move, like Minecraft 1.9's. A knockback arriving
+  at the same time replaces it, so **knockback stays whole**.
+- Code: `Pushing.Away` (the push from one player on another), `Game.PushOn` (everyone around a
+  player), `PlayerMotor.Push`. `tests/PushTests.cs` checks the shape of the push, the scenarios
+  above, and that our 60 ticks/s motor adds it exactly where a 20 ticks/s player would.
+
+Not yet: step-up onto slabs (no slabs exist), water and lava.
 
 ## How the 60-tick version matches Minecraft exactly
 
