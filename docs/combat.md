@@ -19,7 +19,9 @@ the same hit protection and knockback as sword hits.
    and drag clicking). Pointing at a nearby block is not a miss.
 3. **Attacker side.** Any click on a player: if you were sprinting, you slow to 60% but keep
    sprinting (your game does this immediately, like 1.8's client, even if the hit won't
-   count). Falling and off the ground makes it a **crit**; your own screen shows crit sparks
+   count). Only once per Minecraft tick: 1.8.9's first click stops sprint until the next tick,
+   so more clicks in the same 1/20 s don't slow you again (before 0.4.8 every click did).
+   Falling and off the ground makes it a **crit**; your own screen shows crit sparks
    on every critical click.
 4. **Victim side.** Damage = 8 (diamond sword), x1.5 if crit, x(25 - armor)/25. With the kit's
    18 armor points that's 2.24 (3.36 crit).
@@ -39,11 +41,34 @@ the same hit protection and knockback as sword hits.
    - **The formula:** halve the copy's motion (all three axes), push 0.4 away from the attacker
      and 0.4 up (capped at 0.4). A sprint hit adds 0.5 along the attacker's facing and 0.1 up.
      The result replaces the victim's motion, rounded like Minecraft's velocity packet (to
-     1/8000). The copy itself keeps its old motion.
-   - **What that feels like:** every hit pushes the same 0.9 blocks per tick sideways (sprint
-     hit), whatever the victim was doing. The lift shrinks as a combo keeps the victim in the
-     air: on a victim who doesn't touch the keys, sprint hits every 10 ticks lift 0.46, then
-     0.35, then 0.02.
+     1/8000). The copy itself keeps its old motion. Like a velocity packet, which 1.8.9 handles
+     between ticks, it lands at the victim's next Minecraft tick (`PlayerMotor.Knock`; at most
+     1/30 s later on our 60 ticks), built from the copy as it is then.
+   - **What that feels like:** a sprint hit from someone facing the victim pushes 0.9 blocks per
+     tick sideways whatever the victim was doing, as long as the victim isn't sprinting. A
+     victim who sprints (holds W toward you) gets a little less from the second hit on, 0.86 to
+     0.88 in our combo simulation: knocked off the ground, the server's copy takes it for a
+     sprint-jump and adds 1.8.9's 0.2 sprint-jump boost toward where they face, and half of
+     what's left of that cancels part of the next push. A sprint hit carries a victim who
+     doesn't touch the keys about 4 blocks, out of reach for most of a second, so in play the
+     next hit almost always finds them back on the ground: it lifts 0.46 (sprint hit) or 0.36
+     (no sprint). Right after landing it lifts less, about 0.25, because the server's copy lands
+     a tick or two after the player. (Hits every 10 ticks on a victim who doesn't touch the keys
+     would lift 0.46, then 0.35, then 0.02, as `tests/CombatTests.cs` checks, but nobody can
+     keep up with that on flat ground: the victim is out of reach after 10 ticks.)
+   - **Jump resets.** Jumping on the tick the knockback lands takes some of it off: the jump's
+     0.42 lift replaces the knockback's (so you land sooner) and, sprinting, its 0.2 forward
+     boost pushes back toward the attacker. After a sprint hit, holding W, you travel 1.65 blocks
+     in the next half second instead of 2.54. Jumping a tick early is worse than not jumping
+     (4.34: knocked back mid-air); a tick late does nothing (2.54). 1.8.9 reads the jump key once
+     per tick, so these are the only outcomes. Our jump starts the instant you press it, and
+     lands on exactly one of them (`tests/JumpResetTests.cs`, every 1/60 s step): pressed between
+     the knockback arriving and the end of that Minecraft tick it's on time, earlier is early,
+     later is late. So the perfect window is 1/60 to 1/20 s after the knockback arrives,
+     depending on where in the tick it arrives (1.8.9's is a full 1/20 s, but it starts up to
+     1/20 s before the knockback, since a 1.8.9 jump waits for the next tick). Before 0.4.8 a
+     jump 16 to 33 ms after the knockback cut it to 0.73 to 1.14 blocks, far more than 1.8.9
+     allows, and one 16 to 33 ms before it sent you 5 blocks.
    - **A stronger hit** (during protection) sends the victim no knockback at all; a sprint
      push from it stays on the server's copy and adds half of what's left to the next hit.
    - **Sprint knockback is used up only by hits that count** (full or stronger), so a click
@@ -108,6 +133,10 @@ victim sprinting at you, victim mid-air) identical to the 1.8.9 reference at eve
 server's copy of the player matching a port of `NetHandlerPlayServer.processPlayer`
 (`McServerCopy`) while standing, jumping, sprint-jumping, walking and sneaking, a 3-hit combo
 whose knockback matches it exactly, the stronger-hit leftover, the attacker's sprint-hit
-slowdown, the w-tap rule (including clicks into hit protection), crits needing a fall, the
-miss penalty against a port of `Minecraft.runTick` over 300 random clicking patterns, and
-aiming (reach, border, walls, sky, the out-of-reach quirk). `tools/smoke_test.sh` has bots fight across the network, one with 120 ms of lag.
+slowdown (once per tick), the w-tap rule (including clicks into hit protection), crits needing a
+fall, the miss penalty against a port of `Minecraft.runTick` over 300 random clicking patterns,
+and aiming (reach, border, walls, sky, the out-of-reach quirk). `tests/JumpResetTests.cs`: a
+jump pressed on every 1/60 s step from two ticks before to two ticks after a knockback, with the
+knockback arriving at every point of a tick, follows one of 1.8.9's flights exactly (standing,
+holding W, holding A). `tools/smoke_test.sh` has bots fight across the network, one with 120 ms
+of lag.

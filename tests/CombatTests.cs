@@ -178,6 +178,54 @@ public class CombatMotionTests : TestCase
         CheckTrack(mc, ours, 20, sprint, "after a sprint hit, holding sprint");
     }
 
+    public void TestSprintHitSlowsOncePerTick()
+    {
+        // 1.8.9's first click on a player stops sprint until the next tick, so more clicks before
+        // that tick don't slow you again; the next tick's clicks do.
+        var (mc, ours) = Pair();
+        var sprint = new MovementInput(1, 0, false, true, false, 0);
+        for (int t = 0; t < 20; t++)
+        {
+            Tick(mc, ours, sprint);
+        }
+        for (int click = 0; click < 3; click++)
+        {
+            mc.SprintHitSlowdown();
+            ours.OnHitLanded(accepted: true);
+        }
+        CheckTrack(mc, ours, 1, sprint, "three clicks before one tick slow once");
+        mc.SprintHitSlowdown();
+        ours.OnHitLanded(accepted: true);
+        CheckTrack(mc, ours, 20, sprint, "a click before the next tick slows again");
+
+        // Our clicks land between steps. The ones after a tick starts and before the next one
+        // starts are those 1.8.9 handles together before that next tick's move: they slow once,
+        // like a single click.
+        var (_, many) = Pair();
+        var (_, one) = Pair();
+        for (int s = 0; s <= 20 * N; s++)
+        {
+            many.Step(sprint);
+            one.Step(sprint);
+        }
+        for (int s = 0; s < N; s++)
+        {
+            many.OnHitLanded(accepted: true);
+            if (s == 0)
+            {
+                one.OnHitLanded(accepted: true);
+            }
+            many.Step(sprint);
+            one.Step(sprint);
+        }
+        many.OnHitLanded(accepted: true);
+        one.OnHitLanded(accepted: true);
+        many.Step(sprint);
+        one.Step(sprint);
+        CheckNear(Distance(many.Position, one.Position) + Distance(many.Velocity, one.Velocity), 0, 1e-12,
+            "a click before every step of a tick slows once; the next tick's click slows again");
+    }
+
     public void TestDoubleTapSprintSurvivesHits()
     {
         var (_, ours) = Pair();

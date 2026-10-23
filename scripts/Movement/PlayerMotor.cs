@@ -56,6 +56,23 @@ public sealed class PlayerMotor
     /// <summary>The on-ground flag of our last report.</summary>
     private bool _reportedOnGround;
     private double _yaw;
+    /// <summary>
+    /// Hits waiting for the next Minecraft tick start, in the order they arrived: knockback (built
+    /// from the server's copy then) or a push on the server's copy alone. See <see cref="Knock"/>.
+    /// </summary>
+    private readonly List<(Func<Vec3d, Vec3d>? Knockback, Vec3d CopyPush)> _pendingHits = new();
+    /// <summary>
+    /// The Minecraft tick in progress started with knockback, so a jump can't restart it: 1.8.9
+    /// reads the jump key once per tick, so a jump pressed after the knockback landed waits for the
+    /// next tick (by which time the knockback has usually lifted you off the ground).
+    /// </summary>
+    private bool _knockedThisTick;
+    /// <summary>
+    /// A sprinting click on a player already slowed us this Minecraft tick. 1.8.9's first click
+    /// stops sprint until the next tick (which restarts it with the sprint key held), so later
+    /// clicks in the same tick don't slow you again.
+    /// </summary>
+    private bool _slowedThisTick;
 
     public PlayerMotor(ICollisionWorld world, Vec3d position)
     {
@@ -148,6 +165,9 @@ public sealed class PlayerMotor
         _wallStopsSprint = false;
         _skipGrip = false;
         Push = Vec3d.Zero;
+        _pendingHits.Clear();
+        _knockedThisTick = false;
+        _slowedThisTick = false;
         FallDistance = 0;
         // A fresh copy on the server too.
         ServerMotion = Vec3d.Zero;
@@ -179,20 +199,17 @@ public sealed class PlayerMotor
     }
 
     /// <summary>
-    /// Replaces the motion with one in Minecraft units, the way a Minecraft client applies a
-    /// velocity packet (knockback) between ticks: the next tick starts fresh from it.
+    /// Knockback reaching this player, the way it reaches a 1.8.9 client: the server builds it from
+    /// its copy of the player (<paramref name="build"/> turns <see cref="ServerMotion"/> into the
+    /// motion to receive, in Minecraft units) and the client applies it between ticks, replacing
+    /// the motion. So it lands at the next Minecraft tick start: a tick in progress finishes first
+    /// (at most 1/30 s) and reports to the server, and only then is the knockback built. That keeps
+    /// a jump around it on exactly one of 1.8.9's outcomes (see <see cref="Step"/>).
     /// </summary>
-    public void SetMcMotion(Vec3d motion)
-    {
-        double k = _lastRegime.ImpulseToState;
-        Velocity = new Vec3d(motion.X * k, MotionModel.VerticalStateFromMc(motion.Y), motion.Z * k);
-        // The Minecraft tick in progress ends here, so the air acceleration is set as at any
-        // tick's end.
-        _phase = 0;
-        _airAcceleration = AirAccelerationFor(Sprinting);
-        _groundHold = 0;
-        _skipGrip = true;
-    }
+    public void Knock(Func<Vec3d, Vec3d> build) => _pendingHits.Add((build, Vec3d.Zero));
+
+    /// <summary>Knockback with its motion already worked out (Minecraft units), landing like <see cref="Knock"/>.</summary>
+    public void SetMcMotion(Vec3d motion) => Knock(_ => motion);
 
     /// <summary>
     /// The attacker's side of a click on a player. The attacker's own game treats every such
@@ -206,9 +223,10 @@ public sealed class PlayerMotor
     /// </summary>
     public void OnHitLanded(bool accepted)
     {
-        if (Sprinting)
+        if (Sprinting && !_slowedThisTick)
         {
             Velocity = new Vec3d(Velocity.X * Tuning.SprintHitSlowdown, Velocity.Y, Velocity.Z * Tuning.SprintHitSlowdown);
+            _slowedThisTick = true;
         }
         if (accepted && ServerSprinting)
         {
@@ -221,8 +239,19 @@ public sealed class PlayerMotor
     /// <summary>
     /// A push that only reaches the server's copy: a sprint hit that landed during hit
     /// protection sends the victim nothing, but stays on the copy and adds to the next knockback.
+    /// It takes its turn after any knockback still waiting to land (see <see cref="Knock"/>).
     /// </summary>
-    public void PushServerCopy(Vec3d mcImpulse) => ServerMotion += mcImpulse;
+    public void PushServerCopy(Vec3d mcImpulse)
+    {
+        if (_pendingHits.Count > 0)
+        {
+            _pendingHits.Add((null, mcImpulse));
+        }
+        else
+        {
+            ServerMotion += mcImpulse;
+        }
+    }
 
     /// <summary>Ground friction while standing (or on the tick of a jump), air friction otherwise.</summary>
     private FrictionRegime CurrentRegime => OnGround || _groundHold > 0 ? MotionModel.Ground : MotionModel.Air;
@@ -241,12 +270,21 @@ public sealed class PlayerMotor
             _jumpCooldown--;
         }
         // Jumps start instantly and restart the Minecraft-tick rhythm, so a jump also starts a
-        // new Minecraft tick (decided here because the tick start comes before sprinting).
-        bool jumps = input.Jump && OnGround && _jumpCooldown == 0;
+        // new Minecraft tick (decided here because the tick start comes before sprinting). Not in
+        // a tick that knockback started: 1.8.9 reads the jump key once per tick, so the jump waits
+        // for the next tick start. With knockback landing only at tick starts (Knock), a jump
+        // around it lands on exactly one of 1.8.9's outcomes: pressed between the knockback
+        // arriving and the tick in progress ending, the tick starts there with the knockback and
+        // the jump on top (on time); pressed before it arrived, the jump's tick finishes first and
+        // the knockback lands mid-air (early); pressed later, it waits (late).
+        bool jumps = input.Jump && OnGround && _jumpCooldown == 0 && (tickStart || !_knockedThisTick);
         bool mcTickStart = tickStart || jumps;
         if (mcTickStart)
         {
             _wallStopsSprint = CollidedHorizontally;
+            _slowedThisTick = false;
+            _knockedThisTick = false;
+            LandPendingHits();
         }
 
         // --- Input and sprinting (EntityPlayerSP.onLivingUpdate) ---
@@ -408,6 +446,29 @@ public sealed class PlayerMotor
             }
             ReportToServer();
         }
+    }
+
+    /// <summary>
+    /// A Minecraft tick starts: hits that arrived since the last one land, in order. Knockback
+    /// replaces the motion (the tick starts fresh from it, with no strafe grip or push), built
+    /// from the server's copy as it is now, after the last tick's report.
+    /// </summary>
+    private void LandPendingHits()
+    {
+        foreach ((Func<Vec3d, Vec3d>? knockback, Vec3d copyPush) in _pendingHits)
+        {
+            if (knockback is null)
+            {
+                ServerMotion += copyPush;
+                continue;
+            }
+            Vec3d motion = knockback(ServerMotion);
+            double k = _lastRegime.ImpulseToState;
+            Velocity = new Vec3d(motion.X * k, MotionModel.VerticalStateFromMc(motion.Y), motion.Z * k);
+            _knockedThisTick = true;
+            _skipGrip = true;
+        }
+        _pendingHits.Clear();
     }
 
     /// <summary>

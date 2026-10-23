@@ -123,12 +123,19 @@ Code: `scripts/Movement/MotionModel.cs` (the math) and `scripts/Movement/PlayerM
    friction 0.98 and a constant acceleration of `-0.08 * 0.98`, so jumps and falls are exact too.
 4. **Minecraft's rhythm.** Minecraft only notices landing, leaving the ground, wall hits (to
    stop sprint) and tiny-speed cleanup once per 1/20 s tick, and sets the air acceleration at
-   the end of each tick. We keep a phase counter and do those things on the same rhythm (a
-   knockback that arrives mid-tick ends the tick in progress). The wall check uses the last of
-   our three moves, which ends where Minecraft's single move ends; an earlier one can clip a
-   corner or a wall's top edge that Minecraft's move clears. A jump starts instantly whenever
-   you press it and starts a new Minecraft tick there (with the wall check and tiny-speed
-   cleanup), so landing and the next bunny-hop fall exactly where Minecraft's would.
+   the end of each tick. We keep a phase counter and do those things on the same rhythm. The
+   wall check uses the last of our three moves, which ends where Minecraft's single move ends;
+   an earlier one can clip a corner or a wall's top edge that Minecraft's move clears. A jump
+   starts instantly whenever you press it and starts a new Minecraft tick there (with the wall
+   check and tiny-speed cleanup), so landing and the next bunny-hop fall exactly where
+   Minecraft's would.
+5. **Knockback lands between ticks**, like 1.8.9's velocity packet: one that arrives mid-tick
+   waits for the tick to end (at most 1/30 s), and a jump can't restart a tick that knockback
+   started (1.8.9 reads the jump key once per tick). So a jump around knockback follows exactly
+   one of 1.8.9's paths, whichever 1/60 s step it's pressed on (jump resets, see
+   [combat.md](combat.md); `tests/JumpResetTests.cs`). Before 0.4.8 knockback cut the tick in
+   progress short, and a jump just after it restarted the tick, adding ground friction that
+   1.8.9 never applies.
 
 Between Minecraft's ticks our path follows the smooth curve, so a jump's true peak is a hair
 (under 0.01 block) above Minecraft's tick-sampled 1.2492.

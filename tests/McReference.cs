@@ -55,9 +55,17 @@ public sealed class McReference
         _skipGrip = true;
     }
 
-    /// <summary>The attacker side of a sprint hit (EntityPlayer.attackTargetEntityWithCurrentItem).</summary>
+    /// <summary>
+    /// The attacker side of a click on a player (EntityPlayer.attackTargetEntityWithCurrentItem,
+    /// which a client runs for every click on a player): only while sprinting, it slows to 60%
+    /// and stops sprint, until the next tick restarts it (with the sprint key held).
+    /// </summary>
     public void SprintHitSlowdown()
     {
+        if (!Sprinting)
+        {
+            return;
+        }
         Motion = new Vec3d(Motion.X * 0.6, Motion.Y, Motion.Z * 0.6);
         Sprinting = false;
     }

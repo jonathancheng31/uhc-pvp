@@ -212,20 +212,20 @@ public partial class Game
         {
             return result;
         }
-        // Knockback starts from the server's copy of the victim, as in 1.8.9 (see PlayerMotor.ServerMotion).
-        Vec3d motion = CombatRules.Knockback(
-            victim.Motor.ServerMotion, attackerFeet, seenFeet, attack.AttackerYaw,
-            baseKnockback: result == HitResult.Hurt, sprintBonus: sprintKnockback, _random);
         if (result == HitResult.Hurt)
         {
-            // The server sends the victim this motion and keeps its own copy as it was.
-            victim.Motor.SetMcMotion(CombatRules.VelocityPacket(motion));
+            // Knockback starts from the server's copy of the victim, as in 1.8.9 (see
+            // PlayerMotor.ServerMotion), and lands at the victim's next Minecraft tick like a
+            // velocity packet. The server keeps its own copy as it was.
+            victim.Motor.Knock(copy => CombatRules.VelocityPacket(CombatRules.Knockback(
+                copy, attackerFeet, seenFeet, attack.AttackerYaw, baseKnockback: true, sprintBonus: sprintKnockback, _random)));
         }
         else if (sprintKnockback)
         {
             // A stronger hit sends nothing: the victim doesn't move, but a sprint push stays on
             // the server's copy and adds to the next knockback.
-            victim.Motor.PushServerCopy(motion - victim.Motor.ServerMotion);
+            victim.Motor.PushServerCopy(
+                CombatRules.Knockback(Vec3d.Zero, attackerFeet, seenFeet, attack.AttackerYaw, false, true, _random));
         }
         victim.OnDamaged();
 
