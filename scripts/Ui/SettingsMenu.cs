@@ -9,7 +9,8 @@ namespace UhcPvp.Ui;
 
 /// <summary>
 /// The settings screen, opened from the main menu and from the pause menu (Esc) in a match:
-/// max FPS, volume and camera shake when hit. Changes apply at once and are saved when it closes.
+/// max FPS, volume, camera shake when hit, mouse sensitivity and field of view. Changes apply at
+/// once and are saved when it closes.
 /// </summary>
 public partial class SettingsMenu : PanelContainer
 {
@@ -18,6 +19,10 @@ public partial class SettingsMenu : PanelContainer
     private Label _volumeValue = null!;
     private HSlider _shake = null!;
     private Label _shakeValue = null!;
+    private HSlider _sensitivity = null!;
+    private Label _sensitivityValue = null!;
+    private HSlider _fov = null!;
+    private Label _fovValue = null!;
     private AudioStreamPlayer _preview = null!;
     private bool _refreshing;
 
@@ -100,6 +105,16 @@ public partial class SettingsMenu : PanelContainer
         (_shake, _shakeValue) = SliderRow(box, 0, 100, 5);
         _shake.ValueChanged += OnShakeChanged;
 
+        box.AddChild(Caption("Mouse sensitivity (same numbers as Minecraft's)"));
+        (_sensitivity, _sensitivityValue) = SliderRow(box, 0, GameSettings.MaxSensitivityPercent, 1);
+        _sensitivity.ValueChanged += value => OnSliderChanged(value, _sensitivityValue, SensitivityText,
+            percent => Settings.Current with { SensitivityPercent = percent });
+
+        box.AddChild(Caption("Field of view (70 = Minecraft's normal)"));
+        (_fov, _fovValue) = SliderRow(box, Tuning.MinFov, Tuning.MaxFov, 1);
+        _fov.ValueChanged += value => OnSliderChanged(value, _fovValue, FovText,
+            fov => Settings.Current with { Fov = fov });
+
         box.AddChild(new Control { CustomMinimumSize = new Vector2(0, 6) });
         var done = new Button { Text = "Done", CustomMinimumSize = new Vector2(0, 40) };
         done.Pressed += Close;
@@ -116,6 +131,10 @@ public partial class SettingsMenu : PanelContainer
         _volumeValue.Text = VolumeText(current.VolumePercent);
         _shake.Value = current.HurtShakePercent;
         _shakeValue.Text = VolumeText(current.HurtShakePercent);
+        _sensitivity.Value = current.SensitivityPercent;
+        _sensitivityValue.Text = SensitivityText(current.SensitivityPercent);
+        _fov.Value = current.Fov;
+        _fovValue.Text = FovText(current.Fov);
         _refreshing = false;
     }
 
@@ -154,6 +173,16 @@ public partial class SettingsMenu : PanelContainer
         }
     }
 
+    private void OnSliderChanged(double value, Label shown, Func<int, string> text, Func<int, GameSettings> change)
+    {
+        int number = (int)Math.Round(value);
+        shown.Text = text(number);
+        if (!_refreshing)
+        {
+            Settings.Change(change(number));
+        }
+    }
+
     /// <summary>A slider with its value shown on the right, added to <paramref name="box"/>.</summary>
     private static (HSlider Slider, Label Value) SliderRow(VBoxContainer box, double min, double max, double step)
     {
@@ -176,6 +205,10 @@ public partial class SettingsMenu : PanelContainer
 
     private static string VolumeText(int percent) =>
         percent == 0 ? "Off" : percent.ToString(CultureInfo.InvariantCulture) + "%";
+
+    private static string SensitivityText(int percent) => percent.ToString(CultureInfo.InvariantCulture) + "%";
+
+    private static string FovText(int fov) => fov.ToString(CultureInfo.InvariantCulture);
 
     private static Label Caption(string text) => new() { Text = text, Modulate = new Color(1, 1, 1, 0.7f) };
 }

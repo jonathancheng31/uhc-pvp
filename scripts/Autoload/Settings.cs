@@ -4,7 +4,7 @@ using UhcPvp.Core;
 namespace UhcPvp.Autoload;
 
 /// <summary>
-/// The player's settings (max FPS, volume, hurt shake, see <see cref="GameSettings"/>): loaded from
+/// The player's settings (max FPS, volume, hurt shake, sensitivity, field of view, see <see cref="GameSettings"/>): loaded from
 /// user://settings.cfg at startup and applied to the engine. The settings screen
 /// (scripts/Ui/SettingsMenu.cs) changes them, which applies at once, and saves when it closes.
 /// The same file also keeps the name and address typed in the main menu, and the match rules
@@ -86,7 +86,9 @@ public partial class Settings : Node
         return new GameSettings(
             ReadInt(config, "video", "max_fps", fallback.MaxFps),
             ReadInt(config, "audio", "volume", fallback.VolumePercent),
-            ReadInt(config, "video", "hurt_shake", fallback.HurtShakePercent)).Normalized();
+            ReadInt(config, "video", "hurt_shake", fallback.HurtShakePercent),
+            ReadInt(config, "controls", "mouse_sensitivity", fallback.SensitivityPercent),
+            ReadInt(config, "video", "fov", fallback.Fov)).Normalized();
     }
 
     public static void Write(ConfigFile config, GameSettings settings)
@@ -94,6 +96,8 @@ public partial class Settings : Node
         config.SetValue("video", "max_fps", settings.MaxFps);
         config.SetValue("audio", "volume", settings.VolumePercent);
         config.SetValue("video", "hurt_shake", settings.HurtShakePercent);
+        config.SetValue("controls", "mouse_sensitivity", settings.SensitivityPercent);
+        config.SetValue("video", "fov", settings.Fov);
     }
 
     public static MatchRules ReadRules(ConfigFile config) => new MatchRules(

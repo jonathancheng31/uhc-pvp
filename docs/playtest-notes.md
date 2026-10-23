@@ -9,6 +9,14 @@ what we think is causing it. Fixed items move to "Done" with the version that fi
 
 ## Open
 
+- **2026-10-23, 0.4.6, decision: more freedom, more experimental.** "For me im playing against
+  bots but thats just for testing gameplay and changes... Feel free to take a little more
+  freedom here and make improvements that are clear for now. You can have subagents or new
+  sessions work on these. After those finish, then i'll play test, and then we can discuss more
+  details of what directions to go in." Then: "you can begin to move away from minecraft pvp at
+  this point. Take a little more freedom here and be more experimental for now." Picked from the
+  polish list: a smarter fighting bot, players pushing apart, sounds, mouse sensitivity (plus
+  field of view), and new experimental twists.
 - **2026-10-22, 0.4.6, decision: "lets ignore match flow and other aspects for a while, we wanna
   polish gameplay."** Match flow and internet play wait; the feel pass and the twists come
   first (`design.md`, "Current status").

@@ -35,7 +35,6 @@ public partial class Player : Node3D
     private static readonly double FlashSeconds = (double)Tuning.HurtFlashMcTicks / Tuning.McTickRate;
     private const double CastSeconds = 0.3;
 
-    private readonly double _mouseDegrees = Tuning.DegreesPerMouseCount(Tuning.DefaultMouseSensitivity);
     private Game _game = null!;
     private Vec3d _previousPosition;
     private Vector3 _lastShownPosition;
@@ -122,7 +121,7 @@ public partial class Player : Node3D
             Camera = new Camera3D
             {
                 Name = "Camera",
-                Fov = Tuning.Fov,
+                Fov = Settings.Instance.Current.Fov,
                 Near = 0.05f,
                 Position = new Vector3(0, (float)Tuning.EyeHeight, 0),
             };
@@ -152,7 +151,8 @@ public partial class Player : Node3D
         if (@event is InputEventMouseMotion motion)
         {
             // Mouse look is applied every frame, never waiting for a tick.
-            Look(Yaw - (float)(motion.ScreenRelative.X * _mouseDegrees), Pitch - (float)(motion.ScreenRelative.Y * _mouseDegrees));
+            double degrees = Settings.Instance.Current.DegreesPerMouseCount;
+            Look(Yaw - (float)(motion.ScreenRelative.X * degrees), Pitch - (float)(motion.ScreenRelative.Y * degrees));
         }
         else if (@event.IsActionPressed(Controls.Attack))
         {
@@ -396,9 +396,11 @@ public partial class Player : Node3D
         float f = Vitality.HurtFlashFraction;
         float tilt = MathF.Sin(f * f * f * f * MathF.PI) * Tuning.HurtTiltDegrees * (float)Settings.Instance.Current.HurtShake;
         Camera.RotationDegrees = new Vector3(Pitch, 0, -tilt);
+        Camera.Fov = Settings.Instance.Current.Fov;
         if (ViewModel is not null)
         {
             ViewModel.Visible = !IsDead;
+            ViewModel.MatchFov(Camera.Fov);
         }
     }
 

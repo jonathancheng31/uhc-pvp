@@ -38,6 +38,21 @@ public partial class ViewModel : Node3D
 
     public void Swing() => _swingTime = 0;
 
+    /// <summary>
+    /// Keeps the sword and rod looking the same at any field of view, as if drawn at
+    /// <see cref="Tuning.HandFov"/> like Minecraft's hand. Stretching them sideways and up by the
+    /// ratio of the two views' widths puts every point exactly where the hand view would draw it.
+    /// </summary>
+    public void MatchFov(float fov)
+    {
+        float k = HandScale(fov);
+        Scale = new Vector3(k, k, 1);
+    }
+
+    /// <summary>How much to stretch the view model at <paramref name="fov"/> (1 at <see cref="Tuning.HandFov"/>).</summary>
+    public static float HandScale(float fov) =>
+        MathF.Tan(Mathf.DegToRad(fov) / 2) / MathF.Tan(Mathf.DegToRad(Tuning.HandFov) / 2);
+
     /// <summary>Flicks the rod forward (a cast).</summary>
     public void Cast() => _castTime = 0;
 

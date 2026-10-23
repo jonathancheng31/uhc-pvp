@@ -40,10 +40,18 @@ public static class Tuning
     // --- Camera and mouse -----------------------------------------------------------------
 
     /// <summary>
-    /// Vertical field of view in degrees, same as Minecraft's "Normal". It never changes: unlike
-    /// 1.8.9, sprinting doesn't widen it (the owner's choice, 0.4.2).
+    /// Vertical field of view in degrees by default, Minecraft's "Normal". Players can change it
+    /// in Settings within Minecraft's range (<see cref="MinFov"/> to <see cref="MaxFov"/>, "Quake
+    /// Pro"). Unlike 1.8.9, sprinting never widens it (the owner's choice, 0.4.2).
     /// </summary>
-    public const float Fov = 70f;
+    public const int DefaultFov = 70;
+    public const int MinFov = 30;
+    public const int MaxFov = 110;
+    /// <summary>
+    /// The sword and rod in first person are always drawn as if at this field of view, whatever
+    /// the player's setting, like Minecraft's hand.
+    /// </summary>
+    public const float HandFov = 70f;
     /// <summary>Minecraft's sensitivity slider value. 0.5 is shown as "100%" in Minecraft.</summary>
     public const double DefaultMouseSensitivity = 0.5;
 

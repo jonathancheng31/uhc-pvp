@@ -35,6 +35,43 @@ public class SettingsTests : TestCase
         CheckEqual(Settings.Read(old).HurtShakePercent, 25, "a file from before 0.4.6 gets the gentle default");
     }
 
+    public void TestSensitivityAndFovFollowMinecraft()
+    {
+        GameSettings d = GameSettings.Default;
+        CheckEqual(d.SensitivityPercent, 100, "Minecraft's 100% by default");
+        CheckNear(d.DegreesPerMouseCount, Tuning.DegreesPerMouseCount(0.5), 1e-12, "100% is Minecraft's slider at the middle");
+        CheckNear((d with { SensitivityPercent = 200 }).DegreesPerMouseCount, Tuning.DegreesPerMouseCount(1.0), 1e-12, "200% is the slider all the way right");
+        CheckNear((d with { SensitivityPercent = 0 }).DegreesPerMouseCount, Tuning.DegreesPerMouseCount(0.0), 1e-12, "0% still turns, slowly, like Minecraft");
+        Check((d with { SensitivityPercent = 0 }).DegreesPerMouseCount > 0, "0% isn't frozen");
+        CheckEqual(d.Fov, 70, "Minecraft's normal field of view by default");
+        CheckEqual((d with { SensitivityPercent = 500, Fov = 170 }).Normalized(), d with { SensitivityPercent = 200, Fov = 110 }, "capped at Minecraft's maximums");
+        CheckEqual((d with { SensitivityPercent = -1, Fov = 5 }).Normalized(), d with { SensitivityPercent = 0, Fov = 30 }, "and its minimums");
+        var config = new ConfigFile();
+        Settings.Write(config, d with { SensitivityPercent = 87, Fov = 90 });
+        var reloaded = new ConfigFile();
+        reloaded.Parse(config.EncodeToText());
+        CheckEqual(Settings.Read(reloaded), d with { SensitivityPercent = 87, Fov = 90 }, "kept in the file");
+        var old = new ConfigFile();
+        old.SetValue("video", "max_fps", 144);
+        CheckEqual(Settings.Read(old) with { MaxFps = 0 }, d, "a file from before 0.4.7 gets Minecraft's defaults");
+    }
+
+    public void TestHandLooksTheSameAtAnyFov()
+    {
+        CheckNear(Gameplay.ViewModel.HandScale(Tuning.HandFov), 1, 1e-6, "no stretch at the hand's own view");
+        foreach (float fov in new[] { 30f, 90f, 110f })
+        {
+            // A point of the sword, seen through the player's camera after the stretch, lands where
+            // the hand's own 70-degree view would put it.
+            float k = Gameplay.ViewModel.HandScale(fov);
+            float x = 0.3f, y = -0.25f, depth = 0.6f;
+            float shown = k * y / (depth * MathF.Tan(Godot.Mathf.DegToRad(fov) / 2));
+            float hand = y / (depth * MathF.Tan(Godot.Mathf.DegToRad(Tuning.HandFov) / 2));
+            CheckNear(shown, hand, 1e-6, $"up and down at {fov}");
+            CheckNear(k * x / (depth * MathF.Tan(Godot.Mathf.DegToRad(fov) / 2)), x / (depth * MathF.Tan(Godot.Mathf.DegToRad(Tuning.HandFov) / 2)), 1e-6, $"sideways at {fov}");
+        }
+    }
+
     public void TestEveryOfferedChoiceIsKept()
     {
         foreach (int fps in GameSettings.MaxFpsChoices)
