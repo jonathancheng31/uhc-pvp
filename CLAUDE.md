@@ -19,6 +19,8 @@ milestone ships.
 - **Quality over build cost.** The owner cares about the final result and its impact, not
   how long or expensive something is to build. When one option is better for the game but
   takes longer or costs more, always choose it. Don't cut corners to save effort.
+- **Depth over breadth.** A few things done really well beat many done adequately ("i want
+  quality not quantity", 2026-10-23). Finish and polish one area before opening the next.
 - The owner doesn't read or edit code. They talk in chat, play the Windows builds and
   give feedback. Explain things in plain language, without jargon.
 - Claude has full control of changes: **commit and push straight to `main`**. No pull

@@ -9,6 +9,13 @@ what we think is causing it. Fixed items move to "Done" with the version that fi
 
 ## Open
 
+- **2026-10-23, 0.4.6, decision: hits and the rod first, depth over breadth.** Offered as next
+  directions: a bigger kit (healing, bow), hit feel and fairness, team fights, or stranger
+  mechanics. "nah lets focus specifically on the hit and rod mechanics for now first. i wanna
+  polish this first." Then: "a little more depth than breadth for this project. i want quality
+  not quantity." So the new experimental twists are dropped from the current batch (pushing, a
+  smarter bot and sounds carry on, sounds narrowed to the combat ones), and changes to hits and
+  the rod get planned with the owner first.
 - **2026-10-23, 0.4.6, decision: more freedom, more experimental.** "For me im playing against
   bots but thats just for testing gameplay and changes... Feel free to take a little more
   freedom here and make improvements that are clear for now. You can have subagents or new

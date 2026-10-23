@@ -114,10 +114,13 @@ for 6v6, anti-cheat if we add ranked play.
   removed the hotbar. 0.4.5 started our own twists: faster strafing, with a slider in the
   pause menu for playtesting. 0.4.6 added two more (snappier strafing, wasted clicks) on a
   Twists screen, and toned down the camera shake when hit (a setting, 25% by default).
-- **Next up:** polishing gameplay. The owner, 2026-10-22: "lets ignore match flow and other
-  aspects for a while, we wanna polish gameplay." Match flow (milestone 4) and internet play
-  (milestone 6) wait; the feel pass (milestone 5) and the twists come first. Rounds vs respawns
-  stays open (below) until match flow comes back.
+- **Next up:** polishing the hit and the fishing rod, in depth. The owner, 2026-10-23: "lets
+  focus specifically on the hit and rod mechanics for now first", and "a little more depth than
+  breadth for this project. i want quality not quantity." In progress before that: player
+  pushing as a twist, a smarter fighting bot, and combat sounds (0.4.7, with the mouse
+  sensitivity and FOV settings). Match flow (milestone 4) and internet play (milestone 6) wait
+  (the owner, 2026-10-22: "lets ignore match flow and other aspects for a while, we wanna polish
+  gameplay"). Rounds vs respawns stays open (below) until match flow comes back.
 - **Waiting on the owner:** which twist values feel best (strafe speed, snappiness, wasted-click
   delay; playtest the Twists screen), how the rod feels (range, knockback, the 0.75 s cooldown) and how always-on sprint feels. Open feedback and known gaps are tracked in
   [playtest-notes.md](playtest-notes.md).
