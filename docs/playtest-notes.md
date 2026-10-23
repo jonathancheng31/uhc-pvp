@@ -31,6 +31,9 @@ what we think is causing it. Fixed items move to "Done" with the version that fi
   - Changes that don't help: shorter hit protection, more lift, more reach, the strafe twists.
     Less sideways push (sprint push 0.3 to 0.4, or 0.8 to 0.9 of all horizontal knockback)
     makes combos longer, and too far (0.7, or sprint push 0.2) takes away strafing as an out.
+  - Offered: bring back 1.8.9's display delay, fix the jump-reset bug, and a "combo knockback"
+    slider. The owner: "Sure fix the bug. sure we can do combo knockback." The delay: asked what
+    it means, explained; waiting on their call.
 - **2026-10-23, 0.4.6, decision: hits and the rod first, depth over breadth.** Offered as next
   directions: a bigger kit (healing, bow), hit feel and fairness, team fights, or stranger
   mechanics. "nah lets focus specifically on the hit and rod mechanics for now first. i wanna
