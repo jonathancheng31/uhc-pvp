@@ -37,6 +37,8 @@ namespace UhcPvp.Autoload;
 /// --screenshot-at=SEC  Seconds into the match (or after the menu opens) to take the screenshot
 ///                      (default 2). A comma-separated list takes several (1,1.1,1.2 saves
 ///                      PATH_1.png, PATH_2.png, PATH_3.png).
+/// --record-audio=PATH  Record everything the game plays to a WAV file, saved when it quits
+///                      (check it with tools/gen_sounds.py --analyze PATH).
 /// </summary>
 public partial class LaunchArgs : Node
 {
@@ -73,6 +75,7 @@ public partial class LaunchArgs : Node
     public bool OpenPause { get; private set; }
     public bool OpenTwists { get; private set; }
     public string ScreenshotPath { get; private set; } = "";
+    public string RecordAudioPath { get; private set; } = "";
     public IReadOnlyList<double> ScreenshotTimes { get; private set; } = DefaultScreenshotTimes;
 
     private static readonly double[] DefaultScreenshotTimes = { 2.0 };
@@ -87,6 +90,10 @@ public partial class LaunchArgs : Node
 
     public override void _Ready()
     {
+        if (RecordAudioPath.Length > 0)
+        {
+            AddChild(new AudioRecorder { FilePath = RecordAudioPath });
+        }
         if (QuitAfter > 0.0)
         {
             GetTree().CreateTimer(QuitAfter).Timeout += () =>
@@ -126,6 +133,7 @@ public partial class LaunchArgs : Node
                 case "--twists": OpenTwists = true; break;
                 case "--screenshot": ScreenshotPath = value; break;
                 case "--screenshot-at": ScreenshotTimes = ParseTimes(value); break;
+                case "--record-audio": RecordAudioPath = value; break;
                 case "--filter": break; // the test runner's option (tests/TestRunner.cs)
                 default: GD.PushWarning($"Unknown launch option: {arg}"); break;
             }

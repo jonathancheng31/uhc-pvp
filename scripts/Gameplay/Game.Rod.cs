@@ -118,7 +118,7 @@ public partial class Game
         }
         if (thrower.IsLocal)
         {
-            PredictHurt(target);
+            PredictHurt(target, critical: false, rod: true);
         }
         DeliverAttack(attack);
         return true;
@@ -160,6 +160,7 @@ public partial class Game
         else
         {
             position = bobber.PositionAt(time);
+            PlayBobberLandSound(view, time, position.ToGodot());
         }
         if ((position - thrower.ShownFeet).Length > Tuning.RodLineLength || position.Y < Tuning.VoidY)
         {
@@ -173,7 +174,7 @@ public partial class Game
         if (!view.Appeared)
         {
             thrower.PlayCast();
-            Effects.PlayCast(this, bobber.Origin.ToGodot());
+            PlayCastSound(thrower, bobber.Origin.ToGodot());
         }
         view.Show(position, thrower.RodTip, onViewer: bobber.HookedId == LocalPlayer.PeerId && LocalPlayer.Camera is not null);
     }

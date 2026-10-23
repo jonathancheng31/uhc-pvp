@@ -268,14 +268,19 @@ public partial class Player : Node3D
     /// <summary>0 to 1 through an arm swing, or -1 when not swinging.</summary>
     public float SwingProgress => _swingTime < 0 ? -1 : (float)(_swingTime / SwingSeconds);
 
-    /// <summary>Starts an arm swing (Minecraft restarts one only once it's half done).</summary>
-    public void PlaySwing()
+    /// <summary>
+    /// Starts an arm swing (Minecraft restarts one only once it's half done). Returns whether it
+    /// started, which is when its whoosh plays.
+    /// </summary>
+    public bool PlaySwing()
     {
-        if (_swingTime < 0 || _swingTime >= SwingSeconds / 2)
+        if (_swingTime >= 0 && _swingTime < SwingSeconds / 2)
         {
-            _swingTime = 0;
-            ViewModel?.Swing();
+            return false;
         }
+        _swingTime = 0;
+        ViewModel?.Swing();
+        return true;
     }
 
     /// <summary>Plays the rod cast: the left arm flicks forward.</summary>
