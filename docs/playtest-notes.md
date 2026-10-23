@@ -9,6 +9,13 @@ what we think is causing it. Fixed items move to "Done" with the version that fi
 
 ## Open
 
+- **2026-10-23, 0.4.8, decision: the twists that feel good.** A screenshot of the Twists screen
+  set to strafe speed 100%, strafe snappiness 100%, player pushing off, combo knockback 100%,
+  head start 75 ms and wasted clicks off: "these feel good". So: the snappiest strafing, a
+  shorter head start than 1.8.9's 175 ms, everything else plain 1.8. Being made the defaults
+  for every new match, with a way back to plain 1.8 on the Twists screen. To find out: what
+  felt off at 175 ms. In the combo simulation, a 100 ms head start gave no longer combos than
+  none against a victim who lets the knockback carry them (175 ms gave about 4).
 - **2026-10-23, 0.4.7, to try: sounds, player pushing, the new bot, sensitivity and FOV.**
   What's new, and what to tell us after playing:
   - Sounds: the fight has its own now (swing, hit, hurt, crit, rod throw and catch, the bobber
