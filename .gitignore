@@ -14,3 +14,6 @@ Thumbs.db
 .idea/
 bin/
 obj/
+
+# Helper agents' git worktrees (local only)
+.claude/worktrees/
