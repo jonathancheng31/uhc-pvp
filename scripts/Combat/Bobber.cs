@@ -49,6 +49,12 @@ public sealed class Bobber
     public int? HookedId { get; private set; }
     /// <summary>Whether it's lying on the ground (or against a wall), as of the latest tick worked out.</summary>
     public bool Landed { get; private set; }
+    /// <summary>
+    /// Host time this flight first touched the ground or a wall (where it's drawn then, so its
+    /// sound plays as it's seen to land), or null while it's still in the air. Worked out up to
+    /// one Minecraft tick ahead of the latest <see cref="PositionAt"/>.
+    /// </summary>
+    public double? LandedAt { get; private set; }
 
     /// <summary>The bobber's collision box, a small cube standing on <paramref name="position"/>.</summary>
     public static Box BoxAt(Vec3d position) => Box.ForPlayer(position, Tuning.BobberSize, Tuning.BobberSize);
@@ -88,6 +94,7 @@ public sealed class Bobber
             _from = _to;
             _to = Step(_to);
             _tick++;
+            NoteLanding();
         }
         if (tick < _tick)
         {
@@ -148,7 +155,18 @@ public sealed class Bobber
         _from = position;
         _motion = motion;
         Landed = false;
+        LandedAt = null;
         _to = Step(position);
+        NoteLanding();
+    }
+
+    /// <summary>The tick just worked out ends at <see cref="_to"/>: if it touched down, that's when.</summary>
+    private void NoteLanding()
+    {
+        if (Landed && LandedAt is null)
+        {
+            LandedAt = _startTime + (_tick + 1) / (double)Tuning.McTickRate;
+        }
     }
 
     /// <summary>

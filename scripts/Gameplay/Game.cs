@@ -63,6 +63,7 @@ public partial class Game : Node3D
         }
 
         AddChild(new Hud { Name = "Hud", Game = this });
+        AddChild(new GameAudio { Name = "Audio", Game = this });
 
         Session.PlayerAdded += OnPlayerAdded;
         Session.PlayerRemoved += OnPlayerRemoved;

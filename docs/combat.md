@@ -52,8 +52,8 @@ the same hit protection and knockback as sword hits.
      click on a player, but restarts it before you move when the sprint key is held, which our
      always-on sprint is. So movement is identical to 1.8.9 with the key held; we only skip
      1.8.9's one-tick FOV dip, and the lost sprint that double-tap-W players had to tap back.
-5. **Everyone** sees the red flash (0.5 s), hears the hurt sound, sees crit sparks, and the
-   victim's camera tilts: by a quarter of Minecraft's 14 degrees by default, set in Settings
+5. **Everyone** sees the red flash (0.5 s), hears the hurt sound (the attacker also hears their
+   own hit sound; see "Sounds" below), sees crit sparks, and the victim's camera tilts: by a quarter of Minecraft's 14 degrees by default, set in Settings
    (0.4.6, after the owner found the full tilt too much; 0 turns it off).
 
 ## Our twist: wasted clicks (since 0.4.6, a match rule)
@@ -99,6 +99,49 @@ to close distance, clicks about 9 times a second, w-taps after sprint hits, thro
 to 8 blocks about every 1.5 seconds, turns at up to
 540 degrees per second with a little wobble). They respawn 2 s after dying and heal to full
 after 5 s without being hit.
+
+## Sounds
+
+Our own, made by `tools/gen_sounds.py` (since 0.4.7; before, only a hurt sound and the rod's
+throw). Fewer sounds, each worked on: the fight comes first. The fight sounds are one family: a
+sword hit is the victim's hurt sound, plus the attacker's own hit sound, plus the crit on top
+when it's critical. They share one crack, one punch and one small outdoor room, so together they
+read as one blow. Who hears what is decided in `scripts/Gameplay/Game.Sounds.cs`; the mix is in
+`scripts/Core/SoundBank.cs`.
+
+| Sound | When it plays | Who hears it, from where |
+|---|---|---|
+| Swing | An arm swing starts (at most every 0.15 s, as the animation restarts) | You: from your sword hand, quieter and thinner when nobody's in reach. Others: from the swinger's hand |
+| Hit | Your sword hit counts (at the click for players on other games, like the red flash) | Only you, in your head. Each hit of a combo is a little higher, for 5 hits |
+| Hurt | Anyone takes a hit, sword or rod | Everyone, from the victim. Lower and heavier on a kill |
+| Crit | A critical hit counts | Everyone, from the victim, with the sparks |
+| Rod throw | The bobber leaves the rod | You: from your rod hand. Others: from the thrower's |
+| Bobber catch | A bobber catches someone | The thrower in their head; everyone else from the victim |
+| Bobber landing | A bobber touches the ground or a wall | Everyone, from where it lands |
+| Footstep | Every 1.4 blocks walked on the ground (sneaking is silent, as in Minecraft) | Everyone, from the walker's feet; yours much quieter |
+| Landing | Touching down after a fall of 0.25 blocks or more | As footsteps; bigger falls are louder |
+
+- **Never the same twice.** Each sound has 4 to 8 versions (8 for the swing, hit, hurt and
+  footsteps). They play in a shuffled order, never the same one twice running, and every play
+  shifts pitch (3 to 10%) and volume (1 to 3 dB) a little, mostly near the middle.
+- **On the frame.** Each sound starts as its event is shown: the swing as the arm starts, a hit
+  at the click, footsteps from where a player is drawn, the bobber's landing as it's drawn
+  touching down. Every file is at full strength within 4 ms of its first sample. The swing's
+  whoosh follows the animation: loudest in the first 15 ms, gone by the time the arm comes back.
+- **Where it comes from.** Other players' sounds lean to the side they're on (straight to your
+  left is about 12 dB louder in your left ear), fade by 6 dB for each doubling of distance past
+  a few blocks and get duller further away, and are muffled from behind, so you can tell front
+  from back.
+- **Levels.** Every file is mastered to the same loudness (-14 LUFS over its loudest 100 ms,
+  peaks under -1 dBFS). Measured in the game: a hurt is about -15 LUFS, your hit sits 2 to 3 dB
+  under it, your swings 13 dB under, other players' footsteps 16 dB under up close (and still
+  audible 12 blocks away), yours 20 dB under. A limiter on the master stops pile-ups (two
+  players trading hits) from clipping. Everything follows the volume setting.
+- **Checking them without listening.** `python3 tools/gen_sounds.py --report` lists each file's
+  peak, loudness, length and tone. The `--record-audio=PATH` launch option records what the game
+  plays, and `gen_sounds.py --analyze PATH` reports it second by second, with any clipping.
+  `tests/SoundTests.cs` checks every file's level, start and end, the variation, footsteps and
+  the bobber's landing time.
 
 ## Verified against Minecraft
 

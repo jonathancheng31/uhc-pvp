@@ -37,6 +37,8 @@ public partial class BobberView : Node3D
     public (int VictimId, double Time)? PendingHook { get; set; }
     /// <summary>Whether it has been shown yet (the cast animation and sound play then).</summary>
     public bool Appeared { get; private set; }
+    /// <summary>The landing whose sound has played (<see cref="Bobber.LandedAt"/>), so each plays once.</summary>
+    public double? HeardLandingAt { get; set; }
     /// <summary>Where it was last shown.</summary>
     public Vec3d Shown { get; private set; }
 

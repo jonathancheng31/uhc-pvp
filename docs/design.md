@@ -55,7 +55,7 @@ final result matters, not build effort.
 | Netcode | Each player's game owns its own movement and hits, with fairness fixes. See [netcode.md](netcode.md) |
 | Hosting | Everyone connects to one host. A player hosts for now; the same host code can run on a rented server later |
 | Anti-cheat | Not a goal for now. Moving to anti-cheat later would mean reworking the netcode |
-| Art and sound | Our own. Nothing taken from Minecraft |
+| Art and sound | Our own. Nothing taken from Minecraft. Sounds are synthesized by `tools/gen_sounds.py`; since 0.4.7 a full set for the fight (swing, hit, hurt, crit, rod throw and catch, footsteps), made as one family and heard from where they happen ([combat.md](combat.md), "Sounds") |
 
 ## Milestones
 
@@ -96,8 +96,8 @@ Steam invites and Steam's relay network (gets through home routers, free during
 development), so friends can join without router setup.
 
 ### Later
-Better hit feel (a hit-landed sound, a small screen kick, a stronger crit effect, a low-health
-heartbeat; the owner, 2026-10-22: "we can add to more later"), bow, water and lava buckets, building, golden apples and golden heads, more arenas,
+Better hit feel (a small screen kick, a stronger crit effect, a low-health heartbeat; the
+hit-landed sound came in 0.4.7; the owner, 2026-10-22: "we can add to more later"), bow, water and lava buckets, building, golden apples and golden heads, more arenas,
 spin-off ideas (draft kits, new items), a real name, Steam store page, rented servers
 for 6v6, anti-cheat if we add ranked play.
 
