@@ -88,7 +88,8 @@ It produces `UHC-PvP.exe` plus a `data_UhcPvp_windows_x86_64` folder (the .NET r
   messages, clock sync, lag simulator), `Session` (roster, teams, scene changes)
 - `scripts/Core/`: engine-light logic with unit tests: `Tuning` (every gameplay number),
   `GameSettings` (max FPS and volume rules), `MatchRules` (the host's twists on 1.8.9), `SoundBank` (every sound and the mix), `PlayerState`, `SnapshotBuffer`, `NetClock`,
-  `LagSimulator`, `Team`, and the fighting bot's `BotSkill` (Easy/Normal/Hard), `BotPerception`
+  `LagSimulator`, `Team`, `HeadStart` (1.8.9's display delay: how far in the past others are
+  drawn and hit), `TickClock` (evenly spaced host times for each tick's state), and the fighting bot's `BotSkill` (Easy/Normal/Hard), `BotPerception`
   (what it sees, late) and `BotAim` (its hand on the mouse)
 - `scripts/Movement/`: physics in doubles: `Vec3d`, `Box` (Minecraft's collision math),
   `MotionModel` (20-tick to 60-tick conversion), `PlayerMotor` (also knockback, sprint hits,
