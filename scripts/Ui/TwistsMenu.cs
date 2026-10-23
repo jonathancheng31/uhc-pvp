@@ -105,22 +105,25 @@ public partial class TwistsMenu : PanelContainer
         var parts = new System.Collections.Generic.List<string>();
         if (rules.StrafeSpeed != Tuning.DefaultStrafeSpeed)
         {
-            parts.Add($"strafe {MatchRules.Percent(rules.StrafeSpeed)}");
+            parts.Add(Part("strafe", MatchRules.Percent(rules.StrafeSpeed)));
         }
         if (rules.StrafeGrip != Tuning.DefaultStrafeGrip)
         {
-            parts.Add($"snappy {MatchRules.Percent(rules.StrafeGrip)}");
+            parts.Add(Part("snappy", MatchRules.Percent(rules.StrafeGrip)));
         }
         if (rules.WastedClickDelay != Tuning.DefaultWastedClickDelay)
         {
-            parts.Add($"wasted clicks {MatchRules.Seconds(rules.WastedClickDelay)}");
+            parts.Add(Part("wasted clicks", MatchRules.Seconds(rules.WastedClickDelay)));
         }
         if (rules.Pushing != Tuning.DefaultPushing)
         {
-            parts.Add($"pushing {MatchRules.Percent(rules.Pushing)}");
+            parts.Add(Part("pushing", MatchRules.Percent(rules.Pushing)));
         }
         return "On: " + string.Join(", ", parts);
     }
+
+    /// <summary>One twist in the summary, kept on one line when the summary wraps (no-break spaces).</summary>
+    private static string Part(string name, string value) => $"{name} {value}".Replace(' ', '\u00A0');
 
     private void Change(MatchRules rules)
     {

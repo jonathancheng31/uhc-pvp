@@ -113,17 +113,30 @@ for 6v6, anti-cheat if we add ranked play.
   the rod has a 0.75 s cooldown. 0.4.3 added a Settings screen (max FPS, volume). 0.4.4
   removed the hotbar. 0.4.5 started our own twists: faster strafing, with a slider in the
   pause menu for playtesting. 0.4.6 added two more (snappier strafing, wasted clicks) on a
-  Twists screen, and toned down the camera shake when hit (a setting, 25% by default).
+  Twists screen, and toned down the camera shake when hit (a setting, 25% by default). 0.4.7
+  added mouse sensitivity and field of view settings (Minecraft's numbers), player pushing as a
+  twist (off to 100%, off by default), a fighting bot that plays like a person with three skills
+  (Easy, Normal, Hard, in the pause menu), and our own combat sounds (swing, hit, hurt, crit, rod,
+  footsteps).
 - **Next up:** polishing the hit and the fishing rod, in depth. The owner, 2026-10-23: "lets
   focus specifically on the hit and rod mechanics for now first", and "a little more depth than
-  breadth for this project. i want quality not quantity." In progress before that: player
-  pushing as a twist, a smarter fighting bot, and combat sounds (0.4.7, with the mouse
-  sensitivity and FOV settings). Match flow (milestone 4) and internet play (milestone 6) wait
-  (the owner, 2026-10-22: "lets ignore match flow and other aspects for a while, we wanna polish
-  gameplay"). Rounds vs respawns stays open (below) until match flow comes back.
-- **Waiting on the owner:** which twist values feel best (strafe speed, snappiness, wasted-click
-  delay; playtest the Twists screen), how the rod feels (range, knockback, the 0.75 s cooldown) and how always-on sprint feels. Open feedback and known gaps are tracked in
-  [playtest-notes.md](playtest-notes.md).
+  breadth for this project. i want quality not quantity." In progress, 0.4.8: three combo
+  changes the owner approved. 1.8.9's display delay, a "head start": other players drawn about
+  175 ms late, as 1.8.9 does, so an attacker reaches a victim flying away before they can hit
+  back (on by default, with a slider). A "combo knockback" slider: the sprint push of a hit from
+  100% down to 60%, for longer combos. And a fix so jump-resets match 1.8.9 (today a jump just
+  after a hit cuts knockback more than 1.8.9 allows). Then polishing the rod. Match flow
+  (milestone 4) and internet play (milestone 6) wait (the owner, 2026-10-22: "lets ignore match
+  flow and other aspects for a while, we wanna polish gameplay"). Rounds vs respawns stays open
+  (below) until match flow comes back.
+- **Waiting on the owner:** a playtest of 0.4.7 and the questions it raised (sounds: should the
+  hit sound keep rising during a combo, is a whoosh on every swing too much, should your own
+  footsteps stay quiet or go; pushing: is a 1.1 blocks/s shove right, should bodies block
+  knockback in team fights; the bot: is Normal the right default, is Hard too strong, are its
+  rods too frequent). Still open from before: which twist values feel best (strafe speed,
+  snappiness, wasted-click delay, pushing; playtest the Twists screen), how the rod feels
+  (range, knockback, the 0.75 s cooldown) and how always-on sprint feels. Open feedback and
+  known gaps are tracked in [playtest-notes.md](playtest-notes.md).
 
 ## Open questions
 

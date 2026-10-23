@@ -161,4 +161,31 @@ public class SettingsTests : TestCase
         broken.SetValue("rules", "strafe_speed", "fast");
         CheckEqual(Settings.ReadRules(broken), MatchRules.Default, "text instead of a number");
     }
+
+    public void TestBotSkillIsKeptInTheSettingsFile()
+    {
+        CheckEqual(Tuning.DefaultBotDifficulty, BotDifficulty.Normal, "Normal by default");
+        CheckEqual(Settings.ReadBotDifficulty(new ConfigFile()), BotDifficulty.Normal, "no file: Normal");
+        foreach (BotDifficulty skill in Enum.GetValues<BotDifficulty>())
+        {
+            var config = new ConfigFile();
+            Settings.Write(config, new GameSettings(144, 35, 25));
+            Settings.WriteRules(config, new MatchRules(1.35, 0.6, 0.2, 0.8));
+            Settings.WriteBotDifficulty(config, skill);
+            var reloaded = new ConfigFile();
+            CheckEqual(reloaded.Parse(config.EncodeToText()), Error.Ok, $"the file parses ({skill})");
+            CheckEqual(Settings.ReadBotDifficulty(reloaded), skill, $"{skill} comes back");
+            CheckEqual(Settings.ReadRules(reloaded), new MatchRules(1.35, 0.6, 0.2, 0.8), $"next to the twists ({skill})");
+            CheckEqual(Settings.Read(reloaded), new GameSettings(144, 35, 25), $"and the other settings ({skill})");
+        }
+        var hand = new ConfigFile();
+        hand.SetValue("practice", "bot_skill", "HARD");
+        CheckEqual(Settings.ReadBotDifficulty(hand), BotDifficulty.Hard, "any capitalization");
+        foreach (Variant bad in new[] { Variant.From("expert"), Variant.From("7"), Variant.From(2), Variant.From("") })
+        {
+            var broken = new ConfigFile();
+            broken.SetValue("practice", "bot_skill", bad);
+            CheckEqual(Settings.ReadBotDifficulty(broken), BotDifficulty.Normal, $"'{bad}' falls back to Normal");
+        }
+    }
 }
