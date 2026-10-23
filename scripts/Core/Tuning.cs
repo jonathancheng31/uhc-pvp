@@ -23,8 +23,22 @@ public static class Tuning
     public const int StateSendRate = 60;
     /// <summary>Never show other players less than this far in the past (seconds).</summary>
     public const double InterpMinDelay = 0.020;
-    /// <summary>A hit is thrown out if the attacker's view of the victim was older than this (seconds).</summary>
+    /// <summary>
+    /// A hit is thrown out if the attacker's view of the victim was older than this (seconds), or
+    /// than the head start if that's more: views up to the head start are the rule, older ones are
+    /// ghost hits (docs/netcode.md).
+    /// </summary>
     public const double LagCap = 0.150;
+    /// <summary>
+    /// Head start (1.8.9's display delay, a match rule): other players are drawn, and hit, this many
+    /// seconds in the past, the same at any ping. 1.8.9 shows them 175 ms in the past on average
+    /// even at 0 ping (where a click finds a sprinting player, by a port of its entity tracker and
+    /// client glide: 100 to 250 ms depending on tick timing), which gives whoever is chasing a head
+    /// start after every hit. 0 is how we drew others before 0.4.8: as fresh as possible.
+    /// </summary>
+    public const double DefaultHeadStart = 0.175;
+    public const double MaxHeadStart = 0.250;
+    public const double HeadStartStep = 0.025;
     /// <summary>Seconds between clock-sync pings.</summary>
     public const double PingInterval = 0.5;
 

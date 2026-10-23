@@ -120,7 +120,8 @@ public partial class Settings : Node
         ReadNumber(config, "rules", "strafe_grip", Tuning.DefaultStrafeGrip),
         ReadNumber(config, "rules", "wasted_click_delay", Tuning.DefaultWastedClickDelay),
         ReadNumber(config, "rules", "pushing", Tuning.DefaultPushing),
-        ReadNumber(config, "rules", "combo_knockback", Tuning.DefaultComboKnockback)).Normalized();
+        ReadNumber(config, "rules", "combo_knockback", Tuning.DefaultComboKnockback),
+        ReadNumber(config, "rules", "head_start", Tuning.DefaultHeadStart)).Normalized();
 
     public static void WriteRules(ConfigFile config, MatchRules rules)
     {
@@ -129,6 +130,7 @@ public partial class Settings : Node
         config.SetValue("rules", "wasted_click_delay", rules.WastedClickDelay);
         config.SetValue("rules", "pushing", rules.Pushing);
         config.SetValue("rules", "combo_knockback", rules.ComboKnockback);
+        config.SetValue("rules", "head_start", rules.HeadStart);
     }
 
     /// <summary>The saved practice-bot skill ("easy", "normal" or "hard"); anything else is the default.</summary>

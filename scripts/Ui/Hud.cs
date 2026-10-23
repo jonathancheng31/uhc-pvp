@@ -260,6 +260,25 @@ public partial class Hud : CanvasLayer
         }
     }
 
+    /// <summary>
+    /// How far in the past others are shown: the head start, and anyone whose connection needs
+    /// more (the most behind one).
+    /// </summary>
+    private string OthersShown(Player me)
+    {
+        double headStart = Session.Instance.Rules.HeadStart;
+        string line = $"Others shown: {HeadStart.Label(headStart)} in the past (head start)";
+        Player? slowest = null;
+        foreach (Player p in Game!.Players)
+        {
+            if (p != me && !p.IsOwned && p.ViewDelay > headStart + 0.0005 && (slowest is null || p.ViewDelay > slowest.ViewDelay))
+            {
+                slowest = p;
+            }
+        }
+        return slowest is null ? line : $"{line}; {slowest.PlayerName} {slowest.ViewDelay * 1000:0} ms (their connection)";
+    }
+
     private void UpdateDebug(Player me)
     {
         var net = Network.Instance;
@@ -269,6 +288,7 @@ public partial class Hud : CanvasLayer
             $"FPS: {Engine.GetFramesPerSecond():0}",
             $"Role: {(net.IsHost ? "host" : "player")}",
             $"Ping: {net.PingSeconds * 1000:0} ms",
+            OthersShown(me),
             $"Players: {Game!.PlayerCount}/{Tuning.MaxPlayers}",
             $"Team: {me.Team.DisplayName()}",
             $"XYZ: {me.Position.X:0.00} / {me.Position.Y:0.00} / {me.Position.Z:0.00}",

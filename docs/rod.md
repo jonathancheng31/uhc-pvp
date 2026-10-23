@@ -51,7 +51,10 @@ A level throw lands about 10.6 blocks away; thrown 20 degrees up, about 15.6.
   game (each player's own game decides when they can throw, like their clicks).
 - `scripts/Gameplay/Game.Rod.cs`: throwing, catching and showing bobbers. The netcode follows
   the sword's (see [netcode.md](netcode.md)): the thrower's game decides whom its bobber
-  catches, from where players are drawn on its screen, and the victim's game applies the hit.
+  catches, from where players are drawn on its screen (since 0.4.8, 1.8.9's head start in the
+  past; a bot's, from where it sees them, through the same delay), and the victim's game applies
+  the hit. Everyone else's bobber, the host's bots' included, is shown on the same delay as they
+  are, so it leaves their hand and catches people as drawn.
 - `scripts/Gameplay/BobberView.cs`: the bobber and its sagging line, drawn after the players
   move so the line stays on the rod tip.
 - Practice bots that fight back use the rod at 3.5 to 8 blocks as players do (since 0.4.7): to

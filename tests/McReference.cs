@@ -354,6 +354,281 @@ public sealed class McServerCopy
     }
 }
 
+/// <summary>A position update from 1.8.9's entity tracker, in 1/32 block: relative (S15/S16/S17) or absolute (S18).</summary>
+public readonly record struct McMove(bool Absolute, long X, long Y, long Z);
+
+/// <summary>
+/// The server side of how 1.8.9 shows a player to everyone else (EntityTrackerEntry.updatePlayerList;
+/// players are tracked with an update frequency of 2). Once per server tick, after that tick's
+/// position reports were applied: every 2nd tick, or on any tick where the player jumped, was
+/// knocked back, or had their health or flags change (isAirBorne, DataWatcher.hasObjectChanged),
+/// the position is rounded down to 1/32 block and sent if it moved at least 4/32 on some axis
+/// since the last one sent (or every 60 ticks), as a relative move, or as an absolute teleport
+/// when the on-ground flag differs from the last teleport's (or after 400 updates). A view that
+/// turned 4/256 of a turn sends a look packet, which also restarts the client's glide.
+/// The yardstick for the head start; it never runs in the game.
+/// </summary>
+public sealed class McTrackerEntry
+{
+    private int _updateCounter;
+    private int _ticksSinceLastForcedTeleport;
+    private long _encodedX;
+    private long _encodedY;
+    private long _encodedZ;
+    private long _encodedYaw;
+    private long _encodedPitch;
+    private bool _onGround;
+
+    /// <summary>The player spawns on the other client exactly here (S0CPacketSpawnPlayer).</summary>
+    public McTrackerEntry(Vec3d position, bool onGround, double yaw, double pitch)
+    {
+        (_encodedX, _encodedY, _encodedZ) = Encode(position);
+        _encodedYaw = Angle(yaw);
+        _encodedPitch = Angle(pitch);
+        _onGround = onGround;
+    }
+
+    public static (long X, long Y, long Z) Encode(Vec3d p) =>
+        ((long)Math.Floor(p.X * 32.0), (long)Math.Floor(p.Y * 32.0), (long)Math.Floor(p.Z * 32.0));
+
+    private static long Angle(double degrees) => (long)Math.Floor(degrees * 256.0 / 360.0);
+
+    /// <summary>One server tick. Returns the packet sent, if any.</summary>
+    public McMove? Update(Vec3d position, bool onGround, double yaw, double pitch, bool forced)
+    {
+        McMove? packet = null;
+        if (_updateCounter % 2 == 0 || forced)
+        {
+            ++_ticksSinceLastForcedTeleport;
+            (long k, long j1, long k1) = Encode(position);
+            long l1 = Angle(yaw);
+            long i2 = Angle(pitch);
+            long dx = k - _encodedX;
+            long dy = j1 - _encodedY;
+            long dz = k1 - _encodedZ;
+            bool moved = Math.Abs(dx) >= 4 || Math.Abs(dy) >= 4 || Math.Abs(dz) >= 4 || _updateCounter % 60 == 0;
+            bool looked = Math.Abs(l1 - _encodedYaw) >= 4 || Math.Abs(i2 - _encodedPitch) >= 4;
+            if (_updateCounter > 0)
+            {
+                if (dx >= -128 && dx < 128 && dy >= -128 && dy < 128 && dz >= -128 && dz < 128
+                    && _ticksSinceLastForcedTeleport <= 400 && _onGround == onGround)
+                {
+                    if (moved)
+                    {
+                        packet = new McMove(false, dx, dy, dz);
+                    }
+                    else if (looked)
+                    {
+                        packet = new McMove(false, 0, 0, 0);
+                    }
+                }
+                else
+                {
+                    _onGround = onGround;
+                    _ticksSinceLastForcedTeleport = 0;
+                    packet = new McMove(true, k, j1, k1);
+                }
+            }
+            if (moved)
+            {
+                (_encodedX, _encodedY, _encodedZ) = (k, j1, k1);
+            }
+            if (looked)
+            {
+                (_encodedYaw, _encodedPitch) = (l1, i2);
+            }
+        }
+        ++_updateCounter;
+        return packet;
+    }
+}
+
+/// <summary>
+/// The client side (NetHandlerPlayClient.handleEntityMovement and handleEntityTeleport, then
+/// EntityOtherPlayerMP): each update sets a target and 3 steps; each client tick moves the drawn
+/// position 1/steps of the way there, so with no newer update it gets there in a straight line
+/// over 3 ticks. The yardstick for the head start; it never runs in the game.
+/// </summary>
+public sealed class McOtherPlayer
+{
+    private long _serverX;
+    private long _serverY;
+    private long _serverZ;
+    private Vec3d _target;
+    private int _increments;
+
+    public McOtherPlayer(Vec3d spawn)
+    {
+        (_serverX, _serverY, _serverZ) = McTrackerEntry.Encode(spawn);
+        Position = new Vec3d(_serverX / 32.0, _serverY / 32.0, _serverZ / 32.0);
+        PrevPosition = Position;
+        _target = Position;
+    }
+
+    /// <summary>Where it's drawn as of the last tick: what a click is tested against (getMouseOver(1.0)).</summary>
+    public Vec3d Position { get; private set; }
+    /// <summary>As of the tick before; the screen blends from here to <see cref="Position"/>.</summary>
+    public Vec3d PrevPosition { get; private set; }
+
+    public void Receive(McMove move)
+    {
+        if (move.Absolute)
+        {
+            (_serverX, _serverY, _serverZ) = (move.X, move.Y, move.Z);
+            var to = new Vec3d(_serverX / 32.0, _serverY / 32.0, _serverZ / 32.0);
+            bool close = Math.Abs(Position.X - to.X) < 0.03125 && Math.Abs(Position.Y - to.Y) < 0.015625
+                && Math.Abs(Position.Z - to.Z) < 0.03125;
+            _target = close ? Position : to;
+        }
+        else
+        {
+            _serverX += move.X;
+            _serverY += move.Y;
+            _serverZ += move.Z;
+            _target = new Vec3d(_serverX / 32.0, _serverY / 32.0, _serverZ / 32.0);
+        }
+        _increments = 3;
+    }
+
+    /// <summary>One client tick (onLivingUpdate).</summary>
+    public void Tick()
+    {
+        PrevPosition = Position;
+        if (_increments > 0)
+        {
+            Position += (_target - Position) * (1.0 / _increments);
+            --_increments;
+        }
+    }
+}
+
+/// <summary>
+/// One player as another 1.8.9 client shows them, at 0 ping, from that player's path. Their client
+/// reports its position at the end of every tick; the server applies the reports at the start of
+/// its next tick and runs the tracker at the end of it (<see cref="McTrackerEntry"/>); the watching
+/// client applies what arrived at the start of its next tick, then glides (<see cref="McOtherPlayer"/>).
+/// The three tick grids are 20 a second, with phases given in seconds. Feed it the player's state
+/// every step, in time order. The yardstick for the head start; it never runs in the game.
+/// </summary>
+public sealed class McView
+{
+    private const double Tick = 0.05;
+    private readonly double _serverPhase;
+    private readonly double _viewerPhase;
+    /// <summary>Starts tracking at the first server tick, when the spawn packet carries the position then.</summary>
+    private McTrackerEntry? _tracker;
+    private McOtherPlayer _drawn;
+    private readonly Queue<(double Time, Vec3d Position, bool OnGround, double Yaw, double Pitch, int Flags)> _reports = new();
+    private readonly Queue<(double Time, McMove Move)> _packets = new();
+    private readonly Queue<double> _hits = new();
+    private long _serverTick;
+    private long _viewerTick;
+    private Vec3d _copy;
+    private bool _copyOnGround = true;
+    private double _copyYaw;
+    private double _copyPitch;
+    private int _copyFlags;
+
+    public McView(Vec3d spawn, double yaw, double serverPhase, double viewerPhase)
+    {
+        _serverPhase = serverPhase;
+        _viewerPhase = viewerPhase;
+        _drawn = new McOtherPlayer(spawn);
+        _copy = spawn;
+        _copyYaw = yaw;
+    }
+
+    /// <summary>Host time of the watching client's last tick.</summary>
+    public double LastViewerTick => _viewerPhase + (_viewerTick - 1) * Tick;
+
+    /// <summary>
+    /// The player's client finished a tick at <paramref name="time"/> and reports this. Yaw is
+    /// unwrapped (no jump at +-180), flags are sprinting and sneaking.
+    /// </summary>
+    public void Report(double time, Vec3d position, bool onGround, double yaw, double pitch, int flags) =>
+        _reports.Enqueue((time, position, onGround, yaw, pitch, flags));
+
+    /// <summary>The player was hit by a click at <paramref name="time"/> (knockback and health change).</summary>
+    public void Hit(double time) => _hits.Enqueue(time);
+
+    /// <summary>Runs every server and watching-client tick up to <paramref name="time"/>.</summary>
+    public void Advance(double time)
+    {
+        while (true)
+        {
+            double server = _serverPhase + _serverTick * Tick;
+            double viewer = _viewerPhase + _viewerTick * Tick;
+            if (Math.Min(server, viewer) > time)
+            {
+                return;
+            }
+            if (server <= viewer)
+            {
+                ServerTick(server);
+            }
+            else
+            {
+                ViewerTick(viewer);
+            }
+        }
+    }
+
+    private void ServerTick(double now)
+    {
+        bool forced = false;
+        while (_reports.Count > 0 && _reports.Peek().Time <= now)
+        {
+            var report = _reports.Dequeue();
+            // NetHandlerPlayServer.processPlayer: seeing the client leave the ground going up, the
+            // server's copy jumps, which forces a tracker update (isAirBorne).
+            if (_copyOnGround && !report.OnGround && report.Position.Y > _copy.Y)
+            {
+                forced = true;
+            }
+            // A change of sprinting or sneaking changes the copy's flags (DataWatcher).
+            forced |= report.Flags != _copyFlags;
+            (_copy, _copyOnGround, _copyYaw, _copyPitch, _copyFlags) =
+                (report.Position, report.OnGround, report.Yaw, report.Pitch, report.Flags);
+        }
+        while (_hits.Count > 0 && _hits.Peek() <= now)
+        {
+            // knockBack and the sprint push set isAirBorne; the health change is metadata.
+            _hits.Dequeue();
+            forced = true;
+        }
+        if (_tracker is null)
+        {
+            _tracker = new McTrackerEntry(_copy, _copyOnGround, _copyYaw, _copyPitch);
+            _drawn = new McOtherPlayer(_copy);
+        }
+        if (_tracker.Update(_copy, _copyOnGround, _copyYaw, _copyPitch, forced) is McMove move)
+        {
+            _packets.Enqueue((now, move));
+        }
+        _serverTick++;
+    }
+
+    private void ViewerTick(double now)
+    {
+        while (_packets.Count > 0 && _packets.Peek().Time <= now)
+        {
+            _drawn.Receive(_packets.Dequeue().Move);
+        }
+        _drawn.Tick();
+        _viewerTick++;
+    }
+
+    /// <summary>Where a click now finds the player: the glide as of the watching client's last tick.</summary>
+    public Vec3d Hitbox => _drawn.Position;
+
+    /// <summary>Where the screen shows the player at <paramref name="time"/>: between the last two ticks.</summary>
+    public Vec3d Rendered(double time)
+    {
+        double f = Math.Clamp((time - LastViewerTick) / Tick, 0, 1);
+        return _drawn.PrevPosition + (_drawn.Position - _drawn.PrevPosition) * f;
+    }
+}
+
 /// <summary>
 /// Minecraft 1.8.9's bobber (EntityFishHook) in open air: the cast from a player's eyes
 /// (without the random spread) and the flight, in Minecraft's own angles (yaw 0 faces +Z and

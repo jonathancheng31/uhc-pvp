@@ -168,6 +168,11 @@ public sealed class BotDuel
             {
                 Step(f, f == a ? b : a);
             }
+            foreach (Fighter f in _fighters)
+            {
+                // As Game records the states of the players it runs, to show them in the past.
+                f.Trail.Observe(_time, f.Motor.Position);
+            }
             if (a.Vitality.IsDead || b.Vitality.IsDead)
             {
                 int winner = a.Vitality.IsDead ? 2 : 1;
@@ -214,7 +219,8 @@ public sealed class BotDuel
             f.Motor.Position, f.Yaw, f.Pitch, f.Motor.OnGround, f.Motor.ServerSprinting, f.CanAttack, f.Rod.Ready,
             _time - f.HurtAt);
         _foes.Clear();
-        _foes.Add(new BotFoe(other.Id, other.Motor.Position, other.Yaw, _time - other.HurtAt, other.HurtByRod));
+        Vec3d seen = SeenFeet(other);
+        _foes.Add(new BotFoe(other.Id, seen, other.Yaw, _time - other.HurtAt, other.HurtByRod));
         BotIntent intent = f.Brain.Think(self, _foes, _rules, Delta);
         if (Trace is not null && f.Id == 1)
         {
@@ -231,14 +237,15 @@ public sealed class BotDuel
         f.Pitch = Mathf.Clamp((float)intent.Pitch, -90f, 90f);
         // Aim: how often the crosshair is on the other player while they're in reach.
         AimResult onTarget = HitScan.Aim(
-            f.Eye, HitScan.LookVector(f.Yaw, f.Pitch), new[] { new AimTarget(other.Id, other.Motor.Position) }, _world);
-        if (HitScan.Hitbox(other.Motor.Position).DistanceTo(f.Eye) <= Tuning.Reach)
+            f.Eye, HitScan.LookVector(f.Yaw, f.Pitch), new[] { new AimTarget(other.Id, seen) }, _world);
+        if (HitScan.Hitbox(seen).DistanceTo(f.Eye) <= Tuning.Reach)
         {
             f.Stats.TicksInReach++;
             f.Stats.TicksOnTarget += onTarget.Kind == AimKind.Player ? 1 : 0;
         }
         f.Motor.StrafeSpeed = _rules.StrafeSpeed;
         f.Motor.StrafeGrip = _rules.StrafeGrip;
+        // (Pushing stays off: the duels measure fighting, and it's a twist.)
         if (intent.Attack && f.Brain.ClicksBeforeMoving)
         {
             TryAttack(f, other); // as Player._PhysicsProcess does since 0.4.7
@@ -263,7 +270,7 @@ public sealed class BotDuel
         }
         attacker.Stats.Clicks++;
         _aimTargets.Clear();
-        _aimTargets.Add(new AimTarget(target.Id, target.Motor.Position));
+        _aimTargets.Add(new AimTarget(target.Id, SeenFeet(target)));
         AimResult aim = HitScan.Aim(attacker.Eye, HitScan.LookVector(attacker.Yaw, attacker.Pitch), _aimTargets, _world);
         if (aim.Kind != AimKind.Player)
         {
@@ -308,12 +315,15 @@ public sealed class BotDuel
             return result;
         }
         bool sprint = !rod && sprintKnockback;
-        Vec3d motion = CombatRules.Knockback(
-            victim.Motor.ServerMotion, attacker.Motor.Position, victim.Motor.Position, attacker.Yaw,
-            baseKnockback: result == HitResult.Hurt, sprintBonus: sprint, _random);
+        // As the game: from where the two really are, built from the server's copy as it lands.
+        Vec3d attackerAt = attacker.Motor.Position;
+        Vec3d victimAt = victim.Motor.Position;
+        float yaw = attacker.Yaw;
+        Vec3d Knockback(Vec3d copy, bool full) => CombatRules.Knockback(
+            copy, attackerAt, victimAt, yaw, baseKnockback: full, sprintBonus: sprint, _random, _rules.ComboKnockback);
         if (result == HitResult.Hurt)
         {
-            victim.Motor.SetMcMotion(CombatRules.VelocityPacket(motion));
+            victim.Motor.Knock(copy => CombatRules.VelocityPacket(Knockback(copy, full: true)));
             victim.HurtAt = _time;
             victim.HurtByRod = rod;
             if (!rod)
@@ -325,7 +335,7 @@ public sealed class BotDuel
         }
         else if (sprint)
         {
-            victim.Motor.PushServerCopy(motion - victim.Motor.ServerMotion);
+            victim.Motor.PushServerCopy(Knockback(Vec3d.Zero, full: false));
         }
         Trace?.Invoke(string.Create(CultureInfo.InvariantCulture,
             $"  HIT by {attacker.Id}: {(rod ? "rod" : result.ToString())} sprint={sprint} "
@@ -400,7 +410,7 @@ public sealed class BotDuel
             }
             _rodTargets.Clear();
             Fighter victim = thrower == _fighters[0] ? _fighters[1] : _fighters[0];
-            _rodTargets.Add(new RodTarget(victim.Id, victim.Motor.Position));
+            _rodTargets.Add(new RodTarget(victim.Id, SeenFeet(victim)));
             if (Bobber.FirstHit(a, b, _rodTargets) is not null
                 && Resolve(thrower, victim, rod: true, critical: false, sprintKnockback: false) != HitResult.Ignored)
             {
@@ -408,6 +418,14 @@ public sealed class BotDuel
             }
         }
     }
+
+    /// <summary>
+    /// Where the other fighter sees <paramref name="target"/> now, and so where its clicks and
+    /// bobber find them: the match's head start in the past, as the game shows its own bots.
+    /// </summary>
+    private Vec3d SeenFeet(Fighter target) => target.Trail.IsEmpty
+        ? target.Motor.Position
+        : target.Trail.PositionAt(_time - HeadStart.ViewDelay(_rules.HeadStart, owned: true, 0));
 
     private sealed class Fighter
     {
@@ -439,6 +457,8 @@ public sealed class BotDuel
         public Bobber? Bobber { get; set; }
         public double CheckedUntil { get; set; }
         public Vec3d Eye => Motor.Position + new Vec3d(0, Tuning.EyeHeight, 0);
+        /// <summary>Where it has been, tick by tick, to be seen in the past.</summary>
+        public BotPerception Trail { get; } = new();
         public bool CanAttack => !Vitality.IsDead && !Miss.Blocks && !Lockout.Blocks;
     }
 }

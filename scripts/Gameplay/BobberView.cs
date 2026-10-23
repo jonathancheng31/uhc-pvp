@@ -35,6 +35,8 @@ public partial class BobberView : Node3D
     public double CheckedUntil { get; set; }
     /// <summary>Someone else's bobber: whom it caught and when, to show once their delayed view gets there.</summary>
     public (int VictimId, double Time)? PendingHook { get; set; }
+    /// <summary>One of our bots' bobbers: caught someone at this host time, shown once the bot's delayed view gets there.</summary>
+    public double ShowHookAt { get; set; } = double.NegativeInfinity;
     /// <summary>Whether it has been shown yet (the cast animation and sound play then).</summary>
     public bool Appeared { get; private set; }
     /// <summary>The landing whose sound has played (<see cref="Bobber.LandedAt"/>), so each plays once.</summary>

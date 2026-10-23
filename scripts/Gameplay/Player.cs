@@ -25,8 +25,10 @@ public enum PlayerKind
 ///
 /// Local players and bots are "owned" here: a <see cref="PlayerMotor"/> moves them 60 times a
 /// second, <see cref="Combat.Vitality"/> holds their real health, and this game decides what
-/// hits on them do. Remote players are drawn from their recent states, slightly in the past
-/// (see <see cref="SnapshotBuffer"/>).
+/// hits on them do. Everyone but you is drawn in the past by the match's head start (see
+/// <see cref="HeadStart"/>): remote players from the states they send (<see cref="Buffer"/>),
+/// our bots from the states they leave (<see cref="History"/>). Bots see everyone, you included,
+/// the same way.
 /// </summary>
 public partial class Player : Node3D
 {
@@ -68,7 +70,10 @@ public partial class Player : Node3D
     public Camera3D? Camera { get; private set; }
     public ViewModel? ViewModel { get; private set; }
     public PlayerModel Model { get; private set; } = null!;
+    /// <summary>A remote player's states, as they arrive.</summary>
     public SnapshotBuffer Buffer { get; } = new();
+    /// <summary>The states of a player this game runs, one per tick, to show them in the past.</summary>
+    public SnapshotBuffer History { get; } = new();
     /// <summary>Movement, for players this game runs; null for remote players.</summary>
     public PlayerMotor? Motor { get; private set; }
     /// <summary>Real health for owned players; for remote players, the last health we heard.</summary>
@@ -94,8 +99,36 @@ public partial class Player : Node3D
     /// <summary>Where this player is drawn on this screen right now.</summary>
     public Vec3d ShownFeet => Vec3d.From(Position);
     public bool Sneaking => (Flags & PlayerFlags.Sneaking) != 0;
-    /// <summary>Eye position as drawn right now, for aiming (Minecraft lowers it 0.08 when sneaking).</summary>
-    public Vec3d Eye => ShownFeet + new Vec3d(0, Tuning.EyeHeight - (Sneaking ? Tuning.SneakEyeDrop : 0), 0);
+    /// <summary>
+    /// Eye position for aiming, of a player this game runs (Minecraft lowers it 0.08 when
+    /// sneaking): yours as the camera shows it right now, a bot's where it really is.
+    /// </summary>
+    public Vec3d Eye => (IsLocal ? ShownFeet : Feet) + new Vec3d(0, Tuning.EyeHeight - (Sneaking ? Tuning.SneakEyeDrop : 0), 0);
+
+    /// <summary>
+    /// How far in the past everyone on this computer (you and our bots) sees this player, in
+    /// seconds: the match's head start, or what their updates need to arrive if that's more.
+    /// </summary>
+    public double ViewDelay => HeadStart.ViewDelay(Session.Instance.Rules.HeadStart, IsOwned, Buffer.RenderDelay);
+
+    /// <summary>Host time of the state of this player that's seen at host time <paramref name="hostNow"/>.</summary>
+    public double ViewTime(double hostNow) => hostNow - ViewDelay;
+
+    /// <summary>Where this player is seen at host time <paramref name="hostNow"/> (drawn there, unless it's you).</summary>
+    public Vec3d ViewFeet(double hostNow) =>
+        States.IsEmpty ? Feet : Vec3d.From(States.Sample(ViewTime(hostNow)).Position);
+
+    /// <summary>Which way this player is seen facing at host time <paramref name="hostNow"/>.</summary>
+    public double ViewYaw(double hostNow) => States.IsEmpty ? Yaw : States.Sample(ViewTime(hostNow)).Yaw;
+
+    /// <summary>
+    /// Where this player is by the freshest news: really, if this game runs them; for a remote
+    /// player, where their latest updates put them, without the head start. Used for pushing.
+    /// </summary>
+    public Vec3d FreshFeet(double hostNow) =>
+        IsOwned || Buffer.IsEmpty ? Feet : Vec3d.From(Buffer.Sample(hostNow - Buffer.RenderDelay).Position);
+
+    private SnapshotBuffer States => IsOwned ? History : Buffer;
     public bool CanAttack => IsOwned && !IsDead && !_missPenalty.Blocks && !ClickLockout.Blocks;
 
     public void Setup(Game game, int id, PlayerKind kind, VoxelWorld world, Vec3d home, float homeYaw)
@@ -265,15 +298,11 @@ public partial class Player : Node3D
             }
         }
 
-        if (Motor is not null)
+        if (IsLocal && Motor is not null)
         {
             // Draw between the last two ticks so motion looks smooth at any frame rate.
             float t = (float)Engine.GetPhysicsInterpolationFraction();
             Position = _previousPosition.ToGodot().Lerp(Motor.Position.ToGodot(), t);
-        }
-        if (Kind == PlayerKind.Bot && Motor is not null)
-        {
-            Model.Animate(delta, Motor.HorizontalSpeed, Motor.Sneaking);
         }
         if (Camera is not null && Motor is not null)
         {
@@ -383,8 +412,9 @@ public partial class Player : Node3D
     /// <summary>
     /// This player's body for pushing, as this game sees it at host time <paramref name="hostNow"/>:
     /// where they stand and how far they moved over the last Minecraft tick (1/20 s). Owned
-    /// players: where they really are. Remote players: where they're drawn, from the same
-    /// smoothed states.
+    /// players: where they really are. Remote players: where their latest updates put them, as
+    /// smoothly as they arrive (<see cref="SnapshotBuffer.RenderDelay"/>), without the head start
+    /// they're drawn with (see <see cref="FreshFeet"/>).
     /// </summary>
     public (Vec3d Feet, Vec3d Move, bool Flying) PushBody(double hostNow)
     {
@@ -397,7 +427,7 @@ public partial class Player : Node3D
         {
             return (ShownFeet, Vec3d.Zero, false);
         }
-        double shown = ShownTime(hostNow);
+        double shown = hostNow - Buffer.RenderDelay;
         PlayerState state = Buffer.Sample(shown);
         Vec3d feet = Vec3d.From(state.Position);
         Vec3d before = Vec3d.From(Buffer.Sample(shown - 1.0 / Tuning.McTickRate).Position);
@@ -426,6 +456,9 @@ public partial class Player : Node3D
         return new PushContact(feet, move, remembered, tieBreak);
     }
 
+    /// <summary>A tick of a player this game runs ended at host time <paramref name="time"/>: keeps its state, to show it in the past.</summary>
+    public void Record(double time) => Keep(History, time, GetState());
+
     /// <summary>The state to send to everyone else: the latest tick, not the smoothed view.</summary>
     public PlayerState GetState() => new(
         Feet.ToGodot(), Yaw, Pitch, Flags | (IsDead ? PlayerFlags.Dead : 0), (float)Vitality.Health);
@@ -433,34 +466,44 @@ public partial class Player : Node3D
     /// <summary>A state for this (remote) player arrived at host time <paramref name="hostNow"/>.</summary>
     public void ReceiveState(double time, PlayerState state, double hostNow)
     {
-        if (!Buffer.IsEmpty && Buffer.LatestState.Has(PlayerFlags.Dead) && !state.Has(PlayerFlags.Dead))
-        {
-            // Respawned: jump straight to the new spot instead of sliding there.
-            Buffer.Clear();
-        }
-        if (Buffer.Push(time, state))
+        if (Keep(Buffer, time, state))
         {
             Buffer.NoteArrivalAge(hostNow - time);
         }
     }
 
-    /// <summary>Host time of the state this (remote) player is drawn at right now.</summary>
-    public double ShownTime(double hostNow) => IsOwned ? hostNow : hostNow - Buffer.RenderDelay;
-
-    /// <summary>Moves this (remote) player to where they were <see cref="SnapshotBuffer.RenderDelay"/> ago.</summary>
-    public void UpdateRemote(double hostNow, double delta)
+    private static bool Keep(SnapshotBuffer buffer, double time, PlayerState state)
     {
-        if (Buffer.IsEmpty)
+        if (!buffer.IsEmpty && buffer.LatestState.Has(PlayerFlags.Dead) && !state.Has(PlayerFlags.Dead))
+        {
+            // Respawned: jump straight to the new spot instead of sliding there.
+            buffer.Clear();
+        }
+        return buffer.Push(time, state);
+    }
+
+    /// <summary>
+    /// Draws this player (anyone but you) where they're seen at host time
+    /// <paramref name="hostNow"/>: <see cref="ViewDelay"/> in the past. A remote player also takes
+    /// their look, flags and health from that state; a bot keeps its real ones for playing.
+    /// </summary>
+    public void UpdateDrawn(double hostNow, double delta)
+    {
+        if (States.IsEmpty)
         {
             return;
         }
-        PlayerState state = Buffer.Sample(ShownTime(hostNow));
+        PlayerState state = States.Sample(ViewTime(hostNow));
         Position = state.Position;
-        Yaw = state.Yaw;
-        Pitch = state.Pitch;
-        Flags = state.Flags;
-        Vitality.Show(state.Health);
-        ApplyRotation();
+        if (!IsOwned)
+        {
+            Yaw = state.Yaw;
+            Pitch = state.Pitch;
+            Flags = state.Flags;
+            Vitality.Show(state.Health);
+        }
+        Model.RotationDegrees = new Vector3(0, state.Yaw, 0);
+        Model.SetHeadPitch(state.Pitch);
         Vector3 moved = Position - _lastShownPosition;
         _lastShownPosition = Position;
         double speed = delta > 0 ? new Vector2(moved.X, moved.Z).Length() / delta : 0;

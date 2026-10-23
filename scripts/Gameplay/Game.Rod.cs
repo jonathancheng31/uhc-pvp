@@ -83,15 +83,21 @@ public partial class Game
             {
                 if (p != thrower && !p.IsDead && (Tuning.FriendlyFire || p.Team != thrower.Team))
                 {
-                    _rodTargets.Add(new RodTarget(p.PeerId, p.ShownFeet));
+                    _rodTargets.Add(new RodTarget(p.PeerId, SeenBy(thrower, p, now)));
                 }
             }
             if (Bobber.FirstHit(a, b, _rodTargets) is { } hit && _players.TryGetValue(hit.Id, out Player? target))
             {
                 double time = from + (now - from) * hit.Fraction;
-                if (RodHit(thrower, target, time))
+                if (RodHit(thrower, target, time, SeenBy(thrower, target, now)))
                 {
                     bobber.Hook(target.PeerId);
+                    if (!thrower.IsLocal)
+                    {
+                        // A bot is drawn the head start in the past: show the catch when its drawn
+                        // bobber gets there.
+                        view.ShowHookAt = time;
+                    }
                     SendToAll(new RodHook(thrower.PeerId, target.PeerId, time));
                 }
             }
@@ -102,11 +108,11 @@ public partial class Game
     /// The thrower's side of a bobber touching someone. Returns whether it counts: a player
     /// still in hit protection isn't caught, and the bobber flies on through (as on 1.8 servers).
     /// </summary>
-    private bool RodHit(Player thrower, Player target, double time)
+    private bool RodHit(Player thrower, Player target, double time, Vec3d seenFeet)
     {
         var attack = new Attack(
-            thrower.PeerId, target.PeerId, time, target.ShownTime(time),
-            thrower.Feet.ToGodot(), thrower.Yaw, target.ShownFeet.ToGodot(), AttackFlags.Rod);
+            thrower.PeerId, target.PeerId, time, target.ViewTime(time),
+            thrower.Feet.ToGodot(), thrower.Yaw, seenFeet.ToGodot(), AttackFlags.Rod);
         if (target.IsOwned)
         {
             return ResolveAttack(attack) != HitResult.Ignored;
@@ -136,15 +142,16 @@ public partial class Game
             RemoveBobber(bobber.ThrowerId);
             return;
         }
-        // Our own bobbers only go as far as they've been checked for hits.
-        double time = thrower.IsOwned ? view.CheckedUntil : thrower.ShownTime(Net.HostTime);
+        // Your own bobber only goes as far as it's been checked for hits; everyone else's is shown
+        // on the same delay as they are (a bot's too), so it leaves their hand as drawn.
+        double time = thrower.IsLocal ? view.CheckedUntil : thrower.ViewTime(Net.HostTime);
         if (view.PendingHook is (int victimId, double hookTime) && time >= hookTime)
         {
             bobber.Hook(victimId);
             view.PendingHook = null;
         }
         Vec3d position;
-        if (bobber.HookedId is int hookedId)
+        if (bobber.HookedId is int hookedId && time >= view.ShowHookAt)
         {
             if (_players.TryGetValue(hookedId, out Player? victim) && !victim.IsDead)
             {

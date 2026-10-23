@@ -50,7 +50,19 @@ what we think is causing it. Fixed items move to "Done" with the version that fi
   - Offered: bring back 1.8.9's display delay, fix the jump-reset bug, and a "combo knockback"
     slider. The owner: "Sure fix the bug. sure we can do combo knockback." The delay: asked what
     it means; after the explanation (and on by default, with a slider): "sure lets implement".
-    Being built: all three.
+  **Built in 0.4.8**, all three:
+  - Head start: everyone else is drawn and hit 175 ms in the past, 1.8.9's average (measured with
+    a port of its code), the same at any ping, bots included (they see you through it too). Esc,
+    "Twists", "Head start": off (how 0.4.7 played) to 250 ms. In the combo simulation, a victim who
+    lets the knockback carry them now takes about 4 hits, strafing 5, jumping on the hit 5 (all 1
+    before). A w-tapping player's combos on the Easy bot average 6 hits (4 before).
+  - Combo knockback: Esc, "Twists", "Combo knockback", 100% (1.8.9) down to 60%. One sprint hit
+    carries a victim 4.9 blocks at 100%, 4.4 at 80%, 3.8 at 60% (we'd said about 4, 3.6 and 3.1:
+    the same drops, bigger distances).
+  - Jump resets match 1.8.9 at every 1/60 s step, and a sprinting attacker slows at most once per
+    tick (several clicks in one tick slowed you several times).
+  - To try: combos on Easy and Normal with the head start on and off, and whether being hit where
+    you were 175 ms ago feels fair; then combo knockback at 80%.
 - **2026-10-23, 0.4.6, decision: hits and the rod first, depth over breadth.** Offered as next
   directions: a bigger kit (healing, bow), hit feel and fairness, team fights, or stranger
   mechanics. "nah lets focus specifically on the hit and rod mechanics for now first. i wanna
@@ -116,7 +128,9 @@ what we think is causing it. Fixed items move to "Done" with the version that fi
 Not bugs: things that are expected to feel off until they're built.
 
 - When you hit another person over the network (not a bot on your own game), their knock back
-  shows up one round trip later. Predicted knockback is planned (see `netcode.md`).
+  shows up the head start (175 ms) plus the hit's trip to their game later; a bot on your own game,
+  after just the head start, like 1.8.9 at 0 ping. Predicted knockback is planned (see
+  `netcode.md`).
 - No slabs, stairs or stepping up blocks; no water or lava yet.
 
 ## Done

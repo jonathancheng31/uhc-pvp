@@ -11,8 +11,9 @@ the same hit protection and knockback as sword hits.
 1. **Click.** Every click is one attack attempt (no cooldown, so clicks per second matter).
    The arm swings (6 MC ticks).
 2. **Aim.** From your eyes along your view: blocks are traced up to 4.5 blocks; players'
-   hitboxes count 0.1 bigger on every side; a player must be closer than the first block and
-   within 3 blocks. Pointing at a player beyond 3 blocks, or at nothing, is a **miss**, which
+   hitboxes count 0.1 bigger on every side, where they're drawn on your screen (the match's
+   head start in the past, 175 ms by default, like 1.8.9: see [netcode.md](netcode.md)); a player
+   must be closer than the first block and within 3 blocks. Pointing at a player beyond 3 blocks, or at nothing, is a **miss**, which
    starts 1.8's miss penalty (`MissPenalty`): clicks are thrown away for 10 ticks, but the
    penalty clears at the end of any 1/20 s tick the button is up. So it only eats a second
    click in the same tick as the miss, or clicks while the button stayed held (some butterfly
@@ -133,6 +134,34 @@ One sprint hit carries a victim who doesn't touch the keys, until they stop
 | 80% | 4.4 (11% less) |
 | 60% | 3.8 (22% less) |
 
+What it does to combos, with the head start (0.4.8, [netcode.md](netcode.md)) at off, 1.8.9's
+175 ms and 250 ms. The combo simulation (`COMBO_SIM=Table tools/run_tests.sh ComboSim`, about two
+minutes: two of our motors on flat ground, perfect aim, the attacker's best of holding W, w-taps, s-taps,
+sprint-jumping and keeping its distance, each victim response fixed; a combo breaks when the
+victim gets back in reach first or the attacker can't reach within 250 ms of protection ending;
+average over 3 tick timings, 8 is the cap). "Before" is 0.4.7: no head start, and the jump-reset
+bug.
+
+| Victim, after each hit | Before | Off, 100% | Off, 80% | Off, 60% | 175 ms, 100% | 175, 80% | 175, 60% | 250, 100% | 250, 80% | 250, 60% |
+|---|---|---|---|---|---|---|---|---|---|---|
+| no keys | 1 | 1 | 2 | 8 | 3.7 | 4.7 | 5.3 | 6 | 6.3 | 7.7 |
+| holds W (runs back in) | 8 | 8 | 8 | 8 | 8 | 8 | 8 | 8 | 8 | 8 |
+| holds S (backs off) | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 2 | 2.3 |
+| strafes (A) | 1 | 1 | 2 | 3.3 | 5 | 6 | 6.7 | 8 | 8 | 8 |
+| S+A | 1 | 1 | 1 | 1 | 1 | 1 | 4 | 1 | 2.7 | 8 |
+| W+A | 8 | 8 | 8 | 8 | 8 | 8 | 8 | 6.7 | 6 | 8 |
+| switches A/D every 2 to 8 ticks | 1 | 1 | 2 | 5 to 8 | 4 | 4.7 to 5 | 5.3 | 6 | 6.3 to 8 | 7.7 to 8 |
+| jumps on the hit | 1 | 1 | 2 | 8 | 4.7 | 6.3 | 8 | 7.3 | 8 | 8 |
+| jumps on the hit, holding W | 8 | 8 | 8 | 8 | 8 | 8 | 8 | 8 | 8 | 8 |
+| holds jump | 1 | 1 | 4 | 8 | 8 | 8 | 8 | 8 | 8 | 8 |
+| holds jump and W | 7 | 8 | 8 | 8 | 7 | 7 | 6.3 | 8 | 8 | 8 |
+
+The head start does most of the work: with it, letting the knockback carry you, strafing,
+switching A/D and jumping on the hit stop being ways out, as in 1.8.9. Combo knockback then
+lengthens combos a little more at 80% and a lot at 60%. Holding S (backing off) still ends every
+combo, and running back in still gets you comboed. Real players and the bots don't play one fixed
+response, so these are the shapes, not predictions (for the bots, see "Practice bots").
+
 ## W-tapping
 
 In 1.8 the client only tells the server when sprinting *changes*, and the server switches its
@@ -156,9 +185,14 @@ Like a good player with human limits, not an aimbot. The host picks its **skill*
 menu, under the bot mode: **Easy**, **Normal** (the default) or **Hard**, remembered for the next
 match (`--bot-skill=easy|normal|hard` on the command line).
 
-- **It sees you late.** It aims and decides from where you were a reaction time ago (Hard 0.08 s,
-  Normal 0.1, Easy 0.2), led by how you were moving then. Keep moving the same way and it follows
-  you; switch strafe direction and its aim slips until it catches up. Good strafing makes it miss.
+- **It sees you late.** It sees you the way you see it: drawn the match's head start in the past
+  (175 ms by default, as 1.8.9 draws everyone; its sword and rod find you there too, as yours find
+  it). On top of that comes its reaction time, the brain's part (Hard 0.08 s, Normal 0.1, Easy
+  0.2), as a person's comes on top of what's on their screen. It leads how you were moving then,
+  but only to make up for its reaction: you're hit where you're drawn, so that's where it aims.
+  Keep moving the same way and it follows you; switch strafe direction and its aim slips until it
+  catches up. Good strafing makes it miss. (Up to 0.4.7 it saw you, the host's player, where you
+  really were, a head start you didn't get on it.)
 - **Its aim is a hand.** It follows you smoothly, closes a gap fast but not instantly, has a top
   turning speed, always wanders a little (Hard 1.5 degrees, Easy 4) and gets knocked off when you
   hit it. Up to 0.4.6 the bot turned straight at your chest at 540 degrees a second: perfect aim.
@@ -220,26 +254,29 @@ after moving, so it only cut its knockback by accident on 3% (against a precise 
 ### Measured against the old bot and each other
 
 `tests/BotDuel.cs` fights two bot brains without a scene, through the same rules (movement,
-aiming, hit protection, knockback, rod, wasted clicks), starting 10 to 14 blocks apart until one
-dies. `tests/LegacyBotBrain.cs` is the 0.4.6 bot, kept as a yardstick. 400 duels each (rerun with
+aiming, hit protection, knockback, rod, wasted clicks, and since 0.4.8 the head start: each sees
+and hits the other 175 ms in the past), starting 10 to 14 blocks apart until one dies.
+`tests/LegacyBotBrain.cs` is the 0.4.6 bot, kept as a yardstick. 300 duels each (rerun with
 `BOT_REPORT=300 tools/run_tests.sh BotReport`, about a minute); the 0.4.6 bot against itself comes
-out at 48 to 51%, so the duels are fair.
+out at 47 to 52%, so the duels are fair.
 
-Duels won against the 0.4.6 bot, by twist (its hits landed per duel in brackets):
+Duels won against the 0.4.6 bot, by twist (hits landed per duel in brackets):
 
 | | 1.8.9 | Wasted clicks 0.15 s | Strafe 130%, snappiness 50% |
 |---|---|---|---|
-| Easy | 0% | 3% | 0% |
-| Normal | 48% (6.0 to 6.3) | 98% | 28% |
-| Hard | 86% (6.9 to 4.5) | 98% | 80% |
+| Easy | 0% | 6% | 0% |
+| Normal | 46% (5.1 to 5.6) | 90% | 44% |
+| Hard | 73% (6.2 to 4.6) | 94% | 64% |
 
-Hard beats Normal 91% of the time and Normal beats Easy every time. Under wasted clicks the bot
-wastes about a quarter of its clicks where the 0.4.6 bot's spam wastes 84%, so timing beats it.
-With the same eyes and hands as the bot it faces (the 0.4.6 decisions given today's aim), today's
-decisions win 81% (Normal) and 98% (Hard): the decisions matter, not just the aim.
+Hard beats Normal 73% of the time and Normal beats Easy every time. The head start makes the
+first hit of an exchange worth more, which narrows close matchups (in 0.4.7, without it, Hard
+beat Normal 91% of the time and the 0.4.6 bot 86%). Under wasted clicks the bot wastes about a third of its
+clicks where the 0.4.6 bot's spam wastes 84%, so timing beats it. With the same eyes and hands as
+the bot it faces (the 0.4.6 decisions given today's aim), today's decisions win 86% (Normal) and
+91% (Hard): the decisions matter, not just the aim.
 
-In the real game, over the network on one machine (both ways round, 8 minutes each): Hard 25
-kills to the 0.4.6 bot's 17; Normal 19 to 19.
+In the real game, over the network on one machine (both ways round, 8 minutes each, in 0.4.7
+before the head start): Hard 25 kills to the 0.4.6 bot's 17; Normal 19 to 19.
 
 **How long your combos get.** A scripted player who sprints straight in, w-taps every hit, never
 clicks into protection and clicks the moment its crosshair is on you (`tests/ComboAttacker.cs`),
@@ -247,13 +284,15 @@ with Normal's eyes and hands:
 
 | Against | Average combo | Combos of 4+ hits | Longest combo per fight | Who wins |
 |---|---|---|---|---|
-| Easy | 4.0 hits | 46% (1 in 10 reach 8) | 6.8 | player 100% |
-| Normal | 1.7 | 7% | 3.2 | player 89% |
-| Hard | 1.4 | 1% | 2.2 | player 34% |
-| 0.4.6 bot | 2.2 | 17% | 4.2 | player 92% |
+| Easy | 6.1 hits | 71% (1 in 10 reach 9) | 8.1 | player 100% |
+| Normal | 2.3 | 18% | 4.1 | player 65% |
+| Hard | 1.8 | 10% | 3.0 | player 36% |
+| 0.4.6 bot | 2.3 | 21% | 4.1 | player 55% |
 
-With perfect aim the same player averages 5.1 on Easy, 2.8 on Normal, 1.7 on Hard and 4.6 on
-the 0.4.6 bot. A kill takes 9 hits, so 9 is the longest a combo can be.
+With perfect aim the same player averages 6.8 on Easy, 3.6 on Normal, 2.7 on Hard and 3.6 on
+the 0.4.6 bot. A kill takes 9 hits, so 9 is the longest a combo can be. These are with 1.8.9's
+head start (0.4.8); without it (0.4.7) the player averaged 4.0 on Easy, 1.7 on Normal and 1.4 on
+Hard, so the head start makes every bot easier to combo, Easy most.
 
 `tests/BotTests.cs` checks what the bot sees and how it aims, when it escapes combos at each skill,
 w-tapping and patience, and (with fewer duels) the comparisons above.

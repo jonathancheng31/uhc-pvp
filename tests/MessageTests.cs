@@ -30,7 +30,7 @@ public class MessageTests : TestCase
             new Swing(7),
             new RodCast(-2, 55.125, new Vector3(3.5f, 6.52f, 9.25f), new Vector3(0.1f, -0.2f, -1.48f)),
             new RodHook(-2, 7, 55.4),
-            new RulesUpdate(1.3f, 0.5f, 0.15f, 0.7f, 0.8f),
+            new RulesUpdate(1.3f, 0.5f, 0.15f, 0.7f, 0.8f, 0.2f),
         ];
         Check(messages.Select(m => m.Type).Distinct().Count() == Enum.GetValues<MsgType>().Length,
             "test covers every message type");

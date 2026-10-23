@@ -13,17 +13,19 @@ namespace UhcPvp.Core;
 /// <param name="WastedClickDelay">Wasted clicks, in seconds, see <see cref="Tuning.DefaultWastedClickDelay"/>. 0 is 1.8.9.</param>
 /// <param name="Pushing">Player pushing, see <see cref="Tuning.DefaultPushing"/>. 0 is 1.8.9 (players walk through each other), 1 is solid.</param>
 /// <param name="ComboKnockback">Combo knockback, the sprint hit's extra push as a fraction of 1.8.9's, see <see cref="Tuning.DefaultComboKnockback"/>. 1 is 1.8.9.</param>
+/// <param name="HeadStart">Head start, how far in the past others are drawn and hit, in seconds, see <see cref="Tuning.DefaultHeadStart"/>. 0.175 is 1.8.9's; 0 draws them as fresh as possible.</param>
 public readonly record struct MatchRules(
     double StrafeSpeed = Tuning.DefaultStrafeSpeed,
     double StrafeGrip = Tuning.DefaultStrafeGrip,
     double WastedClickDelay = Tuning.DefaultWastedClickDelay,
     double Pushing = Tuning.DefaultPushing,
-    double ComboKnockback = Tuning.DefaultComboKnockback)
+    double ComboKnockback = Tuning.DefaultComboKnockback,
+    double HeadStart = Tuning.DefaultHeadStart)
 {
     /// <summary>Plain 1.8.9.</summary>
     public static MatchRules Default => new(
         Tuning.DefaultStrafeSpeed, Tuning.DefaultStrafeGrip, Tuning.DefaultWastedClickDelay, Tuning.DefaultPushing,
-        Tuning.DefaultComboKnockback);
+        Tuning.DefaultComboKnockback, Tuning.DefaultHeadStart);
 
     /// <summary>
     /// The same rules made valid, for values from a file or the network: each is kept within its
@@ -34,7 +36,8 @@ public readonly record struct MatchRules(
         Snap(StrafeGrip, 0.0, Tuning.MaxStrafeGrip, Tuning.StrafeGripStep, Tuning.DefaultStrafeGrip),
         Snap(WastedClickDelay, 0.0, Tuning.MaxWastedClickDelay, Tuning.WastedClickDelayStep, Tuning.DefaultWastedClickDelay),
         Snap(Pushing, 0.0, Tuning.MaxPushing, Tuning.PushingStep, Tuning.DefaultPushing),
-        Snap(ComboKnockback, Tuning.MinComboKnockback, 1.0, Tuning.ComboKnockbackStep, Tuning.DefaultComboKnockback));
+        Snap(ComboKnockback, Tuning.MinComboKnockback, 1.0, Tuning.ComboKnockbackStep, Tuning.DefaultComboKnockback),
+        Snap(HeadStart, 0.0, Tuning.MaxHeadStart, Tuning.HeadStartStep, Tuning.DefaultHeadStart));
 
     /// <summary>Whether every twist is at 1.8.9's setting.</summary>
     public bool IsMinecraft => Normalized() == Default;

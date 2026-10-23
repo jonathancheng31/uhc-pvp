@@ -17,8 +17,9 @@ namespace UhcPvp.Gameplay;
 ///
 /// Networking model (docs/netcode.md): each player's game owns its own movement and sends its
 /// state to the host 60 times a second; the host runs the bots. The host sends everyone a
-/// snapshot of all players 60 times a second, and each game draws the other players slightly in
-/// the past so they move smoothly.
+/// snapshot of all players 60 times a second, and each game draws the other players in the past
+/// by the match's head start (1.8.9's display delay, see <see cref="HeadStart"/>), or by what
+/// their updates need to arrive smoothly if that's more.
 /// </summary>
 public partial class Game : Node3D
 {
@@ -28,6 +29,8 @@ public partial class Game : Node3D
     /// <summary>Test stats: where we've seen each other player. Kept after they leave.</summary>
     private readonly Dictionary<int, Aabb> _seenBounds = new();
     private (Vec3d Home, float Yaw)? _nextBotHome;
+    /// <summary>Evenly spaced host times for the states this game records and sends.</summary>
+    private readonly TickClock _tickClock = new(1.0 / Tuning.SimRate);
 
     public VoxelWorld World { get; private set; } = null!;
     public Player LocalPlayer { get; private set; } = null!;
@@ -98,8 +101,13 @@ public partial class Game : Node3D
         {
             return;
         }
-        double now = Net.HostTime;
-        StepRods(now);
+        StepRods(Net.HostTime);
+        // The states our players reached in the last tick.
+        double now = _tickClock.Tick(Net.HostTime);
+        foreach (Player player in _players.Values.Where(p => p.IsOwned))
+        {
+            player.Record(now);
+        }
         if (Net.IsHost)
         {
             foreach (Player player in _players.Values.Where(p => p.IsOwned))
@@ -119,12 +127,9 @@ public partial class Game : Node3D
         double now = Net.HostTime;
         foreach (Player player in _players.Values)
         {
-            if (!player.IsOwned)
-            {
-                player.UpdateRemote(now, delta);
-            }
             if (player != LocalPlayer)
             {
+                player.UpdateDrawn(now, delta);
                 TrackSeen(player);
             }
         }
@@ -138,9 +143,10 @@ public partial class Game : Node3D
 
     /// <summary>
     /// Everyone around one of our own players (us or a bot), for the pushing twist (see
-    /// <see cref="Pushing"/>): our bots where they stand, remote players where they're drawn on
-    /// this screen, so you're pushed by the bodies you see. Teammates count too. Players flying
-    /// from a hit are left out, and a flying player is left alone, so knockback stays whole.
+    /// <see cref="Pushing"/>): our bots where they stand, remote players where their latest
+    /// updates put them (without the head start, which would let players running at each other
+    /// pass through before either game saw them touch). Teammates count too. Players flying from
+    /// a hit are left out, and a flying player is left alone, so knockback stays whole.
     /// </summary>
     public void FindPushContacts(Player player, List<PushContact> contacts)
     {
@@ -356,7 +362,7 @@ public partial class Game : Node3D
             + $"kills={Kills} ping_ms={(int)Math.Round(Net.PingSeconds * 1000)} "
             + $"strafe={MatchRules.Percent(Session.Rules.StrafeSpeed)} grip={MatchRules.Percent(Session.Rules.StrafeGrip)} "
             + $"wasted={Session.Rules.WastedClickDelay:0.00} push={MatchRules.Percent(Session.Rules.Pushing)} "
-            + $"combo={MatchRules.Percent(Session.Rules.ComboKnockback)} "
+            + $"combo={MatchRules.Percent(Session.Rules.ComboKnockback)} head={HeadStart.Label(Session.Rules.HeadStart)} "
             + $"pushed={LocalPlayer.Motor?.PushedTicks ?? 0} at={LocalPlayer.Feet.X:0.00},{LocalPlayer.Feet.Z:0.00}");
     }
 }

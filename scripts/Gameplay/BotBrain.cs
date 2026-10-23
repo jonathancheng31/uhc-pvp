@@ -162,14 +162,23 @@ public sealed class BotBrain
         }
     }
 
-    /// <summary>A tick for a bot in the match: reads the scene, thinks, and turns the bot's view.</summary>
+    /// <summary>
+    /// A tick for a bot in the match: reads the scene, thinks, and turns the bot's view. It sees
+    /// every enemy the way a person at this computer does: the match's head start in the past
+    /// (<see cref="Player.ViewFeet"/>), the host's own player included. Its reaction time
+    /// (<see cref="BotSkill.ReactionSeconds"/>) comes on top, as a person's does on top of what's
+    /// on their screen, and its anticipation only makes up for the reaction: its clicks are
+    /// tested against the same delayed view, so that's where it should aim.
+    /// </summary>
     public BotIntent Think(Player self, IReadOnlyList<Player> enemies, double delta)
     {
         double now = Network.Instance.Now;
+        double hostNow = Network.Instance.HostTime;
         _foeViews.Clear();
         foreach (Player enemy in enemies)
         {
-            _foeViews.Add(new BotFoe(enemy.PeerId, enemy.ShownFeet, enemy.Yaw, now - enemy.HurtShownAt, enemy.HurtShownByRod));
+            _foeViews.Add(new BotFoe(
+                enemy.PeerId, enemy.ViewFeet(hostNow), enemy.ViewYaw(hostNow), now - enemy.HurtShownAt, enemy.HurtShownByRod));
         }
         PlayerMotor? motor = self.Motor;
         var view = new BotSelf(

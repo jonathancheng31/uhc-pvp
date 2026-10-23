@@ -57,12 +57,13 @@ public partial class Game
         bool swung = attacker.PlaySwing();
         SendToAll(new Swing(attacker.PeerId));
 
+        double now = Net.HostTime;
         _aimTargets.Clear();
         foreach (Player p in _players.Values)
         {
             if (p != attacker && !p.IsDead)
             {
-                _aimTargets.Add(new AimTarget(p.PeerId, p.ShownFeet));
+                _aimTargets.Add(new AimTarget(p.PeerId, SeenBy(attacker, p, now)));
             }
         }
         AimResult aim = HitScan.Aim(attacker.Eye, HitScan.LookVector(attacker.Yaw, attacker.Pitch), _aimTargets, World);
@@ -85,11 +86,10 @@ public partial class Game
 
         bool critical = attacker.Motor.CanCrit;
         bool sprintKnockback = attacker.Motor.ServerSprinting;
-        double now = Net.HostTime;
         var flags = (critical ? AttackFlags.Critical : 0) | (sprintKnockback ? AttackFlags.SprintKnockback : 0);
         var attack = new Attack(
-            attacker.PeerId, target.PeerId, now, target.ShownTime(now),
-            attacker.Feet.ToGodot(), attacker.Yaw, target.ShownFeet.ToGodot(), flags);
+            attacker.PeerId, target.PeerId, now, target.ViewTime(now),
+            attacker.Feet.ToGodot(), attacker.Yaw, SeenBy(attacker, target, now).ToGodot(), flags);
         if (attacker.IsLocal)
         {
             LastReach = aim.Distance;
@@ -133,6 +133,15 @@ public partial class Game
             attacker.ClickLockout.Wasted(Session.Rules.WastedClickDelay);
         }
     }
+
+    /// <summary>
+    /// Where a player this game runs sees <paramref name="target"/> at host time
+    /// <paramref name="now"/>, which is where its clicks and its bobber find them: you, where they
+    /// were last drawn on your screen; a bot, the same view (<see cref="Player.ViewFeet"/>), you
+    /// included. Both are the head start in the past.
+    /// </summary>
+    private static Vec3d SeenBy(Player viewer, Player target, double now) =>
+        viewer.IsLocal ? target.ShownFeet : target.ViewFeet(now);
 
     private HitProtection GuessProtection(int playerId)
     {
@@ -185,15 +194,19 @@ public partial class Game
         {
             return HitResult.Ignored;
         }
-        // The lag cap: the attacker's view of us must not be too old (no ghost hits).
+        // The lag cap: the attacker's view of us must be no older than the head start (or the
+        // lag cap, if that's more). Older is the attacker's connection falling behind: a ghost hit.
         double staleness = attack.AttackTime - attack.ViewTime;
-        if (staleness > Tuning.LagCap + 1.0 / Tuning.SimRate)
+        if (staleness > HeadStart.MaxViewAge(Session.Rules.HeadStart) + 1.0 / Tuning.SimRate)
         {
             GD.Print($"[combat] ignored a hit on {victim.PlayerName}: attacker's view was {staleness * 1000:0} ms old");
             return HitResult.Ignored;
         }
         Vec3d attackerFeet = Vec3d.From(attack.AttackerFeet);
         Vec3d seenFeet = Vec3d.From(attack.TargetFeet);
+        // Knockback pushes away from the attacker as the two really stood when they clicked, as a
+        // 1.8.9 server's copies of them do, not from where the attacker saw us (the head start ago).
+        Vec3d victimFeet = victim.History.IsEmpty ? victim.Feet : Vec3d.From(victim.History.Sample(attack.AttackTime).Position);
         Vec3d attackerEye = attackerFeet + new Vec3d(0, Tuning.EyeHeight, 0);
         bool rod = (attack.Flags & AttackFlags.Rod) != 0;
         bool tooFar = rod
@@ -220,7 +233,7 @@ public partial class Game
             // PlayerMotor.ServerMotion), and lands at the victim's next Minecraft tick like a
             // velocity packet. The server keeps its own copy as it was.
             victim.Motor.Knock(copy => CombatRules.VelocityPacket(CombatRules.Knockback(
-                copy, attackerFeet, seenFeet, attack.AttackerYaw, baseKnockback: true, sprintBonus: sprintKnockback, _random,
+                copy, attackerFeet, victimFeet, attack.AttackerYaw, baseKnockback: true, sprintBonus: sprintKnockback, _random,
                 comboKnockback)));
         }
         else if (sprintKnockback)
@@ -228,7 +241,7 @@ public partial class Game
             // A stronger hit sends nothing: the victim doesn't move, but a sprint push stays on
             // the server's copy and adds to the next knockback.
             victim.Motor.PushServerCopy(
-                CombatRules.Knockback(Vec3d.Zero, attackerFeet, seenFeet, attack.AttackerYaw, false, true, _random, comboKnockback));
+                CombatRules.Knockback(Vec3d.Zero, attackerFeet, victimFeet, attack.AttackerYaw, false, true, _random, comboKnockback));
         }
         victim.OnDamaged();
 

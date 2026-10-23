@@ -92,7 +92,12 @@ push that you can still walk through.
 **Player pushing** (Off, which is 1.8.9, to 100%, in 10% steps) makes bodies solid. Why: being
 able to run through someone, or stand inside them, looks wrong and takes away body-blocking and
 shoving as things you can do. Every game keeps its own player (and its bots) out of everyone else
-as they're drawn on its screen, teammates too, so it needs nothing extra on the network.
+as it last heard they are, teammates too, so it needs nothing extra on the network: its bots
+where they really are, remote players where their latest updates put them. Not where they're
+drawn: since 0.4.8 others are drawn with 1.8.9's head start, 175 ms in the past
+([netcode.md](netcode.md)), and pushing from there would let two players sprinting at each other
+pass through before either game saw them touch. So you can be shoved by someone up to the head
+start before their drawn body reaches you (at most about a block, when both move fast).
 Bodies count as upright cylinders the player's width (0.6) and height, so you slide around
 people instead of catching on corners.
 
@@ -129,7 +134,7 @@ gentle push). From 60% up nobody gets through; the higher, the less you sink int
 | 80% | stop, 0.12 | stop, 0.29 | 0.15 s | can't |
 | 100% | stop, 0.11 | stop, 0.20 | 0.10 s | can't |
 
-**Steady, with lag too.** Each game reacts only to where it draws the others, and only follows
+**Steady, with lag too.** Each game reacts only to where it last heard the others are, and only follows
 half of how fast someone backs away, so two games never chase each other's reactions back and
 forth. With other players drawn 100 or 150 ms late, two players pressed together, one shoving
 another, and four players pushing into each other from four sides all settle and stay still

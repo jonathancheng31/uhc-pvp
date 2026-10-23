@@ -295,7 +295,9 @@ public class BotTests : TestCase
     {
         double hardOverNormal = DuelSeries.Run(Skilled(BotDifficulty.Hard), Skilled(BotDifficulty.Normal), MatchRules.Default, 60).WinRateA;
         double normalOverEasy = DuelSeries.Run(Skilled(BotDifficulty.Normal), Skilled(BotDifficulty.Easy), MatchRules.Default, 60).WinRateA;
-        Check(hardOverNormal > 0.75, $"Hard beats Normal ({hardOverNormal:P0})");
+        // The head start (0.4.8) makes the first hit worth more, which narrows close matchups: Hard
+        // beats Normal about 73% of 300 duels with it, 89% without.
+        Check(hardOverNormal > 0.65, $"Hard beats Normal ({hardOverNormal:P0})");
         Check(normalOverEasy > 0.85, $"Normal beats Easy ({normalOverEasy:P0})");
     }
 
