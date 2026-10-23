@@ -13,7 +13,7 @@ namespace UhcPvp.Autoload;
 /// </summary>
 public partial class Network : Node
 {
-    public const ushort ProtocolVersion = 6;
+    public const ushort ProtocolVersion = 7;
     public const int HostId = 1;
 
     private readonly record struct Outgoing(int To, byte[] Data, bool Reliable);

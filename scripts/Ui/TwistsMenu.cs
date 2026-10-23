@@ -18,6 +18,9 @@ public partial class TwistsMenu : PanelContainer
     private Label _strafeGripValue = null!;
     private HSlider _wastedClicks = null!;
     private Label _wastedClicksValue = null!;
+    /// <summary>Goes right as combo knockback goes down: its value is how much of 1.8.9's sprint push is taken off.</summary>
+    private HSlider _comboKnockback = null!;
+    private Label _comboKnockbackValue = null!;
     private bool _refreshing;
 
     /// <summary>Raised when the screen closes (Done or Esc); the pause menu shows again.</summary>
@@ -46,9 +49,12 @@ public partial class TwistsMenu : PanelContainer
             "Starting, stopping and switching between A and D happen sooner on the ground (1.8 takes a quarter second to switch).");
         (_wastedClicks, _wastedClicksValue) = Twist(box, "Wasted clicks", 0.0, Tuning.MaxWastedClickDelay, Tuning.WastedClickDelayStep,
             "A click that does nothing (a miss, or someone still in hit protection) blocks your clicks this long. Your crosshair turns red while it does.");
+        (_comboKnockback, _comboKnockbackValue) = Twist(box, "Combo knockback", 0.0, 1.0 - Tuning.MinComboKnockback, Tuning.ComboKnockbackStep,
+            "A sprint hit's extra push. Less sends the victim less far, so you catch up sooner and combos run longer. Plain hits, the lift and the rod stay 1.8's.");
         _strafeSpeed.ValueChanged += value => Change(Session.Rules with { StrafeSpeed = value });
         _strafeGrip.ValueChanged += value => Change(Session.Rules with { StrafeGrip = value });
         _wastedClicks.ValueChanged += value => Change(Session.Rules with { WastedClickDelay = value });
+        _comboKnockback.ValueChanged += value => Change(Session.Rules with { ComboKnockback = 1.0 - value });
 
         box.AddChild(new Control { CustomMinimumSize = new Vector2(0, 8) });
         if (IsHost)
@@ -78,6 +84,8 @@ public partial class TwistsMenu : PanelContainer
         _strafeGripValue.Text = rules.StrafeGrip <= 0 ? "Off" : MatchRules.Percent(rules.StrafeGrip);
         _wastedClicks.Value = rules.WastedClickDelay;
         _wastedClicksValue.Text = MatchRules.Seconds(rules.WastedClickDelay);
+        _comboKnockback.Value = 1.0 - rules.ComboKnockback;
+        _comboKnockbackValue.Text = MatchRules.Percent(rules.ComboKnockback);
         _refreshing = false;
     }
 
@@ -107,6 +115,10 @@ public partial class TwistsMenu : PanelContainer
         if (rules.WastedClickDelay != Tuning.DefaultWastedClickDelay)
         {
             parts.Add($"wasted clicks {MatchRules.Seconds(rules.WastedClickDelay)}");
+        }
+        if (rules.ComboKnockback != Tuning.DefaultComboKnockback)
+        {
+            parts.Add($"combo knockback {MatchRules.Percent(rules.ComboKnockback)}");
         }
         return "On: " + string.Join(", ", parts);
     }

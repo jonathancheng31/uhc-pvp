@@ -103,13 +103,15 @@ public partial class Settings : Node
     public static MatchRules ReadRules(ConfigFile config) => new MatchRules(
         ReadNumber(config, "rules", "strafe_speed", Tuning.DefaultStrafeSpeed),
         ReadNumber(config, "rules", "strafe_grip", Tuning.DefaultStrafeGrip),
-        ReadNumber(config, "rules", "wasted_click_delay", Tuning.DefaultWastedClickDelay)).Normalized();
+        ReadNumber(config, "rules", "wasted_click_delay", Tuning.DefaultWastedClickDelay),
+        ReadNumber(config, "rules", "combo_knockback", Tuning.DefaultComboKnockback)).Normalized();
 
     public static void WriteRules(ConfigFile config, MatchRules rules)
     {
         config.SetValue("rules", "strafe_speed", rules.StrafeSpeed);
         config.SetValue("rules", "strafe_grip", rules.StrafeGrip);
         config.SetValue("rules", "wasted_click_delay", rules.WastedClickDelay);
+        config.SetValue("rules", "combo_knockback", rules.ComboKnockback);
     }
 
     private static double ReadNumber(ConfigFile config, string section, string key, double fallback)

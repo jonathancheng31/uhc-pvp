@@ -108,6 +108,29 @@ protection costs everyone, slow clickers too; what wins is timing. (Ruled out fi
 early click to land the instant protection ends, since spam would then always land the perfectly
 timed hit.)
 
+## Our twist: combo knockback (since 0.4.8, a match rule)
+
+1.8.9 by default. The owner wants comboing to be a bigger part of the game. The host can turn
+**combo knockback** down from 100% (1.8.9) to 60% in the Twists screen: a sprint hit's extra
+sideways push (1.8.9's 0.5, `Tuning.SprintKnockbackBonus`) becomes that fraction of itself. The
+base push (0.4), the lift, hits without sprint knockback and the rod stay 1.8.9's. Code:
+`CombatRules.Knockback`'s `comboKnockback`; the victim's game applies it.
+
+Why this one: what decides whether a combo carries on is how far each hit sends the victim
+against how fast the attacker catches up. In our combo simulation less sideways push makes
+combos longer, while more lift, shorter hit protection, more reach and the strafe twists don't.
+Below about 60% the victim barely moves sideways, and strafing stops working as a way out, so
+the slider stops there.
+
+One sprint hit carries a victim who doesn't touch the keys, until they stop
+(`tests/CombatTests.cs`):
+
+| Combo knockback | Carry |
+|---|---|
+| 100% (1.8.9) | 4.9 blocks |
+| 80% | 4.4 (11% less) |
+| 60% | 3.8 (22% less) |
+
 ## W-tapping
 
 In 1.8 the client only tells the server when sprinting *changes*, and the server switches its

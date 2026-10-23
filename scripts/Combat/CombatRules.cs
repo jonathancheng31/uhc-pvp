@@ -35,10 +35,12 @@ public static class CombatRules
     /// push 0.4 away from the attacker and 0.4 up (capped at 0.4).
     /// <paramref name="sprintBonus"/> is the sprint-hit push from
     /// EntityPlayer.attackTargetEntityWithCurrentItem: 0.5 along the attacker's facing and 0.1 up.
+    /// <paramref name="comboKnockback"/> is our combo knockback twist (a match rule): the 0.5 is
+    /// this fraction of 1.8.9's (1 is 1.8.9); the lift and the base push stay whole.
     /// </summary>
     public static Vec3d Knockback(
         Vec3d motion, Vec3d attackerPosition, Vec3d victimPosition, double attackerYaw,
-        bool baseKnockback, bool sprintBonus, Random random)
+        bool baseKnockback, bool sprintBonus, Random random, double comboKnockback = Tuning.DefaultComboKnockback)
     {
         if (baseKnockback)
         {
@@ -59,7 +61,7 @@ public static class CombatRules
         }
         if (sprintBonus)
         {
-            motion += Vec3d.Forward(attackerYaw) * Tuning.SprintKnockbackBonus
+            motion += Vec3d.Forward(attackerYaw) * (Tuning.SprintKnockbackBonus * comboKnockback)
                 + new Vec3d(0, Tuning.SprintHitVerticalBonus, 0);
         }
         return motion;

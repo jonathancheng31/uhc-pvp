@@ -206,6 +206,7 @@ public partial class Game
 
         bool critical = !rod && (attack.Flags & AttackFlags.Critical) != 0;
         bool sprintKnockback = !rod && (attack.Flags & AttackFlags.SprintKnockback) != 0;
+        double comboKnockback = Session.Rules.ComboKnockback;
         HitResult result = victim.Vitality.TakeHit(
             RawDamage(rod, critical), Tuning.KitArmorPoints, HitProtection.TickAt(attack.AttackTime));
         if (result == HitResult.Ignored)
@@ -218,14 +219,15 @@ public partial class Game
             // PlayerMotor.ServerMotion), and lands at the victim's next Minecraft tick like a
             // velocity packet. The server keeps its own copy as it was.
             victim.Motor.Knock(copy => CombatRules.VelocityPacket(CombatRules.Knockback(
-                copy, attackerFeet, seenFeet, attack.AttackerYaw, baseKnockback: true, sprintBonus: sprintKnockback, _random)));
+                copy, attackerFeet, seenFeet, attack.AttackerYaw, baseKnockback: true, sprintBonus: sprintKnockback, _random,
+                comboKnockback)));
         }
         else if (sprintKnockback)
         {
             // A stronger hit sends nothing: the victim doesn't move, but a sprint push stays on
             // the server's copy and adds to the next knockback.
             victim.Motor.PushServerCopy(
-                CombatRules.Knockback(Vec3d.Zero, attackerFeet, seenFeet, attack.AttackerYaw, false, true, _random));
+                CombatRules.Knockback(Vec3d.Zero, attackerFeet, seenFeet, attack.AttackerYaw, false, true, _random, comboKnockback));
         }
         victim.OnDamaged();
 

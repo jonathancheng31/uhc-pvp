@@ -334,6 +334,6 @@ public partial class Game : Node3D
             + $"seen={_seenBounds.Count} moving={moving} landed={HitsLanded} rods={RodHitsLanded} taken={HitsTaken} "
             + $"kills={Kills} ping_ms={(int)Math.Round(Net.PingSeconds * 1000)} "
             + $"strafe={MatchRules.Percent(Session.Rules.StrafeSpeed)} grip={MatchRules.Percent(Session.Rules.StrafeGrip)} "
-            + $"wasted={Session.Rules.WastedClickDelay:0.00}");
+            + $"wasted={Session.Rules.WastedClickDelay:0.00} combo={MatchRules.Percent(Session.Rules.ComboKnockback)}");
     }
 }

@@ -138,6 +138,16 @@ public static class Tuning
     public const double DefaultWastedClickDelay = 0.0;
     public const double MaxWastedClickDelay = 0.3;
     public const double WastedClickDelayStep = 0.05;
+    /// <summary>
+    /// Combo knockback: a sprint hit's extra sideways push (<see cref="SprintKnockbackBonus"/>) is
+    /// this fraction of 1.8.9's, so each sprint hit carries the victim less far and the attacker
+    /// catches up sooner (docs/combat.md). The base push, the lift, plain hits and the rod are
+    /// untouched. 1 is 1.8.9; the host can go down to <see cref="MinComboKnockback"/> (below about
+    /// 60% strafing stops working as a way out of a combo).
+    /// </summary>
+    public const double DefaultComboKnockback = 1.0;
+    public const double MinComboKnockback = 0.6;
+    public const double ComboKnockbackStep = 0.05;
     /// <summary>Minimum MC ticks between jumps while holding jump.</summary>
     public const int JumpCooldownMcTicks = 10;
     /// <summary>Velocities smaller than this are zeroed each tick.</summary>

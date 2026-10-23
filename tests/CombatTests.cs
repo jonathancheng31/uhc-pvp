@@ -375,6 +375,48 @@ public class CombatMotionTests : TestCase
         Check(lift[2] < 0.15, $"third hit lifts hardly at all ({lift[2]:0.000})");
     }
 
+    public void TestComboKnockbackScalesOnlyTheSprintPush()
+    {
+        var random = new Random(4);
+        var copy = new Vec3d(0.1, -0.0784, -0.05);
+        var attacker = new Vec3d(3, 4, 7);
+        var victim = new Vec3d(1, 4, 5);
+        foreach (double combo in new[] { 1.0, 0.8, 0.6 })
+        {
+            Vec3d full = CombatRules.Knockback(copy, attacker, victim, 30, true, true, random);
+            Vec3d scaled = CombatRules.Knockback(copy, attacker, victim, 30, true, true, random, combo);
+            Vec3d sprintPush = Vec3d.Forward(30) * Tuning.SprintKnockbackBonus;
+            CheckNear((full - sprintPush * (1 - combo) - scaled).Length, 0, 1e-12, $"{combo:P0}: only the sprint push is scaled");
+            CheckNear(scaled.Y, full.Y, 1e-12, $"{combo:P0}: same lift");
+            Vec3d plain = CombatRules.Knockback(copy, attacker, victim, 30, true, false, random);
+            CheckNear((CombatRules.Knockback(copy, attacker, victim, 30, true, false, random, combo) - plain).Length, 0, 1e-12,
+                $"{combo:P0}: a hit without sprint (and the rod) is untouched");
+        }
+    }
+
+    /// <summary>How far one sprint hit carries a victim who doesn't touch the keys, until they stop.</summary>
+    private static double SprintHitCarry(double combo)
+    {
+        var (_, ours) = Pair();
+        var idle = new MovementInput(0, 0, false, false, false, 0);
+        Vec3d start = ours.Position;
+        ours.Knock(copy => CombatRules.VelocityPacket(
+            CombatRules.Knockback(copy, start + new Vec3d(0, 0, 3), start, 0, true, true, new Random(1), combo)));
+        for (int s = 0; s < 60 * N; s++)
+        {
+            ours.Step(idle);
+        }
+        return (ours.Position - start).HorizontalLength;
+    }
+
+    public void TestComboKnockbackCarry()
+    {
+        // The numbers in docs/combat.md: 4.9 blocks, 11% less at 80%, 22% less at 60%.
+        CheckNear(SprintHitCarry(1.0), 4.94, 0.01, "1.8.9");
+        CheckNear(SprintHitCarry(0.8), 4.39, 0.01, "80%");
+        CheckNear(SprintHitCarry(0.6), 3.84, 0.01, "60%");
+    }
+
     public void TestStrongerHitPushStaysOnServerCopy()
     {
         var (mc, ours, server) = WithServer();
