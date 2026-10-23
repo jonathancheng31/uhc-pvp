@@ -47,12 +47,18 @@ public sealed class McReference
     /// <summary>Our snappier strafing (not 1.8.9; off at 0), as <see cref="PlayerMotor.GripStrafe"/> describes.</summary>
     public double StrafeGrip { get; set; }
     private bool _skipGrip;
+    /// <summary>Our player pushing (not 1.8.9; off at 0), with <see cref="Contacts"/>, as <see cref="Pushing"/> describes.</summary>
+    public double PushStrength { get; set; }
+    public List<PushContact> Contacts { get; } = new();
+    /// <summary>Flying from a knockback until a tick starts on the ground: pushing leaves it alone.</summary>
+    public bool KnockbackFlight { get; private set; }
 
     /// <summary>A velocity packet (knockback) between ticks: replaces the motion.</summary>
     public void ReceiveVelocity(Vec3d motion)
     {
         Motion = motion;
         _skipGrip = true;
+        KnockbackFlight = true;
     }
 
     /// <summary>
@@ -124,6 +130,10 @@ public sealed class McReference
         Motion = new Vec3d(mx, my, mz);
         bool skipGrip = _skipGrip;
         _skipGrip = false;
+        if (KnockbackFlight && !skipGrip && OnGround)
+        {
+            KnockbackFlight = false;
+        }
         if (OnGround && StrafeGrip > 0 && !skipGrip)
         {
             // Our snappier strafing (not 1.8.9), with this tick's ground acceleration.
@@ -164,6 +174,11 @@ public sealed class McReference
         if (OnGround)
         {
             acceleration = PlayerMotor.BoostStrafe(acceleration, input.Yaw, StrafeSpeed, 0.1 * 1.3 * f * 0.98);
+        }
+        if (PushStrength > 0 && !KnockbackFlight)
+        {
+            // Our player pushing (not 1.8.9), from this tick's whole move.
+            Motion += Pushing.Resolve(Position, Motion.WithY(0), acceleration.WithY(0), Contacts, PushStrength);
         }
         Motion += acceleration;
         MoveEntity(Motion.X, Motion.Y, Motion.Z);

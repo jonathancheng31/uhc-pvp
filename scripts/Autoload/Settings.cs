@@ -8,7 +8,7 @@ namespace UhcPvp.Autoload;
 /// user://settings.cfg at startup and applied to the engine. The settings screen
 /// (scripts/Ui/SettingsMenu.cs) changes them, which applies at once, and saves when it closes.
 /// The same file also keeps the name and address typed in the main menu, and the match rules
-/// (twists) this player last picked as a host.
+/// (twists) and practice-bot skill this player last picked as a host.
 /// </summary>
 public partial class Settings : Node
 {
@@ -21,6 +21,9 @@ public partial class Settings : Node
     /// <summary>The match rules this player last picked when hosting; the next match they host starts with them.</summary>
     public MatchRules HostRules { get; private set; } = MatchRules.Default;
 
+    /// <summary>How well practice bots fight, as this player last picked in the pause menu.</summary>
+    public BotDifficulty BotDifficulty { get; private set; } = Tuning.DefaultBotDifficulty;
+
     private bool _unsaved;
 
     public override void _EnterTree()
@@ -30,6 +33,7 @@ public partial class Settings : Node
         config.Load(FilePath); // no file yet: everything stays at its default
         Current = Read(config);
         HostRules = ReadRules(config);
+        BotDifficulty = ReadBotDifficulty(config);
         Apply(Current);
     }
 
@@ -60,6 +64,16 @@ public partial class Settings : Node
         }
     }
 
+    /// <summary>Remembers the practice bots' skill. <see cref="Save"/> writes it.</summary>
+    public void ChangeBotDifficulty(BotDifficulty difficulty)
+    {
+        if (difficulty != BotDifficulty)
+        {
+            BotDifficulty = difficulty;
+            _unsaved = true;
+        }
+    }
+
     /// <summary>Writes any changes to the file, keeping what else it holds.</summary>
     public void Save()
     {
@@ -71,6 +85,7 @@ public partial class Settings : Node
         config.Load(FilePath);
         Write(config, Current);
         WriteRules(config, HostRules);
+        WriteBotDifficulty(config, BotDifficulty);
         Error error = config.Save(FilePath);
         if (error != Error.Ok)
         {
@@ -104,6 +119,7 @@ public partial class Settings : Node
         ReadNumber(config, "rules", "strafe_speed", Tuning.DefaultStrafeSpeed),
         ReadNumber(config, "rules", "strafe_grip", Tuning.DefaultStrafeGrip),
         ReadNumber(config, "rules", "wasted_click_delay", Tuning.DefaultWastedClickDelay),
+        ReadNumber(config, "rules", "pushing", Tuning.DefaultPushing),
         ReadNumber(config, "rules", "combo_knockback", Tuning.DefaultComboKnockback)).Normalized();
 
     public static void WriteRules(ConfigFile config, MatchRules rules)
@@ -111,8 +127,23 @@ public partial class Settings : Node
         config.SetValue("rules", "strafe_speed", rules.StrafeSpeed);
         config.SetValue("rules", "strafe_grip", rules.StrafeGrip);
         config.SetValue("rules", "wasted_click_delay", rules.WastedClickDelay);
+        config.SetValue("rules", "pushing", rules.Pushing);
         config.SetValue("rules", "combo_knockback", rules.ComboKnockback);
     }
+
+    /// <summary>The saved practice-bot skill ("easy", "normal" or "hard"); anything else is the default.</summary>
+    public static BotDifficulty ReadBotDifficulty(ConfigFile config)
+    {
+        Variant value = config.GetValue("practice", "bot_skill", "");
+        return value.VariantType == Variant.Type.String
+            && System.Enum.TryParse(value.AsString(), ignoreCase: true, out BotDifficulty difficulty)
+            && System.Enum.IsDefined(difficulty)
+            ? difficulty
+            : Tuning.DefaultBotDifficulty;
+    }
+
+    public static void WriteBotDifficulty(ConfigFile config, BotDifficulty difficulty) =>
+        config.SetValue("practice", "bot_skill", BotSkill.Label(difficulty).ToLowerInvariant());
 
     private static double ReadNumber(ConfigFile config, string section, string key, double fallback)
     {

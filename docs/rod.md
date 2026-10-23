@@ -54,8 +54,11 @@ A level throw lands about 10.6 blocks away; thrown 20 degrees up, about 15.6.
   catches, from where players are drawn on its screen, and the victim's game applies the hit.
 - `scripts/Gameplay/BobberView.cs`: the bobber and its sagging line, drawn after the players
   move so the line stays on the rod tip.
-- Practice bots that fight back throw their rod at enemies 3.5 to 8 blocks away, about every
-  1.5 seconds, and follow the same cooldown. Chase bots don't.
+- Practice bots that fight back use the rod at 3.5 to 8 blocks as players do (since 0.4.7): to
+  open a fight as you come at them, to extend their combo (catching you in the air as your hit
+  protection ends) and to stop your chase when you're comboing them; never into your protection.
+  How often depends on their skill (Easy only opens). They follow the same cooldown. Chase bots
+  don't rod. See [combat.md](combat.md), "Practice bots".
 
 ## Verified
 

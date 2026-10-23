@@ -102,15 +102,23 @@ public sealed class PlayerMotor
     public double StrafeSpeed { get; set; } = Tuning.DefaultStrafeSpeed;
     /// <summary>Our snappier strafing (a match rule, see <see cref="GripStrafe"/>). 0 is 1.8.9.</summary>
     public double StrafeGrip { get; set; } = Tuning.DefaultStrafeGrip;
-    /// <summary>Knockback just arrived: the next Minecraft tick doesn't apply strafe grip or a push, so knockback stays whole.</summary>
+    /// <summary>Knockback just arrived: the next Minecraft tick doesn't apply strafe grip or pushing, so knockback stays whole.</summary>
     private bool _skipGrip;
+    /// <summary>Player pushing (a match rule, see <see cref="Pushing"/>). 0 is 1.8.9: players walk through each other.</summary>
+    public double PushStrength { get; set; } = Tuning.DefaultPushing;
     /// <summary>
-    /// Other players' push on us (the pushing twist, see <see cref="Pushing"/>), in Minecraft
-    /// units. Added at the next Minecraft tick start, where Minecraft 1.9 adds it (after the last
-    /// move, before the tick's tiny-speed cleanup), then cleared. Knockback arriving in between
-    /// replaces it, as a velocity packet would.
+    /// The other players around us as this game sees them, for pushing. The game refills it
+    /// before each step; it's read once per Minecraft tick, at the tick's start.
     /// </summary>
-    public Vec3d Push { get; set; }
+    public List<PushContact> Contacts { get; } = new();
+    /// <summary>
+    /// Flying from a knockback: from the hit until the first Minecraft tick that starts on the
+    /// ground. Pushing leaves a flying player alone (they pass through others), so knockback
+    /// always stays whole; any overlap is sorted out after landing.
+    /// </summary>
+    public bool KnockbackFlight { get; private set; }
+    /// <summary>Minecraft ticks so far in which pushing moved this player (for tests).</summary>
+    public int PushedTicks { get; private set; }
     /// <summary>How far the player has fallen since last on the ground (for critical hits).</summary>
     public double FallDistance { get; private set; }
 
@@ -146,7 +154,8 @@ public sealed class PlayerMotor
     public PlayerFlags Flags =>
         (OnGround ? PlayerFlags.OnGround : 0)
         | (Sprinting ? PlayerFlags.Sprinting : 0)
-        | (Sneaking ? PlayerFlags.Sneaking : 0);
+        | (Sneaking ? PlayerFlags.Sneaking : 0)
+        | (KnockbackFlight ? PlayerFlags.KnockbackFlight : 0);
 
     /// <summary>Moves the player somewhere and stops all motion (spawning, respawning).</summary>
     public void Teleport(Vec3d position)
@@ -164,7 +173,7 @@ public sealed class PlayerMotor
         CollidedHorizontally = false;
         _wallStopsSprint = false;
         _skipGrip = false;
-        Push = Vec3d.Zero;
+        KnockbackFlight = false;
         _pendingHits.Clear();
         _knockedThisTick = false;
         _slowedThisTick = false;
@@ -204,9 +213,14 @@ public sealed class PlayerMotor
     /// motion to receive, in Minecraft units) and the client applies it between ticks, replacing
     /// the motion. So it lands at the next Minecraft tick start: a tick in progress finishes first
     /// (at most 1/30 s) and reports to the server, and only then is the knockback built. That keeps
-    /// a jump around it on exactly one of 1.8.9's outcomes (see <see cref="Step"/>).
+    /// a jump around it on exactly one of 1.8.9's outcomes (see <see cref="Step"/>). The player
+    /// counts as flying from a knockback (<see cref="KnockbackFlight"/>) from now.
     /// </summary>
-    public void Knock(Func<Vec3d, Vec3d> build) => _pendingHits.Add((build, Vec3d.Zero));
+    public void Knock(Func<Vec3d, Vec3d> build)
+    {
+        _pendingHits.Add((build, Vec3d.Zero));
+        KnockbackFlight = true;
+    }
 
     /// <summary>Knockback with its motion already worked out (Minecraft units), landing like <see cref="Knock"/>.</summary>
     public void SetMcMotion(Vec3d motion) => Knock(_ => motion);
@@ -331,13 +345,14 @@ public sealed class PlayerMotor
         }
 
         // --- Jumping and tiny-speed cleanup (EntityLivingBase.onLivingUpdate) ---
+        // Knockback arrived since the last Minecraft tick: this tick leaves it whole.
+        bool afterKnockback = mcTickStart && _skipGrip;
+        if (mcTickStart && KnockbackFlight && !afterKnockback && OnGround)
+        {
+            KnockbackFlight = false;
+        }
         if (mcTickStart)
         {
-            if (!_skipGrip)
-            {
-                PushHorizontal(Push);
-            }
-            Push = Vec3d.Zero;
             // Minecraft zeroes speeds under 0.005 blocks/tick once per tick; same threshold here,
             // converted to our units.
             double horizontal = Tuning.MinMotion * _lastRegime.ImpulseToState;
@@ -349,9 +364,8 @@ public sealed class PlayerMotor
             Velocity = new Vec3d(SnapSmall(Velocity.X, horizontal), vy, SnapSmall(Velocity.Z, horizontal));
 
             // Our snappier strafing, on the ground only, and never on the tick right after knockback.
-            bool skipGrip = _skipGrip;
             _skipGrip = false;
-            if (OnGround && StrafeGrip > 0 && !skipGrip)
+            if (OnGround && StrafeGrip > 0 && !afterKnockback)
             {
                 double k = _lastRegime.ImpulseToState;
                 double speed = MotionModel.GroundAcceleration(Tuning.WalkSpeed * (Sprinting ? Tuning.SprintSpeedMultiplier : 1.0));
@@ -407,6 +421,18 @@ public sealed class PlayerMotor
         if (groundFriction)
         {
             accel = BoostStrafe(accel, input.Yaw, StrafeSpeed, StraightSprintAcceleration);
+        }
+        if (mcTickStart && !KnockbackFlight && PushStrength > 0 && Contacts.Count > 0)
+        {
+            // Player pushing, once per Minecraft tick (in Minecraft units), from this tick's whole
+            // move: the motion (with any jump) plus this tick's acceleration from the keys.
+            Vec3d motion = McMotion;
+            Vec3d push = Pushing.Resolve(Position, motion.WithY(0), accel.WithY(0), Contacts, PushStrength);
+            if (push != Vec3d.Zero)
+            {
+                PushHorizontal(push);
+                PushedTicks++;
+            }
         }
 
         double px = Velocity.X + regime.StateGain * accel.X;

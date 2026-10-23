@@ -54,7 +54,7 @@ public partial class Game
         {
             return;
         }
-        attacker.PlaySwing();
+        bool swung = attacker.PlaySwing();
         SendToAll(new Swing(attacker.PeerId));
 
         _aimTargets.Clear();
@@ -66,6 +66,10 @@ public partial class Game
             }
         }
         AimResult aim = HitScan.Aim(attacker.Eye, HitScan.LookVector(attacker.Yaw, attacker.Pitch), _aimTargets, World);
+        if (swung)
+        {
+            PlaySwingSound(attacker, connected: aim.Kind == AimKind.Player);
+        }
         if (aim.Kind == AimKind.Miss)
         {
             attacker.StartMissCooldown();
@@ -107,17 +111,14 @@ public partial class Game
             result = GuessProtection(target.PeerId).Hit(raw, HitProtection.TickAt(now)).Result;
             if (attacker.IsLocal && result == HitResult.Hurt)
             {
-                PredictHurt(target);
+                PredictHurt(target, critical, rod: false);
             }
             DeliverAttack(attack);
         }
         WasteClick(attacker, result);
         bool counted = result != HitResult.Ignored;
         attacker.Motor.OnHitLanded(counted);
-        if (counted && sprintKnockback)
-        {
-            attacker.Brain?.OnSprintHitLanded();
-        }
+        attacker.Brain?.OnAttack(target.PeerId, result, sprintKnockback);
     }
 
     /// <summary>
@@ -147,11 +148,11 @@ public partial class Game
     /// Hitting someone whose game is elsewhere: show the flash and sound right away instead of
     /// waiting a round trip.
     /// </summary>
-    private void PredictHurt(Player target)
+    private void PredictHurt(Player target, bool critical, bool rod)
     {
         _predictedAt[target.PeerId] = Network.Instance.Now;
         target.ShowHurt(new Hurt(target.PeerId, LocalPlayer.PeerId, (float)target.Health, HurtFlags.Fresh, Net.HostTime));
-        Effects.PlayHurt(this, Chest(target), killed: false);
+        PlayBlowSounds(target, byMe: true, fresh: true, killed: false, critical, rod, Combo + 1);
     }
 
     private void DeliverAttack(Attack attack)
@@ -269,9 +270,13 @@ public partial class Game
 
         victim.ShowHurt(predicted ? hurt with { Flags = hurt.Flags & ~HurtFlags.Fresh } : hurt);
         Vector3 chest = Chest(victim);
-        if ((fresh && !predicted) || killed)
+        if (!predicted)
         {
-            Effects.PlayHurt(this, chest, killed);
+            PlayBlowSounds(victim, byMe, fresh, killed, critical, rod, Combo + 1);
+        }
+        else if (killed)
+        {
+            PlayHurtSound(victim, killed);
         }
         if (critical && !byMe)
         {
@@ -347,9 +352,9 @@ public partial class Game
             }
             Net.Broadcast(swing, reliable: true, exceptId: from);
         }
-        if (_players.TryGetValue(swing.PlayerId, out Player? player) && !player.IsOwned)
+        if (_players.TryGetValue(swing.PlayerId, out Player? player) && !player.IsOwned && player.PlaySwing())
         {
-            player.PlaySwing();
+            PlaySwingSound(player, connected: null);
         }
     }
 

@@ -18,6 +18,8 @@ public partial class TwistsMenu : PanelContainer
     private Label _strafeGripValue = null!;
     private HSlider _wastedClicks = null!;
     private Label _wastedClicksValue = null!;
+    private HSlider _pushing = null!;
+    private Label _pushingValue = null!;
     /// <summary>Goes right as combo knockback goes down: its value is how much of 1.8.9's sprint push is taken off.</summary>
     private HSlider _comboKnockback = null!;
     private Label _comboKnockbackValue = null!;
@@ -49,11 +51,14 @@ public partial class TwistsMenu : PanelContainer
             "Starting, stopping and switching between A and D happen sooner on the ground (1.8 takes a quarter second to switch).");
         (_wastedClicks, _wastedClicksValue) = Twist(box, "Wasted clicks", 0.0, Tuning.MaxWastedClickDelay, Tuning.WastedClickDelayStep,
             "A click that does nothing (a miss, or someone still in hit protection) blocks your clicks this long. Your crosshair turns red while it does.");
+        (_pushing, _pushingValue) = Twist(box, "Player pushing", 0.0, Tuning.MaxPushing, Tuning.PushingStep,
+            "Players can't walk through each other: you stop at someone and shove them along. Lower is softer; below 60% you can push through.");
         (_comboKnockback, _comboKnockbackValue) = Twist(box, "Combo knockback", 0.0, 1.0 - Tuning.MinComboKnockback, Tuning.ComboKnockbackStep,
             "A sprint hit's extra push. Less sends the victim less far, so you catch up sooner and combos run longer. Plain hits, the lift and the rod stay 1.8's.");
         _strafeSpeed.ValueChanged += value => Change(Session.Rules with { StrafeSpeed = value });
         _strafeGrip.ValueChanged += value => Change(Session.Rules with { StrafeGrip = value });
         _wastedClicks.ValueChanged += value => Change(Session.Rules with { WastedClickDelay = value });
+        _pushing.ValueChanged += value => Change(Session.Rules with { Pushing = value });
         _comboKnockback.ValueChanged += value => Change(Session.Rules with { ComboKnockback = 1.0 - value });
 
         box.AddChild(new Control { CustomMinimumSize = new Vector2(0, 8) });
@@ -84,6 +89,8 @@ public partial class TwistsMenu : PanelContainer
         _strafeGripValue.Text = rules.StrafeGrip <= 0 ? "Off" : MatchRules.Percent(rules.StrafeGrip);
         _wastedClicks.Value = rules.WastedClickDelay;
         _wastedClicksValue.Text = MatchRules.Seconds(rules.WastedClickDelay);
+        _pushing.Value = rules.Pushing;
+        _pushingValue.Text = rules.Pushing <= 0 ? "Off" : MatchRules.Percent(rules.Pushing);
         _comboKnockback.Value = 1.0 - rules.ComboKnockback;
         _comboKnockbackValue.Text = MatchRules.Percent(rules.ComboKnockback);
         _refreshing = false;
@@ -106,15 +113,19 @@ public partial class TwistsMenu : PanelContainer
         var parts = new System.Collections.Generic.List<string>();
         if (rules.StrafeSpeed != Tuning.DefaultStrafeSpeed)
         {
-            parts.Add($"strafe {MatchRules.Percent(rules.StrafeSpeed)}");
+            parts.Add(Part("strafe", MatchRules.Percent(rules.StrafeSpeed)));
         }
         if (rules.StrafeGrip != Tuning.DefaultStrafeGrip)
         {
-            parts.Add($"snappy {MatchRules.Percent(rules.StrafeGrip)}");
+            parts.Add(Part("snappy", MatchRules.Percent(rules.StrafeGrip)));
         }
         if (rules.WastedClickDelay != Tuning.DefaultWastedClickDelay)
         {
-            parts.Add($"wasted clicks {MatchRules.Seconds(rules.WastedClickDelay)}");
+            parts.Add(Part("wasted clicks", MatchRules.Seconds(rules.WastedClickDelay)));
+        }
+        if (rules.Pushing != Tuning.DefaultPushing)
+        {
+            parts.Add(Part("pushing", MatchRules.Percent(rules.Pushing)));
         }
         if (rules.ComboKnockback != Tuning.DefaultComboKnockback)
         {
@@ -122,6 +133,9 @@ public partial class TwistsMenu : PanelContainer
         }
         return "On: " + string.Join(", ", parts);
     }
+
+    /// <summary>One twist in the summary, kept on one line when the summary wraps (no-break spaces).</summary>
+    private static string Part(string name, string value) => $"{name} {value}".Replace(' ', '\u00A0');
 
     private void Change(MatchRules rules)
     {

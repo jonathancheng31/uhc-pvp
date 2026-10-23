@@ -37,6 +37,12 @@ public partial class Player : Node3D
 
     private Game _game = null!;
     private Vec3d _previousPosition;
+    /// <summary>Where an owned player stood before each of its last few ticks (for <see cref="PushBody"/>).</summary>
+    private readonly Vec3d[] _feetBefore = new Vec3d[N];
+    private int _feetIndex;
+    /// <summary>For pushing: the side of each player we're touching that we came from (by id), this tick and last.</summary>
+    private Dictionary<int, Vec3d> _pushSides = new();
+    private Dictionary<int, Vec3d> _pushSidesNext = new();
     private Vector3 _lastShownPosition;
     private readonly MissPenalty _missPenalty = new();
     /// <summary>Counts subticks to find Minecraft's 1/20 s client ticks (for the miss penalty).</summary>
@@ -114,6 +120,7 @@ public partial class Player : Node3D
         {
             Motor = new PlayerMotor(world, home);
             _previousPosition = home;
+            Array.Fill(_feetBefore, home);
         }
         if (IsLocal)
         {
@@ -193,19 +200,33 @@ public partial class Player : Node3D
 
         BotIntent? intent = Brain?.Think(this, _game.EnemiesOf(this), delta);
         MovementInput input = intent?.Input ?? KeyboardInput();
+        if (intent?.Attack == true)
+        {
+            // A bot's click comes before its move, as Minecraft handles clicks before the player
+            // moves each tick (and as a person's click lands between our ticks).
+            _game.TryAttack(this);
+        }
         _previousPosition = Motor.Position;
+        _feetBefore[_feetIndex] = Motor.Position;
+        _feetIndex = (_feetIndex + 1) % N;
         // The match's twists, as the host set them (the same for every player).
         MatchRules rules = Session.Instance.Rules;
         Motor.StrafeSpeed = rules.StrafeSpeed;
         Motor.StrafeGrip = rules.StrafeGrip;
+        Motor.PushStrength = rules.Pushing;
+        if (rules.Pushing > 0)
+        {
+            _game.FindPushContacts(this, Motor.Contacts);
+        }
+        else
+        {
+            Motor.Contacts.Clear();
+            _pushSides.Clear();
+        }
         Motor.Step(input);
         if (Motor.Position.Y < Tuning.VoidY)
         {
             Respawn();
-        }
-        if (intent?.Attack == true)
-        {
-            _game.TryAttack(this);
         }
         if (intent?.Rod == true)
         {
@@ -268,14 +289,19 @@ public partial class Player : Node3D
     /// <summary>0 to 1 through an arm swing, or -1 when not swinging.</summary>
     public float SwingProgress => _swingTime < 0 ? -1 : (float)(_swingTime / SwingSeconds);
 
-    /// <summary>Starts an arm swing (Minecraft restarts one only once it's half done).</summary>
-    public void PlaySwing()
+    /// <summary>
+    /// Starts an arm swing (Minecraft restarts one only once it's half done). Returns whether it
+    /// started, which is when its whoosh plays.
+    /// </summary>
+    public bool PlaySwing()
     {
-        if (_swingTime < 0 || _swingTime >= SwingSeconds / 2)
+        if (_swingTime >= 0 && _swingTime < SwingSeconds / 2)
         {
-            _swingTime = 0;
-            ViewModel?.Swing();
+            return false;
         }
+        _swingTime = 0;
+        ViewModel?.Swing();
+        return true;
     }
 
     /// <summary>Plays the rod cast: the left arm flicks forward.</summary>
@@ -298,12 +324,22 @@ public partial class Player : Node3D
     private bool AttackHeld =>
         IsLocal && Brain is null && Input.MouseMode == Input.MouseModeEnum.Captured && Input.IsActionPressed(Controls.Attack);
 
+    /// <summary>
+    /// When (<see cref="Network.Now"/>) this player's red flash last started: a full hit, which
+    /// starts their hit protection. Practice bots watch for it, as people do.
+    /// </summary>
+    public double HurtShownAt { get; private set; } = double.NegativeInfinity;
+    /// <summary>Whether that hit was a rod's.</summary>
+    public bool HurtShownByRod { get; private set; }
+
     /// <summary>Shows a hit on this player (flash, health). Sound and particles are played by the game.</summary>
     public void ShowHurt(Hurt hurt)
     {
         if ((hurt.Flags & HurtFlags.Fresh) != 0)
         {
             _flashTime = FlashSeconds;
+            HurtShownAt = Network.Instance.Now;
+            HurtShownByRod = (hurt.Flags & HurtFlags.Rod) != 0;
         }
         if (!IsOwned)
         {
@@ -337,9 +373,57 @@ public partial class Player : Node3D
         ClickLockout.Reset();
         Motor.Teleport(Home);
         _previousPosition = Home;
+        Array.Fill(_feetBefore, Home);
+        _pushSides.Clear();
         Look(HomeYaw, 0);
         RespawnIn = 0;
         Flags = Motor.Flags;
+    }
+
+    /// <summary>
+    /// This player's body for pushing, as this game sees it at host time <paramref name="hostNow"/>:
+    /// where they stand and how far they moved over the last Minecraft tick (1/20 s). Owned
+    /// players: where they really are. Remote players: where they're drawn, from the same
+    /// smoothed states.
+    /// </summary>
+    public (Vec3d Feet, Vec3d Move, bool Flying) PushBody(double hostNow)
+    {
+        if (Motor is not null)
+        {
+            // The oldest entry is from three ticks back, one Minecraft tick.
+            return (Motor.Position, Motor.Position - _feetBefore[_feetIndex], Motor.KnockbackFlight);
+        }
+        if (Buffer.IsEmpty)
+        {
+            return (ShownFeet, Vec3d.Zero, false);
+        }
+        double shown = ShownTime(hostNow);
+        PlayerState state = Buffer.Sample(shown);
+        Vec3d feet = Vec3d.From(state.Position);
+        Vec3d before = Vec3d.From(Buffer.Sample(shown - 1.0 / Tuning.McTickRate).Position);
+        return (feet, feet - before, state.Has(PlayerFlags.KnockbackFlight));
+    }
+
+    /// <summary>Starts a new round of <see cref="PushContactWith"/> (one per tick).</summary>
+    public void BeginPushContacts() => _pushSidesNext.Clear();
+
+    /// <summary>Ends a round: sides are only remembered for players touched this tick.</summary>
+    public void EndPushContacts() => (_pushSides, _pushSidesNext) = (_pushSidesNext, _pushSides);
+
+    /// <summary>
+    /// This (owned) player's push contact with another player whose body is at
+    /// <paramref name="feet"/> and moved <paramref name="move"/> over the last Minecraft tick,
+    /// keeping track of which side of them we came from (see <see cref="Pushing.Side"/>).
+    /// </summary>
+    public PushContact PushContactWith(int otherId, Vec3d feet, Vec3d move)
+    {
+        Vec3d remembered = _pushSides.GetValueOrDefault(otherId);
+        Vec3d tieBreak = Pushing.TieBreak(PeerId, otherId);
+        if (Pushing.Touching(Feet, feet))
+        {
+            _pushSidesNext[otherId] = Pushing.Side(Feet, feet, remembered, tieBreak);
+        }
+        return new PushContact(feet, move, remembered, tieBreak);
     }
 
     /// <summary>The state to send to everyone else: the latest tick, not the smoothed view.</summary>
@@ -406,6 +490,14 @@ public partial class Player : Node3D
 
     private MovementInput KeyboardInput()
     {
+        string held = LaunchArgs.Instance.HoldKeys;
+        if (held.Length > 0)
+        {
+            // --hold: keys held down all match (tests and screenshots).
+            static double Key(string keys, char key) => keys.Contains(key, StringComparison.Ordinal) ? 1 : 0;
+            return new MovementInput(Key(held, 'w') - Key(held, 's'), Key(held, 'a') - Key(held, 'd'),
+                Key(held, 'j') > 0, Sprint: true, false, Yaw);
+        }
         if (Input.MouseMode != Input.MouseModeEnum.Captured)
         {
             // Menus open: stand still, like Minecraft.

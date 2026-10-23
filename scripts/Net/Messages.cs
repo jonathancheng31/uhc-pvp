@@ -278,7 +278,7 @@ public sealed record RodHook(int PlayerId, int VictimId, double Time) : IMessage
 /// host -> all: the match's rules (our twists, see <see cref="MatchRules"/>), sent to each player
 /// as they join and to everyone whenever the host changes them.
 /// </summary>
-public sealed record RulesUpdate(float StrafeSpeed, float StrafeGrip, float WastedClickDelay, float ComboKnockback) : IMessage
+public sealed record RulesUpdate(float StrafeSpeed, float StrafeGrip, float WastedClickDelay, float Pushing, float ComboKnockback) : IMessage
 {
     public MsgType Type => MsgType.RulesUpdate;
     public void Write(BinaryWriter w)
@@ -286,15 +286,17 @@ public sealed record RulesUpdate(float StrafeSpeed, float StrafeGrip, float Wast
         w.Write(StrafeSpeed);
         w.Write(StrafeGrip);
         w.Write(WastedClickDelay);
+        w.Write(Pushing);
         w.Write(ComboKnockback);
     }
-    public static RulesUpdate Read(BinaryReader r) => new(r.ReadSingle(), r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
+    public static RulesUpdate Read(BinaryReader r) =>
+        new(r.ReadSingle(), r.ReadSingle(), r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
 
     public static RulesUpdate From(MatchRules rules) =>
-        new((float)rules.StrafeSpeed, (float)rules.StrafeGrip, (float)rules.WastedClickDelay, (float)rules.ComboKnockback);
+        new((float)rules.StrafeSpeed, (float)rules.StrafeGrip, (float)rules.WastedClickDelay, (float)rules.Pushing, (float)rules.ComboKnockback);
 
     /// <summary>The rules this carries, made valid (a float can't hold 1.15 exactly, and bad values become the default).</summary>
-    public MatchRules ToMatchRules() => new MatchRules(StrafeSpeed, StrafeGrip, WastedClickDelay, ComboKnockback).Normalized();
+    public MatchRules ToMatchRules() => new MatchRules(StrafeSpeed, StrafeGrip, WastedClickDelay, Pushing, ComboKnockback).Normalized();
 }
 
 /// <summary>Turns messages into bytes and back. Bad input decodes to null rather than throwing.</summary>

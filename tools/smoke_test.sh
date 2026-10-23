@@ -5,7 +5,8 @@
 # Every player must see the other three and land sword and rod hits, which exercises every
 # combat path: host hitting its own bot, a client hitting a host-run bot, a client hitting the
 # host, and a client hitting another client through the host. The host also turns on every
-# twist (strafe speed 130%, grip 50%, wasted clicks 0.15 s, combo knockback 80%), which every
+# twist (strafe speed 130%, grip 50%, wasted clicks 0.15 s, player pushing 100%, combo
+# knockback 80%), which every
 # player must get from it.
 set -uo pipefail
 GODOT="${GODOT:-godot}"
@@ -19,7 +20,7 @@ run() { # name, extra args...
   "$GODOT" --headless --path . -- --name="$name" --bot=fight --port="$PORT" "$@" > "$LOGS/$name.log" 2>&1
 }
 
-run Host --host --dummies=1 --dummy-mode=chase --strafe=130 --grip=50 --wasted-clicks=0.15 --combo-kb=80 --quit-after=15 &
+run Host --host --dummies=1 --dummy-mode=chase --strafe=130 --grip=50 --wasted-clicks=0.15 --push=100 --combo-kb=80 --quit-after=15 &
 run BotA --join=127.0.0.1 --quit-after=14 &
 run BotB --join=127.0.0.1 --ping=120 --jitter=20 --loss=2 --quit-after=14 &
 wait
@@ -30,7 +31,7 @@ for name in Host BotA BotB; do
   echo "$name: ${line:-<no report>}"
   landed="$(sed -n 's/.* landed=\([0-9]*\).*/\1/p' <<< "$line")"
   rods="$(sed -n 's/.* rods=\([0-9]*\).*/\1/p' <<< "$line")"
-  if [[ "$line" != *"seen=3"* || "$line" != *"strafe=130% grip=50% wasted=0.15 combo=80%"* || "${landed:-0}" -lt 1 || "${rods:-0}" -lt 1 ]]; then
+  if [[ "$line" != *"seen=3"* || "$line" != *"strafe=130% grip=50% wasted=0.15 push=100% combo=80%"* || "${landed:-0}" -lt 1 || "${rods:-0}" -lt 1 ]]; then
     status=1
     echo "---- $name log ----"; grep -v "ALSA\|audio" "$LOGS/$name.log" | tail -40
   fi

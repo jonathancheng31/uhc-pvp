@@ -22,10 +22,15 @@ namespace UhcPvp.Autoload;
 /// --practice           Host a solo practice match with a training dummy.
 /// --dummies=N          Host only: add N practice bots.
 /// --dummy-mode=MODE    How practice bots behave: still (default), strafe, fight or chase.
+/// --bot-skill=LEVEL    How well fighting bots (and --bot=fight) play: easy, normal or hard
+///                      (default: the host's last choice from the pause menu; normal for --bot).
 /// --strafe=PERCENT     Host only: twists for this match, overriding the host's last choice
 /// --grip=PERCENT         from the pause menu: strafe speed (100 is 1.8), strafe snappiness
 /// --wasted-clicks=SEC    (0 is 1.8), the wasted-click delay in seconds (0 is 1.8) and
+/// --push=PERCENT         player pushing (0 is 1.8, 100 is solid) and
 /// --combo-kb=PERCENT     combo knockback, the sprint hit's extra push (100 is 1.8, down to 60).
+/// --hold=KEYS          Hold movement keys all match: any of w, a, s, d, and j to jump (tests,
+///                      screenshots: --hold=w on two opposite players runs them into each other).
 /// --ping=MS            Simulate this much extra ping.
 /// --jitter=MS          Simulate this much random extra delay.
 /// --loss=PERCENT       Simulate this percentage of lost packets.
@@ -38,6 +43,8 @@ namespace UhcPvp.Autoload;
 /// --screenshot-at=SEC  Seconds into the match (or after the menu opens) to take the screenshot
 ///                      (default 2). A comma-separated list takes several (1,1.1,1.2 saves
 ///                      PATH_1.png, PATH_2.png, PATH_3.png).
+/// --record-audio=PATH  Record everything the game plays to a WAV file, saved when it quits
+///                      (check it with tools/gen_sounds.py --analyze PATH).
 /// </summary>
 public partial class LaunchArgs : Node
 {
@@ -56,19 +63,25 @@ public partial class LaunchArgs : Node
     public bool Practice { get; private set; }
     public int Dummies { get; private set; }
     public BotMode DummyMode { get; private set; } = Gameplay.BotMode.Still;
+    /// <summary>--bot-skill, or null to use the host's saved choice.</summary>
+    public BotDifficulty? BotDifficulty { get; private set; }
     /// <summary>--strafe as a multiplier (1.3 for 130), or null to use the host's saved choice.</summary>
     public double? StrafeSpeed { get; private set; }
     /// <summary>--grip as a fraction (0.5 for 50), or null.</summary>
     public double? StrafeGrip { get; private set; }
     /// <summary>--wasted-clicks in seconds, or null.</summary>
     public double? WastedClickDelay { get; private set; }
+    /// <summary>--push as a fraction (1 for 100), or null.</summary>
+    public double? Pushing { get; private set; }
+    /// <summary>--hold: movement keys the local player holds all match (w, a, s, d, j), or empty.</summary>
+    public string HoldKeys { get; private set; } = "";
     /// <summary>--combo-kb as a fraction (0.8 for 80), or null.</summary>
     public double? ComboKnockback { get; private set; }
 
     /// <summary>The host's rules: its saved choice, with any twist given on the command line instead.</summary>
     public MatchRules RulesFor(MatchRules saved) => new MatchRules(
         StrafeSpeed ?? saved.StrafeSpeed, StrafeGrip ?? saved.StrafeGrip, WastedClickDelay ?? saved.WastedClickDelay,
-        ComboKnockback ?? saved.ComboKnockback).Normalized();
+        Pushing ?? saved.Pushing, ComboKnockback ?? saved.ComboKnockback).Normalized();
     public double PingMs { get; private set; }
     public double JitterMs { get; private set; }
     public double LossPercent { get; private set; }
@@ -77,6 +90,7 @@ public partial class LaunchArgs : Node
     public bool OpenPause { get; private set; }
     public bool OpenTwists { get; private set; }
     public string ScreenshotPath { get; private set; } = "";
+    public string RecordAudioPath { get; private set; } = "";
     public IReadOnlyList<double> ScreenshotTimes { get; private set; } = DefaultScreenshotTimes;
 
     private static readonly double[] DefaultScreenshotTimes = { 2.0 };
@@ -91,6 +105,10 @@ public partial class LaunchArgs : Node
 
     public override void _Ready()
     {
+        if (RecordAudioPath.Length > 0)
+        {
+            AddChild(new AudioRecorder { FilePath = RecordAudioPath });
+        }
         if (QuitAfter > 0.0)
         {
             GetTree().CreateTimer(QuitAfter).Timeout += () =>
@@ -118,9 +136,12 @@ public partial class LaunchArgs : Node
                 case "--practice": Practice = true; break;
                 case "--dummies": Dummies = ParseInt(value, 0); break;
                 case "--dummy-mode": DummyMode = ParseMode(value, Gameplay.BotMode.Still); break;
+                case "--bot-skill": BotDifficulty = ParseDifficulty(value); break;
                 case "--strafe": StrafeSpeed = ParseDouble(value) / 100.0; break;
                 case "--grip": StrafeGrip = ParseDouble(value) / 100.0; break;
                 case "--wasted-clicks": WastedClickDelay = ParseDouble(value); break;
+                case "--push": Pushing = ParseDouble(value) / 100.0; break;
+                case "--hold": HoldKeys = value.ToLowerInvariant(); break;
                 case "--combo-kb": ComboKnockback = ParseDouble(value) / 100.0; break;
                 case "--ping": PingMs = ParseDouble(value); break;
                 case "--jitter": JitterMs = ParseDouble(value); break;
@@ -131,6 +152,7 @@ public partial class LaunchArgs : Node
                 case "--twists": OpenTwists = true; break;
                 case "--screenshot": ScreenshotPath = value; break;
                 case "--screenshot-at": ScreenshotTimes = ParseTimes(value); break;
+                case "--record-audio": RecordAudioPath = value; break;
                 case "--filter": break; // the test runner's option (tests/TestRunner.cs)
                 default: GD.PushWarning($"Unknown launch option: {arg}"); break;
             }
@@ -175,6 +197,9 @@ public partial class LaunchArgs : Node
 
     private static BotMode ParseMode(string value, BotMode fallback) =>
         Enum.TryParse(value, ignoreCase: true, out BotMode mode) ? mode : fallback;
+
+    private static BotDifficulty? ParseDifficulty(string value) =>
+        Enum.TryParse(value, ignoreCase: true, out BotDifficulty difficulty) && Enum.IsDefined(difficulty) ? difficulty : null;
 
     private static double ParseDouble(string value) =>
         double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double result) ? result : 0.0;

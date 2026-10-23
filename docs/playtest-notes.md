@@ -9,6 +9,22 @@ what we think is causing it. Fixed items move to "Done" with the version that fi
 
 ## Open
 
+- **2026-10-23, 0.4.7, to try: sounds, player pushing, the new bot, sensitivity and FOV.**
+  What's new, and what to tell us after playing:
+  - Sounds: the fight has its own now (swing, hit, hurt, crit, rod throw and catch, the bobber
+    landing, footsteps), heard from where they happen. Try a few combos on a bot, and a fight
+    with the rod. Questions: should your hit sound keep rising in pitch through a combo (it
+    climbs for 5 hits)? Is a whoosh on every swing too much when clicking fast? Should your own
+    footsteps stay (quiet) or go?
+  - Player pushing: Esc, "Twists", "Player pushing", off to 100%. Run into a bot with it at
+    100%. Questions: does a 1.1 blocks/s shove feel right (someone you walk into gets pushed
+    along at that speed)? In team fights, should bodies block knockback (today someone flying
+    from a hit passes through everyone)?
+  - The fighting bot: Esc, set bots to fight back, then "Bot skill": Easy, Normal or Hard. It
+    sees you a moment late, its aim trails, and it escapes combos as often as its skill.
+    Questions: is Normal the right default? Is Hard too strong? Does it throw its rod too often?
+  - Settings: mouse sensitivity and field of view, with Minecraft's numbers, so you can copy
+    yours.
 - **2026-10-23, 0.4.6, feel and idea: "comboing feels kinda hard. i want comboing to be a bigger
   part of the game. or maybe im just bad at mc pvp. idk."** Our knockback, hit protection and
   w-tap rules match 1.8.9 exactly (tested), so this is 1.8.9's own difficulty, maybe made harder
@@ -50,6 +66,21 @@ what we think is causing it. Fixed items move to "Done" with the version that fi
   this point. Take a little more freedom here and be more experimental for now." Picked from the
   polish list: a smarter fighting bot, players pushing apart, sounds, mouse sensitivity (plus
   field of view), and new experimental twists.
+  - Players pushing apart: **built in 0.4.7** as a twist, "Player pushing" on the Twists screen,
+    off (1.8.9) to 100%. At 100% nobody runs through anyone: you stop at someone and shove them
+    along, and players spawned inside each other slide apart. Lower is softer; below 60% you can
+    push through. Someone flying from a hit still passes through, so combos are untouched.
+    Waiting on: which value feels best (100% is the "solid" setting to try first).
+  - Smarter fighting bot: **built in 0.4.7**, "Bot skill" in the pause menu: Easy, Normal (the
+    default) or Hard, remembered for next time. It plays like a person instead of aiming
+    perfectly: it sees you a moment late, its aim trails and wanders, it w-taps, waits out your
+    hit protection and escapes combos as often as its skill. Easy lets your knockback carry it,
+    for practising combos.
+  - Sounds: **built in 0.4.7**, the combat ones: swing, hit, hurt, crit, rod throw and catch,
+    the bobber landing, footsteps. All our own, made as one family, heard from where they
+    happen ([combat.md](combat.md), "Sounds").
+  - Mouse sensitivity and field of view: **built in 0.4.7** in Settings, with Minecraft's
+    numbers and ranges.
 - **2026-10-22, 0.4.6, decision: "lets ignore match flow and other aspects for a while, we wanna
   polish gameplay."** Match flow and internet play wait; the feel pass and the twists come
   first (`design.md`, "Current status").
@@ -86,7 +117,6 @@ Not bugs: things that are expected to feel off until they're built.
 
 - When you hit another person over the network (not a bot on your own game), their knock back
   shows up one round trip later. Predicted knockback is planned (see `netcode.md`).
-- Players don't push each other apart when they overlap.
 - No slabs, stairs or stepping up blocks; no water or lava yet.
 
 ## Done
