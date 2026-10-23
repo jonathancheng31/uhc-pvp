@@ -12,10 +12,13 @@ what we think is causing it. Fixed items move to "Done" with the version that fi
 - **2026-10-23, 0.4.8, decision: the twists that feel good.** A screenshot of the Twists screen
   set to strafe speed 100%, strafe snappiness 100%, player pushing off, combo knockback 100%,
   head start 75 ms and wasted clicks off: "these feel good". So: the snappiest strafing, a
-  shorter head start than 1.8.9's 175 ms, everything else plain 1.8. Being made the defaults
-  for every new match, with a way back to plain 1.8 on the Twists screen. To find out: what
-  felt off at 175 ms. In the combo simulation, a 100 ms head start gave no longer combos than
-  none against a victim who lets the knockback carry them (175 ms gave about 4).
+  shorter head start than 1.8.9's 175 ms, everything else plain 1.8. **Built in 0.4.9:** these
+  are the defaults for every new match. On the Twists screen each value at its default says
+  "(default)", "Reset to defaults" brings them back and "Plain 1.8 (all off)" switches every
+  twist to 1.8.9's; the pause menu and F3 say "Defaults" when nothing's changed. A host's saved
+  choice still carries over to their next match. To find out: what felt off at 175 ms. In the
+  combo simulation, a 100 ms head start gave no longer combos than none against a victim who
+  lets the knockback carry them (175 ms gave about 4).
 - **2026-10-23, 0.4.7, to try: sounds, player pushing, the new bot, sensitivity and FOV.**
   What's new, and what to tell us after playing:
   - Sounds: the fight has its own now (swing, hit, hurt, crit, rod throw and catch, the bobber
@@ -69,7 +72,8 @@ what we think is causing it. Fixed items move to "Done" with the version that fi
   - Jump resets match 1.8.9 at every 1/60 s step, and a sprinting attacker slows at most once per
     tick (several clicks in one tick slowed you several times).
   - To try: combos on Easy and Normal with the head start on and off, and whether being hit where
-    you were 175 ms ago feels fair; then combo knockback at 80%.
+    you were 175 ms ago feels fair; then combo knockback at 80%. Answered by the owner's picks
+    (above): a 75 ms head start and combo knockback at 100%, the defaults since 0.4.9.
 - **2026-10-23, 0.4.6, decision: hits and the rod first, depth over breadth.** Offered as next
   directions: a bigger kit (healing, bow), hit feel and fairness, team fights, or stranger
   mechanics. "nah lets focus specifically on the hit and rod mechanics for now first. i wanna
@@ -89,7 +93,8 @@ what we think is causing it. Fixed items move to "Done" with the version that fi
     off (1.8.9) to 100%. At 100% nobody runs through anyone: you stop at someone and shove them
     along, and players spawned inside each other slide apart. Lower is softer; below 60% you can
     push through. Someone flying from a hit still passes through, so combos are untouched.
-    Waiting on: which value feels best (100% is the "solid" setting to try first).
+    Waiting on: which value feels best (100% is the "solid" setting to try first). Answered
+    (2026-10-23, from playing 0.4.8): off, the default since 0.4.9.
   - Smarter fighting bot: **built in 0.4.7**, "Bot skill" in the pause menu: Easy, Normal (the
     default) or Hard, remembered for next time. It plays like a person instead of aiming
     perfectly: it sees you a moment late, its aim trails and wanders, it w-taps, waits out your
@@ -109,15 +114,18 @@ what we think is causing it. Fixed items move to "Done" with the version that fi
     sideways same top speed, add a slider so i can play test the feel." **Built in 0.4.5:** Esc
     menu, "Twists", strafe speed 100% (1.8) to 150%; sideways speed goes up on the ground, never
     faster than a straight sprint, the air stays 1.8's. Waiting on: which value feels best.
+    Answered (2026-10-23): 100%, 1.8's, the default since 0.4.9.
   - Click speed: "I want to get away from the twist idea you have" (saving an early click to land
     the instant protection ends), because "if clicking fast enough, you can guarantee a full
     length hit." But "the general goal of this is nice though. Remove some power from cps."
     Offered: wasted clicks cost a moment, or a click speed cap. "lets try wasted clicks."
     **Built in 0.4.6:** Twists screen, "Wasted clicks", off to 0.3 s; the crosshair turns red
-    while clicks are blocked. Waiting on: whether it feels right, and which delay.
+    while clicks are blocked. Waiting on: whether it feels right, and which delay. Answered
+    (2026-10-23): off, the default since 0.4.9.
   - Then: "maybe we could try making strafing faster for changing directions not just top
     speed." **Built in 0.4.6:** "Strafe snappiness", off to 100% (switching A to D from 250 ms
-    down to 50 ms). Waiting on: which value feels best.
+    down to 50 ms). Waiting on: which value feels best. Answered (2026-10-23): 100%, the
+    default since 0.4.9.
   - Combo breaker: no. "It's very difficult to land full combos in minecraft pvp and they are
     already a very satisfying part of the pvp that i enjoy."
   - Better hit feel: later ("kinda qol and vfx that we can add to more later"). Queued in
@@ -135,7 +143,7 @@ what we think is causing it. Fixed items move to "Done" with the version that fi
 Not bugs: things that are expected to feel off until they're built.
 
 - When you hit another person over the network (not a bot on your own game), their knock back
-  shows up the head start (175 ms) plus the hit's trip to their game later; a bot on your own game,
+  shows up the head start (75 ms by default) plus the hit's trip to their game later; a bot on your own game,
   after just the head start, like 1.8.9 at 0 ping. Predicted knockback is planned (see
   `netcode.md`).
 - No slabs, stairs or stepping up blocks; no water or lava yet.

@@ -12,7 +12,7 @@ the same hit protection and knockback as sword hits.
    The arm swings (6 MC ticks).
 2. **Aim.** From your eyes along your view: blocks are traced up to 4.5 blocks; players'
    hitboxes count 0.1 bigger on every side, where they're drawn on your screen (the match's
-   head start in the past, 175 ms by default, like 1.8.9: see [netcode.md](netcode.md)); a player
+   head start in the past, 75 ms by default, 175 ms in 1.8.9: see [netcode.md](netcode.md)); a player
    must be closer than the first block and within 3 blocks. Pointing at a player beyond 3 blocks, or at nothing, is a **miss**, which
    starts 1.8's miss penalty (`MissPenalty`): clicks are thrown away for 10 ticks, but the
    penalty clears at the end of any 1/20 s tick the button is up. So it only eats a second
@@ -186,7 +186,7 @@ menu, under the bot mode: **Easy**, **Normal** (the default) or **Hard**, rememb
 match (`--bot-skill=easy|normal|hard` on the command line).
 
 - **It sees you late.** It sees you the way you see it: drawn the match's head start in the past
-  (175 ms by default, as 1.8.9 draws everyone; its sword and rod find you there too, as yours find
+  (75 ms by default, 175 ms in plain 1.8; its sword and rod find you there too, as yours find
   it). On top of that comes its reaction time, the brain's part (Hard 0.08 s, Normal 0.1, Easy
   0.2), as a person's comes on top of what's on their screen. It leads how you were moving then,
   but only to make up for its reaction: you're hit where you're drawn, so that's where it aims.
@@ -255,7 +255,9 @@ after moving, so it only cut its knockback by accident on 3% (against a precise 
 
 `tests/BotDuel.cs` fights two bot brains without a scene, through the same rules (movement,
 aiming, hit protection, knockback, rod, wasted clicks, and since 0.4.8 the head start: each sees
-and hits the other 175 ms in the past), starting 10 to 14 blocks apart until one dies.
+and hits the other 175 ms in the past), starting 10 to 14 blocks apart until one dies. The
+measurements below are under plain 1.8.9 (`MatchRules.Minecraft`), with each twist on top of it
+where named; the combo lengths also at the 0.4.9 defaults.
 `tests/LegacyBotBrain.cs` is the 0.4.6 bot, kept as a yardstick. 300 duels each (rerun with
 `BOT_REPORT=300 tools/run_tests.sh BotReport`, about a minute); the 0.4.6 bot against itself comes
 out at 47 to 52%, so the duels are fair.
@@ -292,7 +294,9 @@ with Normal's eyes and hands:
 With perfect aim the same player averages 6.8 on Easy, 3.6 on Normal, 2.7 on Hard and 3.6 on
 the 0.4.6 bot. A kill takes 9 hits, so 9 is the longest a combo can be. These are with 1.8.9's
 head start (0.4.8); without it (0.4.7) the player averaged 4.0 on Easy, 1.7 on Normal and 1.4 on
-Hard, so the head start makes every bot easier to combo, Easy most.
+Hard, so the head start makes every bot easier to combo, Easy most. At the 0.4.9 defaults (a
+75 ms head start, snappy strafing) the same player's combos are shorter: 4.3 hits on Easy (51%
+reach 4+), 1.6 on Normal and 1.4 on Hard, and it wins 100%, 42% and 14% of fights.
 
 `tests/BotTests.cs` checks what the bot sees and how it aims, when it escapes combos at each skill,
 w-tapping and patience, and (with fewer duels) the comparisons above.

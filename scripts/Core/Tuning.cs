@@ -36,7 +36,12 @@ public static class Tuning
     /// client glide: 100 to 250 ms depending on tick timing), which gives whoever is chasing a head
     /// start after every hit. 0 is how we drew others before 0.4.8: as fresh as possible.
     /// </summary>
-    public const double DefaultHeadStart = 0.175;
+    public const double McHeadStart = 0.175;
+    /// <summary>
+    /// The head start a new match starts with: shorter than 1.8.9's (<see cref="McHeadStart"/>),
+    /// the owner's pick from playing 0.4.8 (2026-10-23).
+    /// </summary>
+    public const double DefaultHeadStart = 0.075;
     public const double MaxHeadStart = 0.250;
     public const double HeadStartStep = 0.025;
     /// <summary>Seconds between clock-sync pings.</summary>
@@ -107,7 +112,9 @@ public static class Tuning
     /// <summary>Players closer than this (centre to centre) are "on top of each other" and part in a fixed direction.</summary>
     public const double PushMinDistance = 0.01;
     /// <summary>The "Player pushing" twist's setting: 0 is off (1.8.9), 1 is solid; in steps of 10%.</summary>
-    public const double DefaultPushing = 0.0;
+    public const double McPushing = 0.0;
+    /// <summary>Off in a new match, as in 1.8.9 (the owner's pick from playing 0.4.8).</summary>
+    public const double DefaultPushing = McPushing;
     public const double MaxPushing = 1.0;
     public const double PushingStep = 0.1;
 
@@ -164,6 +171,9 @@ public static class Tuning
     public const double SprintJumpBoost = 0.2;
 
     // --- Our twists (not 1.8.9; the host sets them for the whole match, see MatchRules) ----
+    // Each has 1.8.9's value (Mc..., together MatchRules.Minecraft, plain 1.8.9) and the value a
+    // new match starts with (Default..., together MatchRules.Default): the owner's picks from
+    // playing 0.4.8 (2026-10-23), the snappiest strafing and a shorter head start than 1.8.9's.
 
     /// <summary>
     /// Faster strafing: on the ground, the sideways part of your movement is this many times
@@ -171,7 +181,9 @@ public static class Tuning
     /// The host picks a value between 1 and <see cref="MaxStrafeSpeed"/> in steps of
     /// <see cref="StrafeSpeedStep"/>.
     /// </summary>
-    public const double DefaultStrafeSpeed = 1.0;
+    public const double McStrafeSpeed = 1.0;
+    /// <summary>1.8.9's in a new match.</summary>
+    public const double DefaultStrafeSpeed = McStrafeSpeed;
     public const double MaxStrafeSpeed = 1.5;
     public const double StrafeSpeedStep = 0.05;
     /// <summary>
@@ -179,14 +191,18 @@ public static class Tuning
     /// fraction of the gap to where your keys are taking it, so starting, stopping and switching
     /// between A and D get quicker (docs/movement.md). 0 is 1.8.9; 1 is instant.
     /// </summary>
-    public const double DefaultStrafeGrip = 0.0;
+    public const double McStrafeGrip = 0.0;
+    /// <summary>Instant in a new match (switching A to D in one Minecraft tick, not 1.8.9's quarter second).</summary>
+    public const double DefaultStrafeGrip = 1.0;
     public const double MaxStrafeGrip = 1.0;
     public const double StrafeGripStep = 0.05;
     /// <summary>
     /// Wasted clicks: a click that does nothing (a miss, or a player still in hit protection)
     /// blocks clicking for this many seconds (docs/combat.md). 0 is 1.8.9.
     /// </summary>
-    public const double DefaultWastedClickDelay = 0.0;
+    public const double McWastedClickDelay = 0.0;
+    /// <summary>Off in a new match, as in 1.8.9.</summary>
+    public const double DefaultWastedClickDelay = McWastedClickDelay;
     public const double MaxWastedClickDelay = 0.3;
     public const double WastedClickDelayStep = 0.05;
     /// <summary>
@@ -196,7 +212,9 @@ public static class Tuning
     /// untouched. 1 is 1.8.9; the host can go down to <see cref="MinComboKnockback"/> (below about
     /// 60% strafing stops working as a way out of a combo).
     /// </summary>
-    public const double DefaultComboKnockback = 1.0;
+    public const double McComboKnockback = 1.0;
+    /// <summary>1.8.9's in a new match.</summary>
+    public const double DefaultComboKnockback = McComboKnockback;
     public const double MinComboKnockback = 0.6;
     public const double ComboKnockbackStep = 0.05;
     /// <summary>Minimum MC ticks between jumps while holding jump.</summary>

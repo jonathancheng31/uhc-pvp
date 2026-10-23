@@ -212,10 +212,10 @@ public class BotTests : TestCase
                 SinceHurt: double.PositiveInfinity);
             for (int i = 0; i < 30; i++)
             {
-                BotIntent warm = brain.Think(self, foe, MatchRules.Default, Tick);
+                BotIntent warm = brain.Think(self, foe, MatchRules.Minecraft, Tick);
                 self = self with { Yaw = warm.Input.Yaw, Pitch = warm.Pitch };
             }
-            BotIntent intent = brain.Think(self with { SinceHurt = Tick / 2 }, foe, MatchRules.Default, Tick);
+            BotIntent intent = brain.Think(self with { SinceHurt = Tick / 2 }, foe, MatchRules.Minecraft, Tick);
             clicks += intent.Attack ? 1 : 0;
             jumps += intent.Input.Jump ? 1 : 0;
             carried += intent.Input.Forward <= 0 ? 1 : 0;
@@ -230,14 +230,14 @@ public class BotTests : TestCase
         var self = new BotSelf(Vec3d.Zero, 0, -5, true, true, true, false, double.PositiveInfinity);
         for (int i = 0; i < 10; i++)
         {
-            brain.Think(self, foe, MatchRules.Default, Tick);
+            brain.Think(self, foe, MatchRules.Minecraft, Tick);
         }
         brain.OnAttack(FoeId, HitResult.Hurt, sprintKnockback: true);
-        Check(brain.Think(self, foe, MatchRules.Default, Tick).Input.Forward <= 0, "lets go of W (or taps S) after a sprint hit");
+        Check(brain.Think(self, foe, MatchRules.Minecraft, Tick).Input.Forward <= 0, "lets go of W (or taps S) after a sprint hit");
         bool sprintsAgain = false;
         for (int i = 0; i < 2 * Tuning.SubticksPerMcTick + 1; i++)
         {
-            sprintsAgain = brain.Think(self, foe, MatchRules.Default, Tick).Input.Forward > 0;
+            sprintsAgain = brain.Think(self, foe, MatchRules.Minecraft, Tick).Input.Forward > 0;
         }
         Check(sprintsAgain, "and sprints again within two Minecraft ticks, so its next hit knocks back fully");
     }
@@ -245,7 +245,7 @@ public class BotTests : TestCase
     public void TestPatientBotWaitsOutProtection()
     {
         var brain = new BotBrain(BotMode.Fight, 1) { Skill = Tuning.HardBot with { Patience = 1, AimErrorDegrees = 0 } };
-        var rules = MatchRules.Default with { WastedClickDelay = 0.15 };
+        var rules = MatchRules.Minecraft with { WastedClickDelay = 0.15 };
         var foe = new List<BotFoe> { new(FoeId, new Vec3d(0, 0, -2.5), 180, double.PositiveInfinity, false) };
         var self = new BotSelf(Vec3d.Zero, 0, -5, true, true, true, false, double.PositiveInfinity);
         for (int i = 0; i < 30; i++)
@@ -289,14 +289,14 @@ public class BotTests : TestCase
         }
     }
 
-    // --- Whole fights --------------------------------------------------------------------------
+    // --- Whole fights, under plain 1.8.9 (as docs/combat.md measures them) ----------------------
 
     public void TestEachSkillBeatsTheOneBelow()
     {
-        double hardOverNormal = DuelSeries.Run(Skilled(BotDifficulty.Hard), Skilled(BotDifficulty.Normal), MatchRules.Default, 60).WinRateA;
-        double normalOverEasy = DuelSeries.Run(Skilled(BotDifficulty.Normal), Skilled(BotDifficulty.Easy), MatchRules.Default, 60).WinRateA;
-        // The head start (0.4.8) makes the first hit worth more, which narrows close matchups: Hard
-        // beats Normal about 73% of 300 duels with it, 89% without.
+        double hardOverNormal = DuelSeries.Run(Skilled(BotDifficulty.Hard), Skilled(BotDifficulty.Normal), MatchRules.Minecraft, 60).WinRateA;
+        double normalOverEasy = DuelSeries.Run(Skilled(BotDifficulty.Normal), Skilled(BotDifficulty.Easy), MatchRules.Minecraft, 60).WinRateA;
+        // 1.8.9's head start (0.4.8) makes the first hit worth more, which narrows close matchups:
+        // Hard beats Normal about 73% of 300 duels with it, 89% without.
         Check(hardOverNormal > 0.65, $"Hard beats Normal ({hardOverNormal:P0})");
         Check(normalOverEasy > 0.85, $"Normal beats Easy ({normalOverEasy:P0})");
     }
@@ -304,13 +304,13 @@ public class BotTests : TestCase
     public void TestAgainstTheOldBot()
     {
         // The 0.4.6 bot aimed perfectly and instantly; today's aims like a person but plays better.
-        double hard = DuelSeries.Run(Skilled(BotDifficulty.Hard), seed => new LegacyBotBrain(seed), MatchRules.Default, 80).WinRateA;
-        double normal = DuelSeries.Run(Skilled(BotDifficulty.Normal), seed => new LegacyBotBrain(seed), MatchRules.Default, 80).WinRateA;
+        double hard = DuelSeries.Run(Skilled(BotDifficulty.Hard), seed => new LegacyBotBrain(seed), MatchRules.Minecraft, 80).WinRateA;
+        double normal = DuelSeries.Run(Skilled(BotDifficulty.Normal), seed => new LegacyBotBrain(seed), MatchRules.Minecraft, 80).WinRateA;
         Check(hard > 0.7, $"Hard beats the 0.4.6 bot ({hard:P0})");
         Check(normal > 0.3 && normal < 0.7, $"Normal is about as strong as the 0.4.6 bot ({normal:P0})");
         // With the same eyes and hands, today's decisions beat the old ones.
         double decisions = DuelSeries.Run(
-            Skilled(BotDifficulty.Normal), seed => new LegacyBotBrain(seed, Tuning.NormalBot, "old decisions"), MatchRules.Default, 80).WinRateA;
+            Skilled(BotDifficulty.Normal), seed => new LegacyBotBrain(seed, Tuning.NormalBot, "old decisions"), MatchRules.Minecraft, 80).WinRateA;
         Check(decisions > 0.65, $"Normal's decisions beat the 0.4.6 bot's at the same aim ({decisions:P0})");
     }
 
@@ -319,7 +319,7 @@ public class BotTests : TestCase
         static double AverageCombo(BotDifficulty difficulty)
         {
             DuelSeries series = DuelSeries.Run(
-                seed => new ComboAttacker(Tuning.NormalBot, seed), Skilled(difficulty), MatchRules.Default, 40);
+                seed => new ComboAttacker(Tuning.NormalBot, seed), Skilled(difficulty), MatchRules.Minecraft, 40);
             double hits = 0;
             foreach (int combo in series.CombosA)
             {
@@ -335,7 +335,7 @@ public class BotTests : TestCase
 
     public void TestTimesItsClicksUnderWastedClicks()
     {
-        var rules = MatchRules.Default with { WastedClickDelay = 0.15 };
+        var rules = MatchRules.Minecraft with { WastedClickDelay = 0.15 };
         DuelSeries series = DuelSeries.Run(Skilled(BotDifficulty.Normal), seed => new LegacyBotBrain(seed), rules, 40);
         double timed = series.WastedA / Math.Max(series.ClicksA, 1);
         double spam = series.WastedB / Math.Max(series.ClicksB, 1);

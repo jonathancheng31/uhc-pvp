@@ -179,8 +179,10 @@ public class PushTests : TestCase
         var contact = new PushContact(At(32.6), Vec3d.Zero, Vec3d.Zero, Pushing.TieBreak(1, 2));
         CheckEqual(Pushing.Resolve(At(32.5), new Vec3d(0.2, 0, 0), new Vec3d(0.1, 0, 0), [contact], 0), Vec3d.Zero,
             "no push when the twist is off");
-        CheckEqual(Tuning.DefaultPushing, 0.0, "off by default");
-        CheckEqual(MatchRules.Default.Pushing, 0.0, "plain 1.8.9 rules have it off");
+        CheckEqual(Tuning.McPushing, 0.0, "1.8.9 has none");
+        CheckEqual(MatchRules.Minecraft.Pushing, 0.0, "plain 1.8.9 rules have it off");
+        CheckEqual(MatchRules.Default.Pushing, 0.0, "off by default");
+        CheckEqual(new PlayerMotor(FlatWorld(), At(30.5)).PushStrength, 0.0, "a motor on its own is 1.8.9's: no pushing");
         Run run = Play(0, At(30.5), At(33.5), Always(RunEast), Always(Idle));
         Check(run.FinalGap < -1, $"with the twist off you run straight through a standing player, like 1.8.9 ({run.FinalGap:0.0})");
         CheckNear(run.SecondMoved, 0, 1e-12, "and they don't move");

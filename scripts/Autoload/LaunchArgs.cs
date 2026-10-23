@@ -25,11 +25,13 @@ namespace UhcPvp.Autoload;
 /// --bot-skill=LEVEL    How well fighting bots (and --bot=fight) play: easy, normal or hard
 ///                      (default: the host's last choice from the pause menu; normal for --bot).
 /// --strafe=PERCENT     Host only: twists for this match, overriding the host's last choice
-/// --grip=PERCENT         from the pause menu: strafe speed (100 is 1.8), strafe snappiness
-/// --wasted-clicks=SEC    (0 is 1.8), the wasted-click delay in seconds (0 is 1.8) and
-/// --push=PERCENT         player pushing (0 is 1.8, 100 is solid),
-/// --combo-kb=PERCENT     combo knockback, the sprint hit's extra push (100 is 1.8, down to 60), and
-/// --head-start=MS        the head start: how far in the past others are drawn (175 is 1.8, 0 to 250).
+/// --grip=PERCENT         from the pause menu (the defaults if none): strafe speed (100 is 1.8
+/// --wasted-clicks=SEC    and the default), strafe snappiness (0 is 1.8, 100 the default), the
+/// --push=PERCENT         wasted-click delay in seconds (0 is 1.8 and the default), player pushing
+/// --combo-kb=PERCENT     (0 is 1.8 and the default, 100 is solid), combo knockback, the sprint
+/// --head-start=MS        hit's extra push (100 is 1.8 and the default, down to 60), and the head
+///                        start: how far in the past others are drawn (175 is 1.8, 75 the
+///                        default, 0 to 250).
 /// --hold=KEYS          Hold movement keys all match: any of w, a, s, d, and j to jump (tests,
 ///                      screenshots: --hold=w on two opposite players runs them into each other).
 /// --ping=MS            Simulate this much extra ping.

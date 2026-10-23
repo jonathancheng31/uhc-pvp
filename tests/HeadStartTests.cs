@@ -97,7 +97,7 @@ public class HeadStartTests : TestCase
         var (backward, _, _, renderedBack) = SteadyDelay(-1);
         // Rounding positions down to 1/32 block puts them a hair behind one way and ahead the other.
         double hitbox = (forward + backward) / 2;
-        CheckNear(hitbox, Tuning.DefaultHeadStart, 0.003, "where a click finds them, on average: our default head start");
+        CheckNear(hitbox, Tuning.McHeadStart, 0.003, "where a click finds them, on average: 1.8.9's head start");
         CheckNear(min, 0.1, 0.01, "at best (tick timing)");
         CheckNear(max, Tuning.MaxHeadStart, 0.01, "at worst: the slider's maximum");
         CheckNear((rendered + renderedBack) / 2, 0.2, 0.003, "the screen shows them a tick later still");
@@ -207,7 +207,7 @@ public class HeadStartTests : TestCase
         foreach (string kind in new[] { "sprint", "strafe", "combo, holding W", "combo, no keys" })
         {
             List<Frame> frames = Path(kind);
-            var (mean, p95) = DistanceFromMinecraft(frames, Tuning.DefaultHeadStart);
+            var (mean, p95) = DistanceFromMinecraft(frames, Tuning.McHeadStart);
             var (freshMean, _) = DistanceFromMinecraft(frames, 1.0 / Tuning.SimRate);
             Check(mean < 0.3 && p95 < 0.7, $"{kind}: drawn {mean:0.00} blocks from where 1.8.9 draws them (95% within {p95:0.00})");
             Check(mean < freshMean / 4, $"{kind}: far closer than drawing them fresh ({mean:0.00} against {freshMean:0.00})");
@@ -226,6 +226,8 @@ public class HeadStartTests : TestCase
         CheckNear(HeadStart.ViewDelay(0, owned: false, 0.06), 0.06, 1e-12, "no head start: as fresh as their updates allow (before 0.4.8)");
         CheckNear(HeadStart.MaxViewAge(headStart), 0.175, 1e-12, "hits on the delayed view count");
         CheckNear(HeadStart.MaxViewAge(0), Tuning.LagCap, 1e-12, "with a small head start, the lag cap as before");
+        CheckNear(HeadStart.MaxViewAge(Tuning.DefaultHeadStart), 0.150, 1e-12, "at the default head start (75 ms), the lag cap: 150 ms");
+        CheckNear(HeadStart.MaxViewAge(Tuning.McHeadStart), 0.175, 1e-12, "at 1.8.9's, the head start: 175 ms");
     }
 
     public void TestSameDelayAtAnyPing()
@@ -242,7 +244,7 @@ public class HeadStartTests : TestCase
                 buffer.Push(sent, default);
                 buffer.NoteArrivalAge(oneWay + random.NextDouble() * 0.01);
             }
-            double delay = HeadStart.ViewDelay(Tuning.DefaultHeadStart, owned: false, buffer.RenderDelay);
+            double delay = HeadStart.ViewDelay(Tuning.McHeadStart, owned: false, buffer.RenderDelay);
             CheckNear(delay, expected, 0.01, $"one-way delay {oneWay * 1000:0} ms");
         }
     }
@@ -329,7 +331,7 @@ public class HeadStartTests : TestCase
     {
         var (attacker, victim) = BackInReach(0);
         CheckNear(attacker, victim, 1.5 * Step, $"drawn fresh, both are back in reach together ({attacker:0.000} s, {victim:0.000} s): a click race");
-        (attacker, victim) = BackInReach(Tuning.DefaultHeadStart);
+        (attacker, victim) = BackInReach(Tuning.McHeadStart);
         Check(victim - attacker > 0.15,
             $"with 1.8.9's head start the attacker gets back in reach first ({attacker:0.000} s, the victim {victim:0.000} s)");
     }

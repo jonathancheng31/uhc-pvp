@@ -33,7 +33,7 @@ of the 1.8.9 code.
 
 ## Our twist: faster strafing (since 0.4.5, a match rule)
 
-1.8.9 movement is the default. The host can turn up **strafe speed** in the pause menu's Twists screen (100%,
+Strafe speed is 1.8.9's by default. The host can turn up **strafe speed** in the pause menu's Twists screen (100%,
 which is 1.8.9, to 150%, in 5% steps; the value is kept for their next match), and it applies to
 everyone in the match, bots included. Code: `PlayerMotor.BoostStrafe`.
 
@@ -60,10 +60,12 @@ everyone in the match, bots included. Code: `PlayerMotor.BoostStrafe`.
 
 The owner wanted strafing "faster for changing directions, not just top speed". In 1.8.9 the
 ground's friction already lets you stop almost at once, but reaching full speed the other way
-takes a quarter second. **Strafe snappiness** (0%, which is 1.8.9, to 100%) shortens that: on the
-ground, at the start of each Minecraft tick, your sideways speed covers that fraction of the gap
-to the steady speed your keys lead to. Starting, stopping and switching between A and D all get
-quicker; top speeds don't change. Code: `PlayerMotor.GripStrafe`.
+takes a quarter second. **Strafe snappiness** (0%, which is 1.8.9, to 100%, the default since
+0.4.9, the owner's pick) shortens that: on the ground, at the start of each Minecraft tick, your
+sideways speed covers that fraction of the gap to the steady speed your keys lead to. Starting,
+stopping and switching between A and D all get quicker; top speeds don't change. Code:
+`PlayerMotor.GripStrafe`. A motor on its own (as in the parity tests) moves like plain 1.8.9; a
+match sets the twists from its rules.
 
 | Snappiness | Switching from A to D (to 90% of full speed) |
 |---|---|
@@ -94,8 +96,8 @@ able to run through someone, or stand inside them, looks wrong and takes away bo
 shoving as things you can do. Every game keeps its own player (and its bots) out of everyone else
 as it last heard they are, teammates too, so it needs nothing extra on the network: its bots
 where they really are, remote players where their latest updates put them. Not where they're
-drawn: since 0.4.8 others are drawn with 1.8.9's head start, 175 ms in the past
-([netcode.md](netcode.md)), and pushing from there would let two players sprinting at each other
+drawn: since 0.4.8 others are drawn a head start in the past (75 ms by default, 175 ms in
+1.8.9, [netcode.md](netcode.md)), and pushing from there would let two players sprinting at each other
 pass through before either game saw them touch. So you can be shoved by someone up to the head
 start before their drawn body reaches you (at most about a block, when both move fast).
 Bodies count as upright cylinders the player's width (0.6) and height, so you slide around

@@ -76,7 +76,9 @@ public class StrafeTests : TestCase
     {
         var accel = new Vec3d(0.03, -0.1, -0.07);
         CheckEqual(PlayerMotor.BoostStrafe(accel, 37, 1.0, 0.1), accel, "1.0 leaves the acceleration alone");
-        CheckEqual(new PlayerMotor(FlatWorld(), Start).StrafeSpeed, 1.0, "players start with 1.8.9's strafing");
+        // A motor on its own moves like 1.8.9 (the parity tests rely on it); a match sets the twists.
+        CheckEqual(new PlayerMotor(FlatWorld(), Start).StrafeSpeed, Tuning.McStrafeSpeed, "players start with 1.8.9's strafing");
+        CheckEqual(new PlayerMotor(FlatWorld(), Start).StrafeGrip, Tuning.McStrafeGrip, "and 1.8.9's snappiness, not the match default");
     }
 
     public void TestFasterStrafingMatchesItsReferenceExactly()

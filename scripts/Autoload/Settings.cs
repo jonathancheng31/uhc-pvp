@@ -115,13 +115,21 @@ public partial class Settings : Node
         config.SetValue("video", "fov", settings.Fov);
     }
 
-    public static MatchRules ReadRules(ConfigFile config) => new MatchRules(
-        ReadNumber(config, "rules", "strafe_speed", Tuning.DefaultStrafeSpeed),
-        ReadNumber(config, "rules", "strafe_grip", Tuning.DefaultStrafeGrip),
-        ReadNumber(config, "rules", "wasted_click_delay", Tuning.DefaultWastedClickDelay),
-        ReadNumber(config, "rules", "pushing", Tuning.DefaultPushing),
-        ReadNumber(config, "rules", "combo_knockback", Tuning.DefaultComboKnockback),
-        ReadNumber(config, "rules", "head_start", Tuning.DefaultHeadStart)).Normalized();
+    /// <summary>
+    /// Reads the host's saved rules. A saved value is kept, whatever it is (plain 1.8 included);
+    /// a missing file, a missing twist (one newer than the file) or a broken value gets the default.
+    /// </summary>
+    public static MatchRules ReadRules(ConfigFile config)
+    {
+        MatchRules fallback = MatchRules.Default;
+        return new MatchRules(
+            ReadNumber(config, "rules", "strafe_speed", fallback.StrafeSpeed),
+            ReadNumber(config, "rules", "strafe_grip", fallback.StrafeGrip),
+            ReadNumber(config, "rules", "wasted_click_delay", fallback.WastedClickDelay),
+            ReadNumber(config, "rules", "pushing", fallback.Pushing),
+            ReadNumber(config, "rules", "combo_knockback", fallback.ComboKnockback),
+            ReadNumber(config, "rules", "head_start", fallback.HeadStart)).Normalized();
+    }
 
     public static void WriteRules(ConfigFile config, MatchRules rules)
     {

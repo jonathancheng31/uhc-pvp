@@ -54,8 +54,12 @@ public class ComboSim : TestCase
         }
     }
 
-    /// <summary>The rules of a run: the head start (seconds), combo knockback, or 1.8.9's own drawing instead of a head start.</summary>
-    public sealed record Rules(string Name, double HeadStart, double ComboKnockback = 1.0, bool Minecraft = false);
+    /// <summary>
+    /// The rules of a run: the head start (seconds), combo knockback (1.8.9's unless given), or
+    /// 1.8.9's own drawing instead of a head start. Everything else is plain 1.8.9 (the motors
+    /// have no strafe twists).
+    /// </summary>
+    public sealed record Rules(string Name, double HeadStart, double ComboKnockback = Tuning.McComboKnockback, bool Minecraft = false);
 
     public enum Tap { None, W, S, SpaceW, SpaceS }
 
@@ -309,7 +313,7 @@ public class ComboSim : TestCase
         foreach (VictimPlan plan in new[] { NoKeys, Strafing })
         {
             double fresh = Best(new Rules("off", 0), plan, spacing: false);
-            double minecraft = Best(new Rules("1.8.9", Tuning.DefaultHeadStart), plan, spacing: false);
+            double minecraft = Best(new Rules("1.8.9", Tuning.McHeadStart), plan, spacing: false);
             Check(fresh <= 1.5, $"{plan.Name}, no head start: {fresh:0.0} hits");
             Check(minecraft >= 3.5, $"{plan.Name}, 1.8.9's head start: {minecraft:0.0} hits");
         }
@@ -323,7 +327,7 @@ public class ComboSim : TestCase
         if (which == "Table")
         {
             var models = new List<Rules>();
-            foreach (double headStart in new[] { 0.0, Tuning.DefaultHeadStart, Tuning.MaxHeadStart })
+            foreach (double headStart in new[] { 0.0, Tuning.McHeadStart, Tuning.MaxHeadStart })
             {
                 foreach (double combo in new[] { 1.0, 0.8, 0.6 })
                 {

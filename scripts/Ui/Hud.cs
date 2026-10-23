@@ -310,10 +310,7 @@ public partial class Hud : CanvasLayer
             lines.Add($"Sprint knockback ready: {(motor.ServerSprinting ? "yes" : "no (w-tap)")}");
         }
         lines.Add($"Hits landed: {Game.HitsLanded}, taken: {Game.HitsTaken}");
-        if (!Session.Instance.Rules.IsMinecraft)
-        {
-            lines.Add($"Twists: {TwistsMenu.Summary(Session.Instance.Rules)[4..]}");
-        }
+        lines.Add($"Twists: {Session.Instance.Rules.Summary()}");
         if (net.IsLagSimulated)
         {
             lines.Add($"Simulated lag: +{LaunchArgs.Instance.PingMs:0} ms ping");
@@ -550,7 +547,7 @@ public partial class Hud : CanvasLayer
 
     /// <summary>
     /// Our twists on 1.8, for the whole match: a button to the Twists screen (the host sets them
-    /// there; everyone else sees the host's choice) and a line saying which are on.
+    /// there; everyone else sees the host's choice) and a line saying how they're set.
     /// </summary>
     private void BuildTwists(VBoxContainer box)
     {
@@ -573,8 +570,8 @@ public partial class Hud : CanvasLayer
 
     private void OnRulesChanged() => ShowRules();
 
-    /// <summary>Shows which twists are on (the host may have changed them).</summary>
-    private void ShowRules() => _twistsSummary.Text = TwistsMenu.Summary(Session.Instance.Rules);
+    /// <summary>Shows how the twists are set (the host may have changed them).</summary>
+    private void ShowRules() => _twistsSummary.Text = Session.Instance.Rules.Summary();
 
     private void OpenTwists()
     {

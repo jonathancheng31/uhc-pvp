@@ -420,8 +420,8 @@ public sealed class BotBrain
         {
             return _strafeDirection;
         }
-        // Snappier or faster strafing (twists) makes changing direction more worthwhile.
-        double quicker = 1 + rules.StrafeGrip + (rules.StrafeSpeed - 1) * 2;
+        // Snappier or faster strafing than 1.8.9's (twists) makes changing direction more worthwhile.
+        double quicker = 1 + (rules.StrafeGrip - Tuning.McStrafeGrip) + (rules.StrafeSpeed - Tuning.McStrafeSpeed) * 2;
         double length = (skill.StrafeMinSeconds + _random.NextDouble() * (skill.StrafeMaxSeconds - skill.StrafeMinSeconds)) / quicker;
         _strafeTimer = length;
         if (distance > 6 || comboing)

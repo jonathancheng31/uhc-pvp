@@ -40,7 +40,7 @@ public static class CombatRules
     /// </summary>
     public static Vec3d Knockback(
         Vec3d motion, Vec3d attackerPosition, Vec3d victimPosition, double attackerYaw,
-        bool baseKnockback, bool sprintBonus, Random random, double comboKnockback = Tuning.DefaultComboKnockback)
+        bool baseKnockback, bool sprintBonus, Random random, double comboKnockback = Tuning.McComboKnockback)
     {
         if (baseKnockback)
         {

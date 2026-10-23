@@ -99,13 +99,13 @@ public sealed class PlayerMotor
     public bool Sneaking { get; private set; }
     public bool CollidedHorizontally { get; private set; }
     /// <summary>Our faster strafing (a match rule, see <see cref="BoostStrafe"/>). 1.0 is 1.8.9.</summary>
-    public double StrafeSpeed { get; set; } = Tuning.DefaultStrafeSpeed;
+    public double StrafeSpeed { get; set; } = Tuning.McStrafeSpeed;
     /// <summary>Our snappier strafing (a match rule, see <see cref="GripStrafe"/>). 0 is 1.8.9.</summary>
-    public double StrafeGrip { get; set; } = Tuning.DefaultStrafeGrip;
+    public double StrafeGrip { get; set; } = Tuning.McStrafeGrip;
     /// <summary>Knockback just arrived: the next Minecraft tick doesn't apply strafe grip or pushing, so knockback stays whole.</summary>
     private bool _skipGrip;
     /// <summary>Player pushing (a match rule, see <see cref="Pushing"/>). 0 is 1.8.9: players walk through each other.</summary>
-    public double PushStrength { get; set; } = Tuning.DefaultPushing;
+    public double PushStrength { get; set; } = Tuning.McPushing;
     /// <summary>
     /// The other players around us as this game sees them, for pushing. The game refills it
     /// before each step; it's read once per Minecraft tick, at the tick's start.

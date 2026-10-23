@@ -3,10 +3,11 @@ using System;
 namespace UhcPvp.Core;
 
 /// <summary>
-/// The head start (1.8.9's display delay, see <see cref="Tuning.DefaultHeadStart"/>): every game
-/// draws other players, and hit-tests them, a fixed time in the past. Whoever is chasing a player
-/// they just hit sees them a little closer than they are, and is seen a little farther away, so
-/// they get back in reach first. See docs/netcode.md.
+/// The head start (1.8.9's display delay, see <see cref="Tuning.McHeadStart"/>; a new match starts
+/// with <see cref="Tuning.DefaultHeadStart"/>): every game draws other players, and hit-tests them,
+/// a fixed time in the past. Whoever is chasing a player they just hit sees them a little closer
+/// than they are, and is seen a little farther away, so they get back in reach first. See
+/// docs/netcode.md.
 /// </summary>
 public static class HeadStart
 {

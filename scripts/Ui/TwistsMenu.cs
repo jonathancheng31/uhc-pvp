@@ -9,7 +9,8 @@ namespace UhcPvp.Ui;
 /// The Twists screen, opened from the pause menu: our changes to 1.8.9's mechanics, for the
 /// whole match (<see cref="MatchRules"/>). The host moves the sliders and every player gets the
 /// change at once; everyone else sees the host's choice. Two columns, movement and fighting, so
-/// it fits a 720p screen. Leftmost is plain 1.8, except the head start, where 1.8's is marked.
+/// it fits a 720p screen. Leftmost is plain 1.8, except the head start, where 1.8's is marked;
+/// a value at its default (<see cref="MatchRules.Default"/>) is marked too.
 /// </summary>
 public partial class TwistsMenu : PanelContainer
 {
@@ -28,6 +29,8 @@ public partial class TwistsMenu : PanelContainer
     private Label _comboKnockbackValue = null!;
     private HSlider _headStart = null!;
     private Label _headStartValue = null!;
+    private Button? _defaults;
+    private Button? _plain;
     private bool _refreshing;
 
     /// <summary>Raised when the screen closes (Done or Esc); the pause menu shows again.</summary>
@@ -47,7 +50,7 @@ public partial class TwistsMenu : PanelContainer
         title.AddThemeFontSizeOverride("font_size", 28);
         box.AddChild(title);
         box.AddChild(Note(IsHost
-            ? "Our changes to Minecraft 1.8, for everyone in this match. All the way left is plain 1.8, except the head start: 1.8's is 175 ms."
+            ? $"Our changes to Minecraft 1.8, for everyone in this match. All the way left is plain 1.8, except the head start: 1.8's is {HeadStart.Label(Tuning.McHeadStart)}."
             : "Our changes to Minecraft 1.8, set by the host for everyone in this match.",
             2 * ColumnWidth + 32));
 
@@ -82,13 +85,10 @@ public partial class TwistsMenu : PanelContainer
         box.AddChild(buttons);
         if (IsHost)
         {
-            var reset = new Button { Text = "Reset to plain 1.8", CustomMinimumSize = new Vector2(0, 40), SizeFlagsHorizontal = SizeFlags.ExpandFill };
-            reset.Pressed += () => Session.SetRules(MatchRules.Default);
-            buttons.AddChild(reset);
+            _defaults = AddButton(buttons, "Reset to defaults", () => Session.SetRules(MatchRules.Default));
+            _plain = AddButton(buttons, "Plain 1.8 (all off)", () => Session.SetRules(MatchRules.Minecraft));
         }
-        var done = new Button { Text = "Done", CustomMinimumSize = new Vector2(0, 40), SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        done.Pressed += Close;
-        buttons.AddChild(done);
+        AddButton(buttons, "Done", Close);
 
         Session.RulesChanged += Refresh;
         Refresh();
@@ -101,22 +101,38 @@ public partial class TwistsMenu : PanelContainer
     {
         _refreshing = true;
         MatchRules rules = Session.Rules;
+        MatchRules byDefault = MatchRules.Default;
+        MatchRules minecraft = MatchRules.Minecraft;
         _strafeSpeed.Value = rules.StrafeSpeed;
-        _strafeSpeedValue.Text = MatchRules.Percent(rules.StrafeSpeed);
+        _strafeSpeedValue.Text = Marked(MatchRules.Percent(rules.StrafeSpeed), rules.StrafeSpeed == byDefault.StrafeSpeed);
         _strafeGrip.Value = rules.StrafeGrip;
-        _strafeGripValue.Text = rules.StrafeGrip <= 0 ? "Off" : MatchRules.Percent(rules.StrafeGrip);
+        _strafeGripValue.Text = Marked(MatchRules.PercentOrOff(rules.StrafeGrip), rules.StrafeGrip == byDefault.StrafeGrip);
         _pushing.Value = rules.Pushing;
-        _pushingValue.Text = rules.Pushing <= 0 ? "Off" : MatchRules.Percent(rules.Pushing);
+        _pushingValue.Text = Marked(MatchRules.PercentOrOff(rules.Pushing), rules.Pushing == byDefault.Pushing);
         _comboKnockback.Value = 1.0 - rules.ComboKnockback;
-        _comboKnockbackValue.Text = MatchRules.Percent(rules.ComboKnockback);
+        _comboKnockbackValue.Text = Marked(MatchRules.Percent(rules.ComboKnockback), rules.ComboKnockback == byDefault.ComboKnockback);
         _headStart.Value = rules.HeadStart;
-        _headStartValue.Text = rules.HeadStart == Tuning.DefaultHeadStart
-            ? $"{HeadStart.Label(rules.HeadStart)} (1.8)"
-            : HeadStart.Label(rules.HeadStart);
+        // The one slider where plain 1.8 isn't all the way left, so its 1.8 point is marked too.
+        _headStartValue.Text = Marked(HeadStart.Label(rules.HeadStart), rules.HeadStart == byDefault.HeadStart,
+            rules.HeadStart == minecraft.HeadStart);
         _wastedClicks.Value = rules.WastedClickDelay;
-        _wastedClicksValue.Text = MatchRules.Seconds(rules.WastedClickDelay);
+        _wastedClicksValue.Text = Marked(MatchRules.Seconds(rules.WastedClickDelay), rules.WastedClickDelay == byDefault.WastedClickDelay);
+        if (_defaults is not null && _plain is not null)
+        {
+            _defaults.Disabled = rules.IsDefault;
+            _plain.Disabled = rules.IsMinecraft;
+        }
         _refreshing = false;
     }
+
+    /// <summary>A twist's value, with "(default)" when it's the default and "(1.8)" when asked to mark 1.8's.</summary>
+    private static string Marked(string shown, bool isDefault, bool isMinecraft = false) => (isDefault, isMinecraft) switch
+    {
+        (true, true) => $"{shown} (default, 1.8)",
+        (true, false) => $"{shown} (default)",
+        (false, true) => $"{shown} (1.8)",
+        _ => shown,
+    };
 
     /// <summary>Saves the host's choice for its next match and closes the screen.</summary>
     public void Close()
@@ -125,50 +141,21 @@ public partial class TwistsMenu : PanelContainer
         Closed?.Invoke();
     }
 
-    /// <summary>A short line for the pause menu: which twists are on.</summary>
-    public static string Summary(MatchRules rules)
-    {
-        if (rules.IsMinecraft)
-        {
-            return "All off: plain 1.8";
-        }
-        var parts = new System.Collections.Generic.List<string>();
-        if (rules.StrafeSpeed != Tuning.DefaultStrafeSpeed)
-        {
-            parts.Add(Part("strafe", MatchRules.Percent(rules.StrafeSpeed)));
-        }
-        if (rules.StrafeGrip != Tuning.DefaultStrafeGrip)
-        {
-            parts.Add(Part("snappy", MatchRules.Percent(rules.StrafeGrip)));
-        }
-        if (rules.WastedClickDelay != Tuning.DefaultWastedClickDelay)
-        {
-            parts.Add(Part("wasted clicks", MatchRules.Seconds(rules.WastedClickDelay)));
-        }
-        if (rules.Pushing != Tuning.DefaultPushing)
-        {
-            parts.Add(Part("pushing", MatchRules.Percent(rules.Pushing)));
-        }
-        if (rules.ComboKnockback != Tuning.DefaultComboKnockback)
-        {
-            parts.Add(Part("combo knockback", MatchRules.Percent(rules.ComboKnockback)));
-        }
-        if (rules.HeadStart != Tuning.DefaultHeadStart)
-        {
-            parts.Add(Part("head start", HeadStart.Label(rules.HeadStart).ToLowerInvariant()));
-        }
-        return "On: " + string.Join(", ", parts);
-    }
-
-    /// <summary>One twist in the summary, kept on one line when the summary wraps (no-break spaces).</summary>
-    private static string Part(string name, string value) => $"{name} {value}".Replace(' ', ' ');
-
     private void Change(MatchRules rules)
     {
         if (!_refreshing)
         {
             Session.SetRules(rules);
         }
+    }
+
+    /// <summary>A button across its share of the row.</summary>
+    private static Button AddButton(HBoxContainer row, string text, Action pressed)
+    {
+        var button = new Button { Text = text, CustomMinimumSize = new Vector2(0, 40), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        button.Pressed += pressed;
+        row.AddChild(button);
+        return button;
     }
 
     /// <summary>A column of twists under a heading.</summary>

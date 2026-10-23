@@ -37,8 +37,8 @@ Minecraft 1.8.9 (checked against the decompiled 1.8.9 server code):
 | Movement | Each player's game owns its own movement, like 1.8. Always smooth, never corrected |
 | Hits | The attacker's game decides hits from exactly what was on their screen |
 | Reach | Exactly `Tuning.Reach` (3.0) plus a tiny tolerance. No 6-block slack |
-| Head start | Everyone else is drawn, and hit, a fixed time in the past: 1.8.9's 175 ms by default, a match rule from 0 to 250 ms. Network delay counts toward it, so it's the same at any ping until a connection alone needs more. It gives the chaser 1.8.9's head start after a hit. Since 0.4.8 |
-| Lag cap | Each hit carries the host-clock time of the victim state the attacker was looking at. If that's older than the head start or `Tuning.LagCap` (150 ms), whichever is more, the hit doesn't count. Views as old as the head start are the rule; older is a connection falling behind it, which would be a ghost hit |
+| Head start | Everyone else is drawn, and hit, a fixed time in the past: 75 ms by default (the owner's pick, since 0.4.9; 1.8.9's 175 ms is the reference), a match rule from 0 to 250 ms. Network delay counts toward it, so it's the same at any ping until a connection alone needs more. It gives the chaser 1.8.9's head start after a hit. Since 0.4.8 |
+| Lag cap | Each hit carries the host-clock time of the victim state the attacker was looking at. If that's older than the head start or `Tuning.LagCap` (150 ms), whichever is more (150 ms at the default head start), the hit doesn't count. Views as old as the head start are the rule; older is a connection falling behind it, which would be a ghost hit |
 | Knockback | Built exactly like a 1.8.9 server builds it, from the server's copy of the victim, but that copy is emulated on the victim's own game from its own up-to-date state. Same knockback at any ping |
 | Hit protection | Counted from the click times on the shared host clock, on Minecraft's 1/20 s tick grid, so lag and jitter don't change which hits count |
 | Hit feedback | The attacker sees the hit, sound and predicted knockback instantly |
@@ -140,7 +140,11 @@ drawn body reaches you (at most about a block, when both move fast).
 The owner: "comboing feels kinda hard. i want comboing to be a bigger part of the game." The main
 cause was that we had removed 1.8.9's display delay (above). The fix brings it back, on by
 default, as a match rule the host can turn down to off or up to 250 ms (Twists screen, "Head
-start"; `MatchRules.HeadStart`, `Tuning.DefaultHeadStart`).
+start"; `MatchRules.HeadStart`). 0.4.8 started at 1.8.9's 175 ms (`Tuning.McHeadStart`, kept as
+the reference and in plain 1.8, `MatchRules.Minecraft`). Since 0.4.9 the default is **75 ms**
+(`Tuning.DefaultHeadStart`): the owner played 0.4.8 and picked it (2026-10-23, "these feel
+good"). In the combo simulation, 100 ms already gave no longer combos than none against a victim
+who lets the knockback carry them (175 ms gave about 4).
 
 **What 1.8.9 does, measured.** `tests/McReference.cs` ports the server's entity tracker
 (`EntityTrackerEntry`: positions every 2 ticks or sooner after a jump, a hit or a change of
@@ -151,32 +155,36 @@ the server, the watching client) at any phase (`McView`). Over every phase and c
 ping, a click finds a sprinting player 175 ms in the past on average (101 to 252 ms); the screen
 shows them 200 ms in the past (`tests/HeadStartTests.cs`).
 
-**What we do.** A fixed delay, 175 ms by default, for everyone: the 1.8.9 average where clicks
-find people. We draw and hit-test the same position (what you see is what you hit), 25 ms fresher
-on screen than 1.8.9's, so the clicks keep 1.8.9's timing. Chosen over porting the glide itself
-because it gives the same combos (the combo simulation, best attacker against each victim
-response: no keys 3.7 hits either way, strafing 5.0 against 4.7 for the port, jump on hit 4.7
-against 4.3, the rest within a third of a hit), works as a slider from off to 250 ms, keeps
-others moving smoothly at 60 states a second, and is the same every time where 1.8.9's varied
-from 100 to 250 ms with tick timing. Drawn 175 ms back, players sit 0.1 to 0.3 blocks (on
-average) from where 1.8.9 would draw them while running, strafing or being comboed, against 0.4
-to 1.7 when drawn fresh.
+**What we do.** A fixed delay for everyone. 1.8.9's 175 ms is the average where its clicks find
+people; the default is shorter, 75 ms (above), and the numbers below are for 175 ms, 1.8.9's. We
+draw and hit-test the same position (what you see is what you hit), 25 ms fresher on screen than
+1.8.9's, so the clicks keep 1.8.9's timing. Chosen over porting the glide itself because it
+gives the same combos (the combo simulation, best attacker against each victim response: no keys
+3.7 hits either way, strafing 5.0 against 4.7 for the port, jump on hit 4.7 against 4.3, the
+rest within a third of a hit), works as a slider from off to 250 ms, keeps others moving
+smoothly at 60 states a second, and is the same every time where 1.8.9's varied from 100 to 250
+ms with tick timing. Drawn 175 ms back, players sit 0.1 to 0.3 blocks (on average) from where
+1.8.9 would draw them while running, strafing or being comboed, against 0.4 to 1.7 when drawn
+fresh.
 
 **At any ping.** A remote player's network delay counts toward the head start: at 175 ms, someone
 whose updates arrive 60 ms late is still shown 175 ms back, not 235. Only when a connection alone
-needs more than the head start (round trips over about 300 ms) is that player shown later, and
-F3 says who. 1.8.9's delay grows with every millisecond of ping; ours doesn't.
+needs more than the head start is that player shown later, and F3 says who: at 175 ms, round
+trips over about 300 ms; at the default 75 ms, much sooner, from updates arriving about 60 ms
+late (a round trip of about 120 ms to the host, less between two remote players). 1.8.9's delay
+grows with every millisecond of ping; ours doesn't until then.
 
-**What a victim notices.** You're hit where you were 175 ms ago, as in 1.8.9: after strafing out
-of reach on your screen you can still be hit for a moment. The red flash, hurt sound and
-knockback come at once (the knockback straight from the attacker's click, for the host's bots),
-while the attacker's body and swing show where they were 175 ms ago, like 1.8.9. A bot you hit
-flashes red at once and starts flying 175 ms later.
+**What a victim notices.** You're hit where you were a head start ago (75 ms by default, 175 ms
+in 1.8.9): after strafing out of reach on your screen you can still be hit for a moment. The red
+flash, hurt sound and knockback come at once (the knockback straight from the attacker's click,
+for the host's bots), while the attacker's body and swing show where they were a head start ago,
+like 1.8.9. A bot you hit flashes red at once and starts flying a head start later.
 
 **At high ping.** Hits are judged on the attacker's screen, so the lag cap now allows views up to
-the head start (or 150 ms, whichever is more) and no older: at the default, an attacker whose view
-of you falls more than 175 ms behind has their hits thrown out, which stops ghost hits from very
-laggy players while everyone else plays by the same 175 ms.
+the head start or 150 ms, whichever is more, and no older. At the default 75 ms head start that's
+150 ms (at 1.8.9's 175 ms, 175): an attacker whose view of you falls more than 150 ms behind has
+their hits thrown out, which stops ghost hits from very laggy players. Views between the head
+start and the cap come from connections that need more than the head start (above).
 
 **What uses the delayed view, and what doesn't.**
 - Sword hits and the rod's catches: the delayed view (what's on the attacker's screen, or a bot's

@@ -17,7 +17,8 @@ public class WastedClickTests : TestCase
         var lockout = new ClickLockout();
         lockout.Wasted(0);
         Check(!lockout.Blocks, "a delay of 0 never blocks a click");
-        CheckEqual(MatchRules.Default.WastedClickDelay, 0.0, "off by default");
+        CheckEqual(MatchRules.Minecraft.WastedClickDelay, 0.0, "off in plain 1.8.9");
+        CheckEqual(MatchRules.Default.WastedClickDelay, 0.0, "and by default");
     }
 
     public void TestLockoutLastsTheDelay()

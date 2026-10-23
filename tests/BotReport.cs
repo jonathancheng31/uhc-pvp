@@ -10,9 +10,10 @@ namespace UhcPvp.Tests;
 /// test run):
 ///   BOT_REPORT=N tools/run_tests.sh BotReport
 ///     prints the comparison table in docs/combat.md: N duels per pairing (300 is a good number;
-///     it takes about a minute), each skill against the 0.4.6 bot and each other under each
-///     twist, how long a w-tapping attacker's combos get on each, and today's decisions against
-///     the old bot's with the same aim.
+///     it takes about a minute), each skill against the 0.4.6 bot and each other under plain
+///     1.8.9 and under each twist on top of it, how long a w-tapping attacker's combos get on
+///     each (plain 1.8.9, then at the defaults), and today's decisions against the old bot's
+///     with the same aim.
 ///   BOT_TRACE=SEED [BOT_TRACE_SKILL=easy|normal|hard] [BOT_TRACE_VS=easy|normal|hard]
 ///   [BOT_TRACE_ATTACKER=1] tools/run_tests.sh BotReport
 ///     prints one duel tick by tick (against the 0.4.6 bot unless BOT_TRACE_VS is set; with
@@ -34,9 +35,9 @@ public class BotReport : TestCase
         }
         var rulesets = new (string Name, MatchRules Rules)[]
         {
-            ("1.8.9", MatchRules.Default),
-            ("wasted clicks 0.15 s", MatchRules.Default with { WastedClickDelay = 0.15 }),
-            ("strafe 130% grip 50%", MatchRules.Default with { StrafeSpeed = 1.3, StrafeGrip = 0.5 }),
+            ("1.8.9", MatchRules.Minecraft),
+            ("wasted clicks 0.15 s", MatchRules.Minecraft with { WastedClickDelay = 0.15 }),
+            ("strafe 130% grip 50%", MatchRules.Minecraft with { StrafeSpeed = 1.3, StrafeGrip = 0.5 }),
         };
         GD.Print("--- How comboable: a scripted attacker that w-taps well, against each bot ---");
         Func<int, IDuelBrain>[] attackers =
@@ -48,15 +49,20 @@ public class BotReport : TestCase
         {
             foreach (BotDifficulty d in Enum.GetValues<BotDifficulty>())
             {
-                GD.Print(DuelSeries.Run(attacker, Skilled(d), MatchRules.Default, duels, Seed).ComboSummaryA());
+                GD.Print(DuelSeries.Run(attacker, Skilled(d), MatchRules.Minecraft, duels, Seed).ComboSummaryA());
             }
-            GD.Print(DuelSeries.Run(attacker, Legacy, MatchRules.Default, duels, Seed).ComboSummaryA());
+            GD.Print(DuelSeries.Run(attacker, Legacy, MatchRules.Minecraft, duels, Seed).ComboSummaryA());
+        }
+        GD.Print("--- How comboable at the defaults (a 75 ms head start, snappy strafing), with Normal's eyes and hands ---");
+        foreach (BotDifficulty d in Enum.GetValues<BotDifficulty>())
+        {
+            GD.Print(DuelSeries.Run(seed => new ComboAttacker(Tuning.NormalBot, seed), Skilled(d), MatchRules.Default, duels, Seed).ComboSummaryA());
         }
         GD.Print("--- Decisions alone: today's bot against the old bot's decisions with the same eyes and hands ---");
         foreach (BotDifficulty d in Enum.GetValues<BotDifficulty>())
         {
             string label = $"0.4.6 decisions, {BotSkill.Label(d)} aim";
-            GD.Print(DuelSeries.Run(Skilled(d), seed => new LegacyBotBrain(seed, BotSkill.For(d), label), MatchRules.Default, duels, Seed).ToString());
+            GD.Print(DuelSeries.Run(Skilled(d), seed => new LegacyBotBrain(seed, BotSkill.For(d), label), MatchRules.Minecraft, duels, Seed).ToString());
         }
         foreach ((string name, MatchRules rules) in rulesets)
         {
@@ -87,7 +93,7 @@ public class BotReport : TestCase
         {
             (a, b) = (new ComboAttacker(), a);
         }
-        DuelResult r = BotDuel.Fight(a, b, MatchRules.Default, seed, 30, line => GD.Print(line));
+        DuelResult r = BotDuel.Fight(a, b, MatchRules.Minecraft, seed, 30, line => GD.Print(line));
         GD.Print($"winner {r.Winner} after {r.Seconds:0.0} s");
     }
 }
