@@ -9,6 +9,15 @@ what we think is causing it. Fixed items move to "Done" with the version that fi
 
 ## Open
 
+- **2026-10-23, 0.4.8, feel: the 175 ms head start "just was too obvious of a lag. it felt like
+  i was lagging or smth. isthis how its supposed to be? How did pvp servers handle this in
+  mc?"** Hence the 75 ms pick (above). 1.8.9 really does draw others about 175 ms behind at 0
+  ping, but our version may show it more plainly: the hit flash and sound come at once while
+  the flight starts the full head start later, and we shift the whole path back by a fixed time
+  where 1.8.9 starts gliding toward each new position at once. Being researched: how 1.8 PvP
+  servers and clients dealt with the delay, and the exact timeline of what an attacker sees
+  after a hit in 1.8.9 compared with ours, before proposing a version that keeps the
+  chaser's edge without feeling like lag.
 - **2026-10-23, 0.4.8, decision: the twists that feel good.** A screenshot of the Twists screen
   set to strafe speed 100%, strafe snappiness 100%, player pushing off, combo knockback 100%,
   head start 75 ms and wasted clicks off: "these feel good". So: the snappiest strafing, a
