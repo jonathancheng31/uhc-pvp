@@ -35,6 +35,10 @@ public partial class Hud : CanvasLayer
     private Label _respawnLabel = null!;
     private VBoxContainer _noticeBox = null!;
     private OptionButton? _botMode;
+    private OptionButton? _botSkill;
+    private const string BotSkillHint =
+        "How well bots that fight back play. Easy: slow and loose, and lets your knockback carry it: "
+        + "practise combos. Normal: a decent player. Hard: a strong player who times its hits and escapes combos.";
     private TwistsMenu _twists = null!;
     private Label _twistsSummary = null!;
     private readonly List<ColorRect> _crosshair = new();
@@ -312,6 +316,10 @@ public partial class Hud : CanvasLayer
         {
             _botMode.Selected = _botMode.GetItemIndex((int)Game.PracticeBotMode);
         }
+        if (_botSkill is not null && Game is not null)
+        {
+            _botSkill.Selected = _botSkill.GetItemIndex((int)Game.PracticeBotDifficulty);
+        }
         Input.MouseMode = paused ? Input.MouseModeEnum.Visible : Input.MouseModeEnum.Captured;
     }
 
@@ -505,6 +513,14 @@ public partial class Hud : CanvasLayer
             _botMode.Selected = _botMode.GetItemIndex((int)Game.PracticeBotMode);
             _botMode.ItemSelected += index => Game.SetPracticeBotMode((BotMode)_botMode.GetItemId((int)index));
             box.AddChild(_botMode);
+            _botSkill = new OptionButton { CustomMinimumSize = new Vector2(260, 40), TooltipText = BotSkillHint };
+            foreach (BotDifficulty difficulty in Enum.GetValues<BotDifficulty>())
+            {
+                _botSkill.AddItem($"Bot skill: {BotSkill.Label(difficulty)}", (int)difficulty);
+            }
+            _botSkill.Selected = _botSkill.GetItemIndex((int)Game.PracticeBotDifficulty);
+            _botSkill.ItemSelected += index => Game.SetPracticeBotDifficulty((BotDifficulty)_botSkill.GetItemId((int)index));
+            box.AddChild(_botSkill);
             box.AddChild(new HSeparator());
         }
         BuildTwists(box);

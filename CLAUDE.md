@@ -88,7 +88,8 @@ It produces `UHC-PvP.exe` plus a `data_UhcPvp_windows_x86_64` folder (the .NET r
   messages, clock sync, lag simulator), `Session` (roster, teams, scene changes)
 - `scripts/Core/`: engine-light logic with unit tests: `Tuning` (every gameplay number),
   `GameSettings` (max FPS and volume rules), `MatchRules` (the host's twists on 1.8.9), `SoundBank` (every sound and the mix), `PlayerState`, `SnapshotBuffer`, `NetClock`,
-  `LagSimulator`, `Team`
+  `LagSimulator`, `Team`, and the fighting bot's `BotSkill` (Easy/Normal/Hard), `BotPerception`
+  (what it sees, late) and `BotAim` (its hand on the mouse)
 - `scripts/Movement/`: physics in doubles: `Vec3d`, `Box` (Minecraft's collision math),
   `MotionModel` (20-tick to 60-tick conversion), `PlayerMotor` (also knockback, sprint hits,
   w-tap, and the emulated server copy of the player that knockback is built from), `Footsteps`
@@ -106,7 +107,9 @@ It produces `UHC-PvP.exe` plus a `data_UhcPvp_windows_x86_64` folder (the .NET r
   screen (`TwistsMenu`), all built in code
 - `tests/`: `TestCase` base class, `*Tests.cs` suites, `McReference.cs` (exact Minecraft 1.8.9
   movement, `McServerCopy`, the server's copy of a player, and `McBobber`, used as yardsticks), run by
-  `tests/test_runner.tscn`. Excluded from release builds.
+  `tests/test_runner.tscn`. Excluded from release builds. `BotDuel.cs` fights bot brains against
+  each other without a scene (with `LegacyBotBrain`, the 0.4.6 bot, and `ComboAttacker` as
+  yardsticks); `BOT_REPORT=300 tools/run_tests.sh BotReport` prints the comparison in `combat.md`.
 - `tools/`: test and screenshot scripts, texture and sound generators, Godot/.NET installer
   (used by CI and the startup hook)
 - `.claude/`: the startup hook, project commands (`skills/`), the `mc-researcher` agent
