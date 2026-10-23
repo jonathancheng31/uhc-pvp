@@ -18,6 +18,22 @@ what we think is causing it. Fixed items move to "Done" with the version that fi
   servers and clients dealt with the delay, and the exact timeline of what an attacker sees
   after a hit in 1.8.9 compared with ours, before proposing a version that keeps the
   chaser's edge without feeling like lag.
+  **What we found:** 1.8.9 keeps two delays apart. The reaction starts soon: the flash about
+  25 ms after the click, the body moving at 100 ms, easing in at about a third of the real
+  launch speed. The trail is long: mid-flight the body runs about 160 to 175 ms behind, up to
+  about a block, and that trail is what gives combos their edge (it matters 450 to 700 ms after
+  a hit). Our fixed 175 ms shifted both: an instant flash, a 175 ms pause, then a full-speed
+  jolt, so it read as lag. At 75 ms our start matches 1.8.9's 100 ms, but most of the trail is
+  gone. 1.8.9 also kicks the victim's arms and legs at the flash; we have no flinch. PvP
+  servers (NachoSpigot, WindSpigot) mainly handled attacks the moment they arrived instead of
+  on the next tick; the open-source ones kept sending positions every 2 ticks, and the glide is
+  client code they couldn't change. Measured designs (0 ping, Easy-bot combo average for a
+  w-tapping player): fixed 75 ms 4.3 hits; fixed 175 ms 5.9; 1.8.9's own glide (positions every
+  2 ticks, a third of the way per tick, a fresh sample forced on a hit, 25 ms delay) starts
+  moving at 81 ms, trails 172 ms, 6.5 hits, but fast A/D strafing looks softer (55% of the swing
+  shown, 1.8.9 74%); a "sharp" variant of today's delay that snaps the victim fresh right after
+  your hit and fades back before the next starts at 43 ms, 5.9 hits, but strafe turns still
+  show 175 ms late and an approaching victim lurches about 0.8 blocks at the hit.
 - **2026-10-23, 0.4.8, decision: the twists that feel good.** A screenshot of the Twists screen
   set to strafe speed 100%, strafe snappiness 100%, player pushing off, combo knockback 100%,
   head start 75 ms and wasted clicks off: "these feel good". So: the snappiest strafing, a
