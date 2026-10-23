@@ -16,6 +16,21 @@ what we think is causing it. Fixed items move to "Done" with the version that fi
   anything: what decides whether a combo carries on (how far each hit pushes versus how fast the
   attacker catches up, and the victim's ways out), measured in our game, plus how combo-focused
   servers tune it. Then options to try as twists.
+  **What we found** (research plus a simulation with our real movement and knockback code):
+  - Main cause: 1.8.9 draws other players about 3.5 ticks (175 ms) in the past even at 0 ping
+    (positions sent every 2 ticks, then glided in over 3), and hits are judged on the attacker's
+    screen. A victim flying away looks 1 to 1.5 blocks closer, so the attacker reaches them
+    150 to 200 ms before they can hit back. We draw host bots at the present (and remote
+    players at as little as 20 ms), so that head start is gone: after a hit both players get
+    back in reach on the same tick and it's a click race. With 1.8.9's delay, a victim who
+    lets the knockback carry them or strafes takes 4 to 6 hits; without it, 1.
+  - The fighting bot walks back toward you while flying and rods you at the exact distance a
+    sprint hit leaves it, so it breaks combos every time (being made difficulty-based).
+  - Bug: a jump pressed 16 to 33 ms after knockback cuts it far more than 1.8.9 allows (0.73 to
+    1.14 blocks of travel against 1.8.9's best of 1.65), so jump-resets are too strong.
+  - Changes that don't help: shorter hit protection, more lift, more reach, the strafe twists.
+    Less sideways push (sprint push 0.3 to 0.4, or 0.8 to 0.9 of all horizontal knockback)
+    makes combos longer, and too far (0.7, or sprint push 0.2) takes away strafing as an out.
 - **2026-10-23, 0.4.6, decision: hits and the rod first, depth over breadth.** Offered as next
   directions: a bigger kit (healing, bow), hit feel and fairness, team fights, or stranger
   mechanics. "nah lets focus specifically on the hit and rod mechanics for now first. i wanna
