@@ -97,10 +97,18 @@ knockback is used up. The confirming `Hurt` doesn't replay the effects. Against 
 
 **Bots** are owned by the host's game and appear to everyone else as normal players in snapshots.
 
-**Match rules** (`MatchRules`, our twists: strafe speed, strafe snappiness, wasted clicks). The
-host picks them in the pause menu's Twists screen and sends a `RulesUpdate` to each player as they
-join and to everyone when they change. Every game moves its own player and decides its own
-clicks, so they must all use the same rules; a client takes them only from the host.
+**Match rules** (`MatchRules`, our twists: strafe speed, strafe snappiness, wasted clicks, player
+pushing). The host picks them in the pause menu's Twists screen and sends a `RulesUpdate` to each
+player as they join and to everyone when they change. Every game moves its own player and decides
+its own clicks, so they must all use the same rules; a client takes them only from the host.
+
+**Player pushing** needs no messages of its own: each game keeps its own player (and the host its
+bots) out of the other players where it draws them, so you're pushed by the bodies you see, and
+the other games do the same from their side. Each reacts only to where the others are drawn and
+follows only half of how fast they back away, and remembers which side of someone it came from,
+so under lag two games never chase each other's reactions back and forth and nobody swaps sides
+(details and measurements in [movement.md](movement.md)). The one thing it sends is a flag in each
+player's state while they fly from a hit, so every game lets them pass through.
 
 ## Still to build
 

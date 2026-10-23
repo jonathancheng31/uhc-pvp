@@ -48,6 +48,8 @@ the same hit protection and knockback as sword hits.
      push from it stays on the server's copy and adds half of what's left to the next hit.
    - **Sprint knockback is used up only by hits that count** (full or stronger), so a click
      into hit protection keeps your next hit's sprint knockback.
+   - **With the player pushing twist on, a player flying from a hit passes through everyone**
+     until they land, so bodies never eat knockback ([movement.md](movement.md)).
    - **Hits never stop your sprint** (a deliberate change). 1.8.9's client stops it on every
      click on a player, but restarts it before you move when the sprint key is held, which our
      always-on sprint is. So movement is identical to 1.8.9 with the key held; we only skip

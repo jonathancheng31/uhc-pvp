@@ -22,7 +22,8 @@ the repo. Read the script's header for every option.
 | A player as seen through lag | `tools/screenshot.sh --out=DIR --host-args="--dummies=1 --dummy-mode=fight" -- --join=127.0.0.1 --bot=fight --ping=150 --jitter=20` |
 | The main menu | `tools/screenshot.sh --out=DIR -- --name=Me` |
 | The pause menu (Esc) | `tools/screenshot.sh --out=DIR -- --practice --bot=fight --pause` |
-| The Twists screen, with twists on | `tools/screenshot.sh --out=DIR -- --practice --bot=fight --twists --strafe=130 --grip=50 --wasted-clicks=0.15` |
+| The Twists screen, with twists on | `tools/screenshot.sh --out=DIR -- --practice --bot=fight --twists --strafe=130 --grip=50 --wasted-clicks=0.15 --push=100` |
+| Two players running into each other head-on (player pushing), through lag | `tools/screenshot.sh --out=DIR --at=2.2,2.6,3,4 --host-args="--hold=w --push=100" -- --join=127.0.0.1 --hold=w --ping=150` |
 | The settings screen | `tools/screenshot.sh --out=DIR -- --name=Me --settings` (or in a match: `-- --practice --bot=fight --settings`) |
 
 - `--at=3` sets when to shoot (seconds after the match starts). For motion, take a burst:

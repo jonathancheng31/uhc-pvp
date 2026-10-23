@@ -17,6 +17,11 @@ what we think is causing it. Fixed items move to "Done" with the version that fi
   this point. Take a little more freedom here and be more experimental for now." Picked from the
   polish list: a smarter fighting bot, players pushing apart, sounds, mouse sensitivity (plus
   field of view), and new experimental twists.
+  - Players pushing apart: **built in 0.4.7** as a twist, "Player pushing" on the Twists screen,
+    off (1.8.9) to 100%. At 100% nobody runs through anyone: you stop at someone and shove them
+    along, and players spawned inside each other slide apart. Lower is softer; below 60% you can
+    push through. Someone flying from a hit still passes through, so combos are untouched.
+    Waiting on: which value feels best (100% is the "solid" setting to try first).
 - **2026-10-22, 0.4.6, decision: "lets ignore match flow and other aspects for a while, we wanna
   polish gameplay."** Match flow and internet play wait; the feel pass and the twists come
   first (`design.md`, "Current status").
@@ -53,7 +58,6 @@ Not bugs: things that are expected to feel off until they're built.
 
 - When you hit another person over the network (not a bot on your own game), their knock back
   shows up one round trip later. Predicted knockback is planned (see `netcode.md`).
-- Players don't push each other apart when they overlap.
 - No slabs, stairs or stepping up blocks; no water or lava yet.
 
 ## Done

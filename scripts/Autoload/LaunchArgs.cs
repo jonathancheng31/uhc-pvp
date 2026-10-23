@@ -24,7 +24,10 @@ namespace UhcPvp.Autoload;
 /// --dummy-mode=MODE    How practice bots behave: still (default), strafe, fight or chase.
 /// --strafe=PERCENT     Host only: twists for this match, overriding the host's last choice
 /// --grip=PERCENT         from the pause menu: strafe speed (100 is 1.8), strafe snappiness
-/// --wasted-clicks=SEC    (0 is 1.8) and the wasted-click delay in seconds (0 is 1.8).
+/// --wasted-clicks=SEC    (0 is 1.8), the wasted-click delay in seconds (0 is 1.8) and
+/// --push=PERCENT         player pushing (0 is 1.8, 100 is solid).
+/// --hold=KEYS          Hold movement keys all match: any of w, a, s, d, and j to jump (tests,
+///                      screenshots: --hold=w on two opposite players runs them into each other).
 /// --ping=MS            Simulate this much extra ping.
 /// --jitter=MS          Simulate this much random extra delay.
 /// --loss=PERCENT       Simulate this percentage of lost packets.
@@ -61,10 +64,15 @@ public partial class LaunchArgs : Node
     public double? StrafeGrip { get; private set; }
     /// <summary>--wasted-clicks in seconds, or null.</summary>
     public double? WastedClickDelay { get; private set; }
+    /// <summary>--push as a fraction (1 for 100), or null.</summary>
+    public double? Pushing { get; private set; }
+    /// <summary>--hold: movement keys the local player holds all match (w, a, s, d, j), or empty.</summary>
+    public string HoldKeys { get; private set; } = "";
 
     /// <summary>The host's rules: its saved choice, with any twist given on the command line instead.</summary>
     public MatchRules RulesFor(MatchRules saved) => new MatchRules(
-        StrafeSpeed ?? saved.StrafeSpeed, StrafeGrip ?? saved.StrafeGrip, WastedClickDelay ?? saved.WastedClickDelay).Normalized();
+        StrafeSpeed ?? saved.StrafeSpeed, StrafeGrip ?? saved.StrafeGrip, WastedClickDelay ?? saved.WastedClickDelay,
+        Pushing ?? saved.Pushing).Normalized();
     public double PingMs { get; private set; }
     public double JitterMs { get; private set; }
     public double LossPercent { get; private set; }
@@ -117,6 +125,8 @@ public partial class LaunchArgs : Node
                 case "--strafe": StrafeSpeed = ParseDouble(value) / 100.0; break;
                 case "--grip": StrafeGrip = ParseDouble(value) / 100.0; break;
                 case "--wasted-clicks": WastedClickDelay = ParseDouble(value); break;
+                case "--push": Pushing = ParseDouble(value) / 100.0; break;
+                case "--hold": HoldKeys = value.ToLowerInvariant(); break;
                 case "--ping": PingMs = ParseDouble(value); break;
                 case "--jitter": JitterMs = ParseDouble(value); break;
                 case "--loss": LossPercent = ParseDouble(value); break;

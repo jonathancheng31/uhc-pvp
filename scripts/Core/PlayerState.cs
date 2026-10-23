@@ -11,6 +11,8 @@ public enum PlayerFlags : byte
     Sprinting = 2,
     Sneaking = 4,
     Dead = 8,
+    /// <summary>Flying from a knockback, until landing: pushing leaves them alone (see PlayerMotor.KnockbackFlight).</summary>
+    KnockbackFlight = 16,
 }
 
 /// <summary>

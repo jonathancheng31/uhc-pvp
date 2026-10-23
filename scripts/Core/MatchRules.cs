@@ -11,13 +11,16 @@ namespace UhcPvp.Core;
 /// <param name="StrafeSpeed">Faster strafing, see <see cref="Tuning.DefaultStrafeSpeed"/>. 1 is 1.8.9.</param>
 /// <param name="StrafeGrip">Snappier strafing, see <see cref="Tuning.DefaultStrafeGrip"/>. 0 is 1.8.9.</param>
 /// <param name="WastedClickDelay">Wasted clicks, in seconds, see <see cref="Tuning.DefaultWastedClickDelay"/>. 0 is 1.8.9.</param>
+/// <param name="Pushing">Player pushing, see <see cref="Tuning.DefaultPushing"/>. 0 is 1.8.9 (players walk through each other), 1 is solid.</param>
 public readonly record struct MatchRules(
     double StrafeSpeed = Tuning.DefaultStrafeSpeed,
     double StrafeGrip = Tuning.DefaultStrafeGrip,
-    double WastedClickDelay = Tuning.DefaultWastedClickDelay)
+    double WastedClickDelay = Tuning.DefaultWastedClickDelay,
+    double Pushing = Tuning.DefaultPushing)
 {
     /// <summary>Plain 1.8.9.</summary>
-    public static MatchRules Default => new(Tuning.DefaultStrafeSpeed, Tuning.DefaultStrafeGrip, Tuning.DefaultWastedClickDelay);
+    public static MatchRules Default => new(
+        Tuning.DefaultStrafeSpeed, Tuning.DefaultStrafeGrip, Tuning.DefaultWastedClickDelay, Tuning.DefaultPushing);
 
     /// <summary>
     /// The same rules made valid, for values from a file or the network: each is kept within its
@@ -26,7 +29,8 @@ public readonly record struct MatchRules(
     public MatchRules Normalized() => new(
         Snap(StrafeSpeed, 1.0, Tuning.MaxStrafeSpeed, Tuning.StrafeSpeedStep, Tuning.DefaultStrafeSpeed),
         Snap(StrafeGrip, 0.0, Tuning.MaxStrafeGrip, Tuning.StrafeGripStep, Tuning.DefaultStrafeGrip),
-        Snap(WastedClickDelay, 0.0, Tuning.MaxWastedClickDelay, Tuning.WastedClickDelayStep, Tuning.DefaultWastedClickDelay));
+        Snap(WastedClickDelay, 0.0, Tuning.MaxWastedClickDelay, Tuning.WastedClickDelayStep, Tuning.DefaultWastedClickDelay),
+        Snap(Pushing, 0.0, Tuning.MaxPushing, Tuning.PushingStep, Tuning.DefaultPushing));
 
     /// <summary>Whether every twist is at 1.8.9's setting.</summary>
     public bool IsMinecraft => Normalized() == Default;

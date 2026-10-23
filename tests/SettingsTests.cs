@@ -132,11 +132,16 @@ public class SettingsTests : TestCase
         CheckEqual(new MatchRules(3.0).Normalized().StrafeSpeed, Tuning.MaxStrafeSpeed, "capped at the maximum");
         CheckEqual(new MatchRules(0.5).Normalized().StrafeSpeed, 1.0, "never slower than 1.8");
         CheckEqual(new MatchRules(double.NaN).Normalized(), MatchRules.Default, "not a number");
-        CheckEqual(new Net.RulesUpdate(1.15f, 0.35f, 0.15f).ToMatchRules(), new MatchRules(1.15, 0.35, 0.15), "floats on the wire come back as exact steps");
-        CheckEqual(new Net.RulesUpdate(float.PositiveInfinity, float.NaN, -1f).ToMatchRules(), MatchRules.Default, "bad values on the wire");
+        CheckEqual(new Net.RulesUpdate(1.15f, 0.35f, 0.15f, 0.7f).ToMatchRules(), new MatchRules(1.15, 0.35, 0.15, 0.7), "floats on the wire come back as exact steps");
+        CheckEqual(new Net.RulesUpdate(float.PositiveInfinity, float.NaN, -1f, float.NaN).ToMatchRules(), MatchRules.Default, "bad values on the wire");
         CheckEqual(new MatchRules(1.0, 2.0, 9.0).Normalized(), new MatchRules(1.0, Tuning.MaxStrafeGrip, Tuning.MaxWastedClickDelay), "grip and click delay are capped");
         CheckEqual(new MatchRules(1.0, 0.33, 0.12).Normalized(), new MatchRules(1.0, 0.35, 0.1), "rounded to their 5% and 0.05 s steps");
         Check(MatchRules.Default.IsMinecraft && !new MatchRules(1.0, 0.0, 0.1).IsMinecraft, "knows when every twist is off");
+        CheckEqual(MatchRules.Default.Pushing, 0.0, "players walk through each other by default, like 1.8.9");
+        CheckEqual(new MatchRules(Pushing: 0.43).Normalized().Pushing, 0.4, "pushing rounds to its 10% steps");
+        CheckEqual(new MatchRules(Pushing: 2.0).Normalized().Pushing, 1.0, "pushing tops out at solid (100%)");
+        CheckEqual(new MatchRules(Pushing: -1.0).Normalized().Pushing, 0.0, "pushing never goes below off");
+        Check(!new MatchRules(Pushing: 1.0).IsMinecraft, "pushing counts as a twist");
         CheckEqual(MatchRules.Seconds(0), "Off", "a delay of 0 shows as off");
         CheckEqual(MatchRules.Seconds(0.15), "0.15 s", "a delay shows in seconds");
         CheckEqual(MatchRules.Percent(1.15), "115%", "shown as a percentage");
@@ -146,10 +151,10 @@ public class SettingsTests : TestCase
     {
         var config = new ConfigFile();
         Settings.Write(config, new GameSettings(144, 35, 25));
-        Settings.WriteRules(config, new MatchRules(1.35, 0.6, 0.2));
+        Settings.WriteRules(config, new MatchRules(1.35, 0.6, 0.2, 0.8));
         var reloaded = new ConfigFile();
         CheckEqual(reloaded.Parse(config.EncodeToText()), Error.Ok, "the file parses");
-        CheckEqual(Settings.ReadRules(reloaded), new MatchRules(1.35, 0.6, 0.2), "the rules come back");
+        CheckEqual(Settings.ReadRules(reloaded), new MatchRules(1.35, 0.6, 0.2, 0.8), "the rules come back");
         CheckEqual(Settings.Read(reloaded), new GameSettings(144, 35, 25), "next to the other settings");
         CheckEqual(Settings.ReadRules(new ConfigFile()), MatchRules.Default, "no file: plain 1.8");
         var broken = new ConfigFile();

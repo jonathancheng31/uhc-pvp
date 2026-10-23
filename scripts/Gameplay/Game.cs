@@ -133,25 +133,31 @@ public partial class Game : Node3D
         _players.Values.Where(p => p != player && !p.IsDead && p.Team != player.Team).ToList();
 
     /// <summary>
-    /// The push on one of our own players (us or a bot) from everyone overlapping it, teammates
-    /// too (the pushing twist; see <see cref="Pushing"/>). Others are where this game sees them:
-    /// our bots where they stand, remote players where they're drawn.
+    /// Everyone around one of our own players (us or a bot), for the pushing twist (see
+    /// <see cref="Pushing"/>): our bots where they stand, remote players where they're drawn on
+    /// this screen, so you're pushed by the bodies you see. Teammates count too. Players flying
+    /// from a hit are left out, and a flying player is left alone, so knockback stays whole.
     /// </summary>
-    public Vec3d PushOn(Player player, double strength)
+    public void FindPushContacts(Player player, List<PushContact> contacts)
     {
-        if (strength <= 0 || player.Motor is null)
+        contacts.Clear();
+        player.BeginPushContacts();
+        if (player.Motor is { KnockbackFlight: false })
         {
-            return Vec3d.Zero;
-        }
-        Vec3d push = Vec3d.Zero;
-        foreach (Player other in _players.Values)
-        {
-            if (other != player && !other.IsDead)
+            double now = Net.HostTime;
+            foreach (Player other in _players.Values)
             {
-                push += Pushing.Away(player.Feet, other.IsOwned ? other.Feet : other.ShownFeet, strength, player.Motor.OnGround);
+                if (other != player && !other.IsDead)
+                {
+                    (Vec3d feet, Vec3d move, bool flying) = other.PushBody(now);
+                    if (!flying)
+                    {
+                        contacts.Add(player.PushContactWith(other.PeerId, feet, move));
+                    }
+                }
             }
         }
-        return push;
+        player.EndPushContacts();
     }
 
     /// <summary>Host only: adds a practice bot on the other team, a few blocks in front of you, facing you.</summary>
@@ -334,6 +340,7 @@ public partial class Game : Node3D
             + $"seen={_seenBounds.Count} moving={moving} landed={HitsLanded} rods={RodHitsLanded} taken={HitsTaken} "
             + $"kills={Kills} ping_ms={(int)Math.Round(Net.PingSeconds * 1000)} "
             + $"strafe={MatchRules.Percent(Session.Rules.StrafeSpeed)} grip={MatchRules.Percent(Session.Rules.StrafeGrip)} "
-            + $"wasted={Session.Rules.WastedClickDelay:0.00}");
+            + $"wasted={Session.Rules.WastedClickDelay:0.00} push={MatchRules.Percent(Session.Rules.Pushing)} "
+            + $"pushed={LocalPlayer.Motor?.PushedTicks ?? 0} at={LocalPlayer.Feet.X:0.00},{LocalPlayer.Feet.Z:0.00}");
     }
 }
