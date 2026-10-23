@@ -37,27 +37,64 @@ public static class Tuning
     public const double SneakEyeDrop = 0.08;
     public const double MaxHealth = 20.0;
 
-    // --- Players pushing each other (a twist; 1.8.9 has none) -----------------------------
+    // --- Players pushing each other (a twist; 1.8.9 has none, see Movement/Pushing.cs) --------
 
     /// <summary>
-    /// In 1.8.9 players walk straight through each other: its push code only runs on the server,
-    /// whose copy the client overwrites every tick. The "Player pushing" twist (0 off, the 1.8.9
-    /// way) has each game push its own player away from anyone whose box overlaps it, harder the
-    /// deeper the overlap: at 100% and full overlap the push is this, in blocks per Minecraft
-    /// tick. At 100% nobody can run through anyone, head-on or mid-jump, and running into a
-    /// standing player shoves them along at about 2.4 blocks/s (Minecraft 1.9's gentle push tops
-    /// out at 0.044, which you can walk through). See docs/movement.md.
+    /// Walking into someone, your bodies end up overlapping by this much (blocks) and no more, at
+    /// 100%. A little squish is what lets you shove someone who isn't pushing back.
     /// </summary>
-    public const double PushImpulse = 0.3;
+    public const double PushSquish = 0.2;
     /// <summary>
-    /// In the air the push is halved: air keeps speed far longer than the ground does, so a full
-    /// push would fling players apart mid-jump.
+    /// Walking into someone, each Minecraft tick you may close this share of what's left to the
+    /// squish depth, so you ease to a stop instead of thudding. Each game reacts to the others as
+    /// it sees them, late by the lag, and with everyone easing in by half, a crowd pressing in
+    /// under lag sits right on the edge of bobbing in and out; a third leaves a safe margin.
     /// </summary>
-    public const double PushAirFactor = 0.5;
-    /// <summary>Players closer than this (centre to centre) don't push: there's no sensible direction.</summary>
+    public const double PushEaseIn = 1.0 / 3.0;
+    /// <summary>
+    /// Someone not walking into you slides out of an overlap: each Minecraft tick the two of you
+    /// would part by this fraction of it (half each), at 100%. This sets how fast a shoved player
+    /// slides away (about 1.1 blocks/s when sprinted into).
+    /// </summary>
+    public const double PushYield = 1.0;
+    /// <summary>
+    /// Walking into someone but deeper than the squish (lag, or a soft setting): you ease back by
+    /// this fraction of the extra each Minecraft tick (half each), at 100%. Gentler than
+    /// <see cref="PushYield"/>, which keeps crowds steady under lag.
+    /// </summary>
+    public const double PushBackOff = 0.7;
+    /// <summary>...but nobody is moved out faster than this together (blocks per Minecraft tick, so 5 blocks/s), at 100%: a slide, never a launch.</summary>
+    public const double PushMaxSeparation = 0.25;
+    /// <summary>
+    /// Below 100%, bodies are softer: you can keep pushing through someone at up to this speed
+    /// (blocks per Minecraft tick) at 50%, faster below that and slower above:
+    /// speed x (1 / setting - 1). From 60% up nobody gets through.
+    /// </summary>
+    public const double PushThroughSpeed = 0.1;
+    /// <summary>
+    /// You may follow someone backing away from you by this share of their speed: enough to keep
+    /// up while shoving them, without the two of you reacting to each other back and forth.
+    /// </summary>
+    public const double PushFollow = 0.5;
+    /// <summary>
+    /// Your keys count as walking into someone when they point within 60 degrees of them (the
+    /// cosine); in between walking into them and past them, the two rules blend.
+    /// </summary>
+    public const double PushPressCos = 0.5;
+    /// <summary>
+    /// Passes when working out one push against several players at once (squeezed in a crowd):
+    /// each pass shares the corrections out, so conflicting ones meet in the middle.
+    /// </summary>
+    public const int PushPasses = 4;
+    /// <summary>Players further apart than this (blocks between bodies) can't touch this tick.</summary>
+    public const double PushRange = 1.5;
+    /// <summary>Two players remember which side of each other they came from while closer than this (blocks between bodies).</summary>
+    public const double PushMemoryGap = 0.3;
+    /// <summary>Players closer than this (centre to centre) are "on top of each other" and part in a fixed direction.</summary>
     public const double PushMinDistance = 0.01;
+    /// <summary>The "Player pushing" twist's setting: 0 is off (1.8.9), 1 is solid; in steps of 10%.</summary>
     public const double DefaultPushing = 0.0;
-    public const double MaxPushing = 2.0;
+    public const double MaxPushing = 1.0;
     public const double PushingStep = 0.1;
 
     // --- Camera and mouse -----------------------------------------------------------------

@@ -18,6 +18,8 @@ public partial class TwistsMenu : PanelContainer
     private Label _strafeGripValue = null!;
     private HSlider _wastedClicks = null!;
     private Label _wastedClicksValue = null!;
+    private HSlider _pushing = null!;
+    private Label _pushingValue = null!;
     private bool _refreshing;
 
     /// <summary>Raised when the screen closes (Done or Esc); the pause menu shows again.</summary>
@@ -46,9 +48,12 @@ public partial class TwistsMenu : PanelContainer
             "Starting, stopping and switching between A and D happen sooner on the ground (1.8 takes a quarter second to switch).");
         (_wastedClicks, _wastedClicksValue) = Twist(box, "Wasted clicks", 0.0, Tuning.MaxWastedClickDelay, Tuning.WastedClickDelayStep,
             "A click that does nothing (a miss, or someone still in hit protection) blocks your clicks this long. Your crosshair turns red while it does.");
+        (_pushing, _pushingValue) = Twist(box, "Player pushing", 0.0, Tuning.MaxPushing, Tuning.PushingStep,
+            "Players can't walk through each other: you stop at someone and shove them along. Lower is softer; below 60% you can push through.");
         _strafeSpeed.ValueChanged += value => Change(Session.Rules with { StrafeSpeed = value });
         _strafeGrip.ValueChanged += value => Change(Session.Rules with { StrafeGrip = value });
         _wastedClicks.ValueChanged += value => Change(Session.Rules with { WastedClickDelay = value });
+        _pushing.ValueChanged += value => Change(Session.Rules with { Pushing = value });
 
         box.AddChild(new Control { CustomMinimumSize = new Vector2(0, 8) });
         if (IsHost)
@@ -78,6 +83,8 @@ public partial class TwistsMenu : PanelContainer
         _strafeGripValue.Text = rules.StrafeGrip <= 0 ? "Off" : MatchRules.Percent(rules.StrafeGrip);
         _wastedClicks.Value = rules.WastedClickDelay;
         _wastedClicksValue.Text = MatchRules.Seconds(rules.WastedClickDelay);
+        _pushing.Value = rules.Pushing;
+        _pushingValue.Text = rules.Pushing <= 0 ? "Off" : MatchRules.Percent(rules.Pushing);
         _refreshing = false;
     }
 
@@ -107,6 +114,10 @@ public partial class TwistsMenu : PanelContainer
         if (rules.WastedClickDelay != Tuning.DefaultWastedClickDelay)
         {
             parts.Add($"wasted clicks {MatchRules.Seconds(rules.WastedClickDelay)}");
+        }
+        if (rules.Pushing != Tuning.DefaultPushing)
+        {
+            parts.Add($"pushing {MatchRules.Percent(rules.Pushing)}");
         }
         return "On: " + string.Join(", ", parts);
     }

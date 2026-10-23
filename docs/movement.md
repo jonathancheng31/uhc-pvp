@@ -89,21 +89,64 @@ pushes only build up invisibly in the server's copy, which a knockback halves an
 a tiny extra push on a hit inside someone. We don't copy that.) Minecraft 1.9 added a gentle
 push that you can still walk through.
 
-**Player pushing** (Off, which is 1.8.9, to 200%) makes players solid-ish: each game pushes its
-own player (and its bots) away from anyone whose box overlaps it, teammates too, harder the deeper
-the overlap. Others are pushed by their own games, so it needs nothing over the network.
+**Player pushing** (Off, which is 1.8.9, to 100%, in 10% steps) makes bodies solid. Why: being
+able to run through someone, or stand inside them, looks wrong and takes away body-blocking and
+shoving as things you can do. Every game keeps its own player (and its bots) out of everyone else
+as they're drawn on its screen, teammates too, so it needs nothing extra on the network.
+Bodies count as upright cylinders the player's width (0.6) and height, so you slide around
+people instead of catching on corners.
 
-- At **100%**: at full overlap the push is 0.3 blocks per Minecraft tick. Nobody can run
-  through anyone (walking, sprinting, head-on, sprint-jumping), and running into a standing
-  player shoves them along at about 2.4 blocks/s. Two players spawned inside each other slide
-  apart within a quarter second, as a shove, never a launch.
-- At low values it's soft: at 20% a sprinting player still gets through, slowed.
-- **In the air the push is halved**, since the air keeps speed far longer than the ground.
-- It's added once per Minecraft tick, after the move, like Minecraft 1.9's. A knockback arriving
-  at the same time replaces it, so **knockback stays whole**.
-- Code: `Pushing.Away` (the push from one player on another), `Game.PushOn` (everyone around a
-  player), `PlayerMotor.Push`. `tests/PushTests.cs` checks the shape of the push, the scenarios
-  above, and that our 60 ticks/s motor adds it exactly where a 20 ticks/s player would.
+- **Walking into someone** (your keys point within 60 degrees of them), you ease in until your
+  bodies overlap by 0.2 blocks, closing a third of what's left each Minecraft tick, and stop
+  there. So you stop at them instead of passing through, without a thud or a bounce.
+- **Not walking into them** (standing, walking past, backing off), you slide out of any overlap.
+  So running into someone who isn't pushing back shoves them along; two players walking into
+  each other both stop; two players caught inside each other (a spawn, lag) slide apart.
+- **Knockback always stays whole.** A player flying from a hit (sword or rod) passes through
+  everyone until they land, and nobody is pushed by them; any overlap is sorted out after the
+  landing. In a 1v1 a hit always sends you away from the attacker, so it never comes up there.
+
+At 100%, measured on flat ground (`tests/PushTests.cs`):
+
+| | |
+|---|---|
+| Walking, sprinting or sprint-jumping into a standing player | you stop 0.11 blocks into them; they're shoved along at 1.1 blocks/s |
+| Two players sprinting head-on | both stop, 0.2 blocks into each other |
+| Two players caught inside each other (spawn) | apart within 0.13 s, as a slide (never faster than 3 blocks/s each) |
+| Walking past someone, brushing them | you slide around them; they're nudged aside a little |
+| Walking into one player who stands in front of another | both are shoved along, in order |
+
+**Lower settings are softer.** Overlaps part more gently, and below 60% you can push through
+someone (slowly at 40 to 50%, hardly slowed at 30% and below, where it's close to Minecraft 1.9's
+gentle push). From 60% up nobody gets through; the higher, the less you sink into each other:
+
+| Setting | Walk into a standing player | Head-on | Spawned 0.1 apart, apart in | Walking through someone takes |
+|---|---|---|---|---|
+| 10% to 30% | through | through | 2.0 s at 10%, 1.0 s at 20%, 0.6 s at 30% | 0.9 s (as with it off) |
+| 40% | through, slowed | through | 0.45 s | 1.1 s |
+| 50% | through, slowed | through | 0.28 s | 2.0 s |
+| 60% | stop, 0.34 overlap | stop, 0.52 | 0.22 s | can't |
+| 80% | stop, 0.12 | stop, 0.29 | 0.15 s | can't |
+| 100% | stop, 0.11 | stop, 0.20 | 0.10 s | can't |
+
+**Steady, with lag too.** Each game reacts only to where it draws the others, and only follows
+half of how fast someone backs away, so two games never chase each other's reactions back and
+forth. With other players drawn 100 or 150 ms late, two players pressed together, one shoving
+another, and four players pushing into each other from four sides all settle and stay still
+(less than 0.002 blocks of wobble per tick, the tests' limit). Two players sprinting head-on at
+that lag can overlap deeply for a moment, since each sees the other late, but each remembers which
+side it came from and they settle on their own sides. Over the network, a player at 150 ms ping
+sprinting head-on into the host ends 0.42 blocks apart from them, steady, on both screens.
+
+How it's built (`Pushing`, `PlayerMotor.Contacts`, `Game.FindPushContacts`): once per Minecraft
+tick, after the keys and any jump, each player's move this tick (its motion plus this tick's
+acceleration) gets a limit toward each player nearby, and the smallest push away from them that
+keeps every limit is added to its motion. Squeezed between several players, the corrections are
+shared out so conflicting ones meet in the middle. `McReference` applies the same rule at 20
+ticks a second, and `tests/PushTests.cs` checks our motor still lands on it exactly at every
+Minecraft tick, plus every situation above, at every setting, with and without lag.
+To see it over the network: `godot --path . -- --host --hold=w --push=100` and, in a second
+game, `godot --path . -- --join=127.0.0.1 --hold=w --ping=150` run straight into each other.
 
 Not yet: step-up onto slabs (no slabs exist), water and lava.
 
