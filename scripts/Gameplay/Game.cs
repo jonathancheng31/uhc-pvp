@@ -35,6 +35,8 @@ public partial class Game : Node3D
     public IEnumerable<Player> Players => _players.Values;
     /// <summary>How practice bots behave (host only; changed from the pause menu).</summary>
     public BotMode PracticeBotMode { get; private set; } = BotMode.Still;
+    /// <summary>How well practice bots fight (host only; changed from the pause menu and remembered).</summary>
+    public BotDifficulty PracticeBotDifficulty { get; private set; } = Tuning.DefaultBotDifficulty;
 
     /// <summary>Kill messages and other notices for the HUD.</summary>
     public event Action<string>? Notice;
@@ -52,10 +54,11 @@ public partial class Game : Node3D
 
         var args = LaunchArgs.Instance;
         PracticeBotMode = args.DummyMode;
+        PracticeBotDifficulty = args.BotDifficulty ?? Settings.Instance.BotDifficulty;
         LocalPlayer = SpawnPlayer(Net.MyId);
         if (args.BotMode is BotMode mode)
         {
-            LocalPlayer.Brain = new BotBrain(mode, Net.MyId);
+            LocalPlayer.Brain = new BotBrain(mode, Net.MyId, args.BotDifficulty ?? Tuning.DefaultBotDifficulty);
         }
         foreach (int id in Session.Players.Keys.Where(id => id != Net.MyId))
         {
@@ -196,6 +199,17 @@ public partial class Game : Node3D
         }
     }
 
+    /// <summary>Host only: how well every practice bot fights, now and in later matches.</summary>
+    public void SetPracticeBotDifficulty(BotDifficulty difficulty)
+    {
+        PracticeBotDifficulty = difficulty;
+        Settings.Instance.ChangeBotDifficulty(difficulty);
+        foreach (Player bot in _players.Values.Where(p => p.Kind == PlayerKind.Bot && p.Brain is not null))
+        {
+            bot.Brain!.Difficulty = difficulty;
+        }
+    }
+
     private Player SpawnPlayer(int id)
     {
         PlayerKind kind = id == Net.MyId ? PlayerKind.Local
@@ -212,7 +226,7 @@ public partial class Game : Node3D
         player.Setup(this, id, kind, World, home, yaw);
         if (kind == PlayerKind.Bot)
         {
-            player.Brain = new BotBrain(PracticeBotMode, id);
+            player.Brain = new BotBrain(PracticeBotMode, id, PracticeBotDifficulty);
         }
         AddChild(player);
         _players[id] = player;

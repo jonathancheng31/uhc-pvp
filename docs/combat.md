@@ -93,13 +93,120 @@ really stop sprinting for a tick (let go of W, press S or sneak) and start again
 
 ## Practice bots
 
-`scripts/Gameplay/BotBrain.cs`. Bots press the same controls a player does and their hits use
-the same rules. Modes: stand still, strafe, chase (moves like fight back but never swings), fight back (chases, sprints, strafes, sprint-jumps
-to close distance, clicks about 9 times a second, w-taps after sprint hits, throws its rod at 3.5
-to 8 blocks about every 1.5 seconds, turns at up to
-540 degrees per second with a little wobble). They respawn 2 s after dying and heal to full
-after 5 s without being hit.
+Bots press the same controls a player does and their hits use the same rules. Modes (pause
+menu): stand still, strafe, chase (moves like fight back but never swings or rods), fight back.
+They respawn 2 s after dying and heal to full after 5 s without being hit. Code:
+`scripts/Gameplay/BotBrain.cs` (what it decides), `scripts/Core/BotPerception.cs` (what it sees),
+`scripts/Core/BotAim.cs` (its hand on the mouse), `scripts/Core/BotSkill.cs` (what each skill
+number means) and `scripts/Core/Tuning.cs` (the numbers).
 
+### How the fighting bot plays (since 0.4.7)
+
+Like a good player with human limits, not an aimbot. The host picks its **skill** in the pause
+menu, under the bot mode: **Easy**, **Normal** (the default) or **Hard**, remembered for the next
+match (`--bot-skill=easy|normal|hard` on the command line).
+
+- **It sees you late.** It aims and decides from where you were a reaction time ago (Hard 0.08 s,
+  Normal 0.1, Easy 0.2), led by how you were moving then. Keep moving the same way and it follows
+  you; switch strafe direction and its aim slips until it catches up. Good strafing makes it miss.
+- **Its aim is a hand.** It follows you smoothly, closes a gap fast but not instantly, has a top
+  turning speed, always wanders a little (Hard 1.5 degrees, Easy 4) and gets knocked off when you
+  hit it. Up to 0.4.6 the bot turned straight at your chest at 540 degrees a second: perfect aim.
+- **It clicks like a person**, irregularly: Easy about 7 times a second, Normal 11, Hard 12.5.
+  Normal and Hard click only once you're in reach, so their first click lands the moment you
+  come in (which wins the race for the first hit); Easy spams as you come in.
+- **W-taps** (sometimes an S-tap) after its sprint hits, so the next one knocks you back fully:
+  Hard always, Normal 85% of the time, Easy 40%.
+- **Patience.** After landing a hit it usually waits out your hit protection instead of clicking
+  into it (each click on you while sprinting slows it to 60%), keeping just outside your reach
+  meanwhile, then strikes as it ends (Hard 90% of the time, Normal 60%, Easy never).
+- **Strafes unpredictably**: random lengths, shorter at higher skill, sometimes circling against
+  your strafe; straight lines when closing in from afar or chasing its combo. It switches more
+  often under the faster and snappier strafing twists.
+- **Rods** to open a fight (as you come at it), to extend its combo (catching you in the air as
+  your protection ends and you fly out of sword reach) and to stop your chase when you're comboing
+  it. Each chance is taken or passed on (Hard and Normal 60% of the time, Easy 30% and only to open).
+- **Escapes your combos**, each a choice it makes on each of your hits, as often and as precisely
+  as its skill:
+
+  | When your hit lands, it... | Easy | Normal | Hard |
+  |---|---|---|---|
+  | clicks you right back (hit select) | never | 60% | 90% |
+  | jumps on the exact tick (jump reset) | never | 30% | 60% |
+  | holds W against the knockback | 10% | 60% | 90% |
+  | strafes off to one side | never | 30% | 50% |
+  | rods you as you chase | never | yes | yes |
+
+  The hit select and the jump reset only work on the first Minecraft tick of the knockback;
+  Hard gets that tick about two times in three, Normal about half the time. **Easy lets your
+  knockback carry it**, so you can practise combos on it.
+- **Under the wasted-clicks twist** it times its clicks instead of spamming: it only clicks when
+  it reckons your protection is over and its crosshair is well on you.
+- Bots click before they move within a tick, the order Minecraft handles a tick in (a person's
+  click lands between our ticks, so it's the same for them). Up to 0.4.6 bots moved first, which
+  made hit selecting impossible for them: by then the knockback had carried them out of reach.
+
+### Escaping a combo, measured
+
+How far a sprint hit sends someone who was running at the attacker, in the half second before
+the attacker's next hit can land (`tests/BotTests.cs`, `TestWaysToEscapeACombo`):
+
+| After the hit, they... | Flight | |
+|---|---|---|
+| let go of the keys | 4.0 blocks | |
+| hold W toward the attacker | 2.5 | air control steers against it |
+| hold W and click the attacker right away (hit select) | 1.1 | the 1.8.9 attack slowdown (x0.6) cuts the knockback too |
+| ... and click twice | 0.6 | |
+| ... click 0.2 s late | 2.1 | |
+| hold W and jump on the exact tick (jump reset) | 1.7 | the sprint-jump pushes back toward the attacker |
+| ... a tick late | 2.5 | already in the air: nothing |
+| ... a tick early | 4.3 | worse: hit in the air |
+
+The old bot (0.4.6) held W always and rodded at 3.5 to 8 blocks about every 1.5 s (where a sprint
+hit leaves you), which worked as a built-in combo breaker. It clicked within 4.2 blocks, but
+after moving, so it only cut its knockback by accident on 3% (against a precise attacker) to 10%
+(bot against bot) of the hits it took.
+
+### Measured against the old bot and each other
+
+`tests/BotDuel.cs` fights two bot brains without a scene, through the same rules (movement,
+aiming, hit protection, knockback, rod, wasted clicks), starting 10 to 14 blocks apart until one
+dies. `tests/LegacyBotBrain.cs` is the 0.4.6 bot, kept as a yardstick. 400 duels each (rerun with
+`BOT_REPORT=300 tools/run_tests.sh BotReport`, about a minute); the 0.4.6 bot against itself comes
+out at 48 to 51%, so the duels are fair.
+
+Duels won against the 0.4.6 bot, by twist (its hits landed per duel in brackets):
+
+| | 1.8.9 | Wasted clicks 0.15 s | Strafe 130%, snappiness 50% |
+|---|---|---|---|
+| Easy | 0% | 3% | 0% |
+| Normal | 48% (6.0 to 6.3) | 98% | 28% |
+| Hard | 86% (6.9 to 4.5) | 98% | 80% |
+
+Hard beats Normal 91% of the time and Normal beats Easy every time. Under wasted clicks the bot
+wastes about a quarter of its clicks where the 0.4.6 bot's spam wastes 84%, so timing beats it.
+With the same eyes and hands as the bot it faces (the 0.4.6 decisions given today's aim), today's
+decisions win 81% (Normal) and 98% (Hard): the decisions matter, not just the aim.
+
+In the real game, over the network on one machine (both ways round, 8 minutes each): Hard 25
+kills to the 0.4.6 bot's 17; Normal 19 to 19.
+
+**How long your combos get.** A scripted player who sprints straight in, w-taps every hit, never
+clicks into protection and clicks the moment its crosshair is on you (`tests/ComboAttacker.cs`),
+with Normal's eyes and hands:
+
+| Against | Average combo | Combos of 4+ hits | Longest combo per fight | Who wins |
+|---|---|---|---|---|
+| Easy | 4.0 hits | 46% (1 in 10 reach 8) | 6.8 | player 100% |
+| Normal | 1.7 | 7% | 3.2 | player 89% |
+| Hard | 1.4 | 1% | 2.2 | player 34% |
+| 0.4.6 bot | 2.2 | 17% | 4.2 | player 92% |
+
+With perfect aim the same player averages 5.1 on Easy, 2.8 on Normal, 1.7 on Hard and 4.6 on
+the 0.4.6 bot. A kill takes 9 hits, so 9 is the longest a combo can be.
+
+`tests/BotTests.cs` checks what the bot sees and how it aims, when it escapes combos at each skill,
+w-tapping and patience, and (with fewer duels) the comparisons above.
 ## Verified against Minecraft
 
 `tests/CombatTests.cs`: damage and armor, hit protection on the tick grid, 9 hits to kill,

@@ -114,10 +114,7 @@ public partial class Game
         WasteClick(attacker, result);
         bool counted = result != HitResult.Ignored;
         attacker.Motor.OnHitLanded(counted);
-        if (counted && sprintKnockback)
-        {
-            attacker.Brain?.OnSprintHitLanded();
-        }
+        attacker.Brain?.OnAttack(target.PeerId, result, sprintKnockback);
     }
 
     /// <summary>

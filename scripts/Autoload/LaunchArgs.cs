@@ -22,6 +22,8 @@ namespace UhcPvp.Autoload;
 /// --practice           Host a solo practice match with a training dummy.
 /// --dummies=N          Host only: add N practice bots.
 /// --dummy-mode=MODE    How practice bots behave: still (default), strafe, fight or chase.
+/// --bot-skill=LEVEL    How well fighting bots (and --bot=fight) play: easy, normal or hard
+///                      (default: the host's last choice from the pause menu; normal for --bot).
 /// --strafe=PERCENT     Host only: twists for this match, overriding the host's last choice
 /// --grip=PERCENT         from the pause menu: strafe speed (100 is 1.8), strafe snappiness
 /// --wasted-clicks=SEC    (0 is 1.8) and the wasted-click delay in seconds (0 is 1.8).
@@ -55,6 +57,8 @@ public partial class LaunchArgs : Node
     public bool Practice { get; private set; }
     public int Dummies { get; private set; }
     public BotMode DummyMode { get; private set; } = Gameplay.BotMode.Still;
+    /// <summary>--bot-skill, or null to use the host's saved choice.</summary>
+    public BotDifficulty? BotDifficulty { get; private set; }
     /// <summary>--strafe as a multiplier (1.3 for 130), or null to use the host's saved choice.</summary>
     public double? StrafeSpeed { get; private set; }
     /// <summary>--grip as a fraction (0.5 for 50), or null.</summary>
@@ -114,6 +118,7 @@ public partial class LaunchArgs : Node
                 case "--practice": Practice = true; break;
                 case "--dummies": Dummies = ParseInt(value, 0); break;
                 case "--dummy-mode": DummyMode = ParseMode(value, Gameplay.BotMode.Still); break;
+                case "--bot-skill": BotDifficulty = ParseDifficulty(value); break;
                 case "--strafe": StrafeSpeed = ParseDouble(value) / 100.0; break;
                 case "--grip": StrafeGrip = ParseDouble(value) / 100.0; break;
                 case "--wasted-clicks": WastedClickDelay = ParseDouble(value); break;
@@ -170,6 +175,9 @@ public partial class LaunchArgs : Node
 
     private static BotMode ParseMode(string value, BotMode fallback) =>
         Enum.TryParse(value, ignoreCase: true, out BotMode mode) ? mode : fallback;
+
+    private static BotDifficulty? ParseDifficulty(string value) =>
+        Enum.TryParse(value, ignoreCase: true, out BotDifficulty difficulty) && Enum.IsDefined(difficulty) ? difficulty : null;
 
     private static double ParseDouble(string value) =>
         double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double result) ? result : 0.0;

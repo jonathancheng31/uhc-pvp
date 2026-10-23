@@ -193,6 +193,12 @@ public partial class Player : Node3D
 
         BotIntent? intent = Brain?.Think(this, _game.EnemiesOf(this), delta);
         MovementInput input = intent?.Input ?? KeyboardInput();
+        if (intent?.Attack == true)
+        {
+            // A bot's click comes before its move, as Minecraft handles clicks before the player
+            // moves each tick (and as a person's click lands between our ticks).
+            _game.TryAttack(this);
+        }
         _previousPosition = Motor.Position;
         // The match's twists, as the host set them (the same for every player).
         MatchRules rules = Session.Instance.Rules;
@@ -202,10 +208,6 @@ public partial class Player : Node3D
         if (Motor.Position.Y < Tuning.VoidY)
         {
             Respawn();
-        }
-        if (intent?.Attack == true)
-        {
-            _game.TryAttack(this);
         }
         if (intent?.Rod == true)
         {
@@ -298,12 +300,22 @@ public partial class Player : Node3D
     private bool AttackHeld =>
         IsLocal && Brain is null && Input.MouseMode == Input.MouseModeEnum.Captured && Input.IsActionPressed(Controls.Attack);
 
+    /// <summary>
+    /// When (<see cref="Network.Now"/>) this player's red flash last started: a full hit, which
+    /// starts their hit protection. Practice bots watch for it, as people do.
+    /// </summary>
+    public double HurtShownAt { get; private set; } = double.NegativeInfinity;
+    /// <summary>Whether that hit was a rod's.</summary>
+    public bool HurtShownByRod { get; private set; }
+
     /// <summary>Shows a hit on this player (flash, health). Sound and particles are played by the game.</summary>
     public void ShowHurt(Hurt hurt)
     {
         if ((hurt.Flags & HurtFlags.Fresh) != 0)
         {
             _flashTime = FlashSeconds;
+            HurtShownAt = Network.Instance.Now;
+            HurtShownByRod = (hurt.Flags & HurtFlags.Rod) != 0;
         }
         if (!IsOwned)
         {

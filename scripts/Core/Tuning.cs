@@ -256,13 +256,95 @@ public static class Tuning
     public const double BotHealDelay = 5.0;
     /// <summary>How far in front of you the practice dummy appears.</summary>
     public const double PracticeDummyDistance = 5.0;
-    /// <summary>Clicks per second of a fighting bot (average; it varies a bit).</summary>
-    public const double BotClicksPerSecond = 9.0;
-    /// <summary>A fighting bot throws its rod at enemies between these distances (blocks)...</summary>
+    /// <summary>
+    /// The skill new practice bots start with, until the host picks another in the pause menu
+    /// (it's remembered for the next match).
+    /// </summary>
+    public const BotDifficulty DefaultBotDifficulty = BotDifficulty.Normal;
+    /// <summary>
+    /// How the fighting bot plays at each skill (see <see cref="BotSkill"/> for what each number
+    /// means, and docs/combat.md for how they were picked and measured). Easy: slow to react,
+    /// loose aim, about 7 clicks a second into hit protection, rarely w-taps, rods only to open,
+    /// and lets your knockback carry it (never hit selects, jump resets or strafes out), so you
+    /// can practise combos on it.
+    /// </summary>
+    public static readonly BotSkill EasyBot = new(
+        ReactionSeconds: 0.2, Anticipation: 0.5, AimErrorDegrees: 4, AimSettleSeconds: 0.12, TurnSpeed: 400,
+        HitJoltDegrees: 10, ClicksPerSecond: 7, ClickSpread: 0.3, ReachSlack: 0.9, Patience: 0,
+        TimingErrorSeconds: 0.08, WTapChance: 0.4, StrafeMinSeconds: 0.7, StrafeMaxSeconds: 1.6, RodChance: 0.3,
+        RodTactics: false, HitSelectChance: 0, HoldForwardChance: 0.1, JumpResetChance: 0, EscapeChance: 0);
+    /// <summary>
+    /// Normal: a decent player. About 11 clicks a second, usually w-taps and waits out your hit
+    /// protection, escapes about half your hits one way or another, rods to open, extend and escape.
+    /// </summary>
+    public static readonly BotSkill NormalBot = new(
+        ReactionSeconds: 0.1, Anticipation: 0.85, AimErrorDegrees: 2.2, AimSettleSeconds: 0.08, TurnSpeed: 600,
+        HitJoltDegrees: 6, ClicksPerSecond: 11, ClickSpread: 0.25, ReachSlack: 0, Patience: 0.6,
+        TimingErrorSeconds: 0.04, WTapChance: 0.85, StrafeMinSeconds: 0.35, StrafeMaxSeconds: 1.0, RodChance: 0.6,
+        RodTactics: true, HitSelectChance: 0.6, HoldForwardChance: 0.6, JumpResetChance: 0.3, EscapeChance: 0.3);
+    /// <summary>
+    /// Hard: a strong UHC player. Quick, steady aim, about 12.5 clicks a second, always w-taps,
+    /// times its hits, and escapes combos the way good players do, with well-timed hit selects
+    /// and jump resets.
+    /// </summary>
+    public static readonly BotSkill HardBot = new(
+        ReactionSeconds: 0.08, Anticipation: 0.9, AimErrorDegrees: 1.5, AimSettleSeconds: 0.06, TurnSpeed: 800,
+        HitJoltDegrees: 4, ClicksPerSecond: 12.5, ClickSpread: 0.2, ReachSlack: 0, Patience: 0.9,
+        TimingErrorSeconds: 0.025, WTapChance: 1.0, StrafeMinSeconds: 0.2, StrafeMaxSeconds: 0.8, RodChance: 0.6,
+        RodTactics: true, HitSelectChance: 0.9, HoldForwardChance: 0.9, JumpResetChance: 0.6, EscapeChance: 0.5);
+    /// <summary>
+    /// For this long after a sword hit lands on it (seconds), a bot is flying with the knockback.
+    /// It only clicks then to hit select (<see cref="BotSkill.HitSelectChance"/>).
+    /// </summary>
+    public const double BotKnockbackWindow = 0.25;
+    /// <summary>
+    /// A hit select is a click as your hit lands, anticipated rather than aimed: the bot makes it
+    /// if it sees you within this much beyond reach (blocks); whether it connects is up to the rules.
+    /// </summary>
+    public const double BotHitSelectSlack = 0.5;
+    /// <summary>
+    /// A bot counts itself carried by a sword hit's knockback for this long (seconds: the
+    /// attacker's wait until their next hit can land), whether it holds W against it or not
+    /// (<see cref="BotSkill.HoldForwardChance"/>).
+    /// </summary>
+    public const double BotKnockbackFlight = 0.5;
+    /// <summary>
+    /// Under the wasted-clicks twist a patient bot (<see cref="BotSkill.Patience"/> 1) only clicks
+    /// when its crosshair is at least this far inside your hitbox as it sees you (blocks), so it
+    /// rarely clicks at air; less patient bots click with less to spare.
+    /// </summary>
+    public const double BotTimedClickMargin = 0.15;
+    /// <summary>A bot that strafes out of a combo keeps at it this long after the hit (seconds).</summary>
+    public const double BotEscapeSeconds = 0.7;
+    /// <summary>A bot's aim wanders off and back about this slowly, in seconds (how long a wander lasts).</summary>
+    public const double BotAimWanderSeconds = 0.35;
+    /// <summary>Bots aim at this height above a player's feet: the chest.</summary>
+    public const double BotAimHeight = 1.2;
+    /// <summary>A bot judges how someone is moving from where they were over this long, in seconds.</summary>
+    public const double BotMotionWindow = 0.1;
+    /// <summary>A bot counts itself in a combo (giving or taking) for this long after the last hit, in seconds.</summary>
+    public const double BotComboMemory = 1.0;
+    /// <summary>A fighting bot throws its rod at enemies between these distances (blocks).</summary>
     public const double BotRodMinDistance = 3.5;
     public const double BotRodMaxDistance = 8.0;
-    /// <summary>...about this often (seconds, average; it varies a bit).</summary>
-    public const double BotRodSeconds = 1.5;
+    /// <summary>A bot opens with its rod at most this often (seconds), so it fights with its sword in between.</summary>
+    public const double BotRodOpenSeconds = 1.5;
+    /// <summary>
+    /// To extend a combo, a bot rods you so the bobber arrives no later than this after your hit
+    /// protection ends (seconds), catching you while you're still in the air.
+    /// </summary>
+    public const double BotRodExtendWindow = 0.3;
+    /// <summary>After passing on a chance to rod, a bot thinks again after about this long (seconds; up to twice it).</summary>
+    public const double BotRodThinkSeconds = 0.3;
+    /// <summary>Having decided to rod, a bot gives up if it can't line the throw up within this long (seconds).</summary>
+    public const double BotRodAimSeconds = 0.6;
+    /// <summary>A fighting bot sprint-jumps to close a gap wider than this (blocks).</summary>
+    public const double BotSprintJumpDistance = 7.0;
+    /// <summary>
+    /// A disciplined bot waiting for your hit protection to end keeps at least this far away
+    /// (blocks, feet to feet), just outside your reach, so you can't hit it first.
+    /// </summary>
+    public const double BotWaitDistance = 3.4;
 
     // --- Arena -----------------------------------------------------------------------------
 
