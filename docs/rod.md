@@ -22,6 +22,18 @@ runs, which is where rod knockback on players comes from). Numbers live in
   There's no separate reel-in.
 - **A bobber that hits an enemy catches them:** it knocks them back away from you and hangs on
   their chest. No damage, no pull.
+- **How hard it knocks back is a twist** (since 0.4.11, the owner's request: "make another
+  slider to adjust the fishing rod knockback"). The host sets "Rod knockback" on the Twists
+  screen, in the Fishing rod column under the cooldown: from Off to 200%, in 5% steps. 100% is
+  1.8's (an unsprinted sword hit's) and the default, so nothing changes until the host moves it.
+  It scales the push away from you and the lift together, the lift's cap included, so a higher
+  setting sends people both farther and higher; their own motion is halved at any setting, as
+  for any hit. Because more lift means more time in the air, the flight grows faster than the
+  percentage: a player standing still lands 0.7 blocks away at 50% (0.25 high), 1.8 at 100%
+  (1 high), 3.3 at 150% (2.1 high) and 4.9 at 200% (3.6 high). At Off a catch still catches
+  them (the bobber hangs on them) and still starts their hit protection, but doesn't move them
+  at all, so a sword hit right after does its damage with no knockback. Sword hits never change.
+  If the host changes it mid-match, it counts from the next catch.
 - **It counts as a hit for hit protection** (the owner's choice, like 1.8):
   - A rod hit starts the victim's half-second protection, with 0 as the "last damage".
   - A sword hit inside that half second is a stronger hit: full damage, but no knockback.
@@ -51,7 +63,8 @@ runs, which is where rod knockback on players comes from). Numbers live in
 | Each tick | move; then speed -0.04 down; then keep 92% (50% touching ground or a wall) | 1.8.9 |
 | Hitting a block | stops where it touches, keeps 10% of its speed | ours (1.8.9 stays where it was that tick, short of the surface, then comes loose every tick with a random 0–20%) |
 | Catching players | their box counts 0.3 bigger on every side | 1.8.9 |
-| Knockback | an unsprinted sword hit's: from the victim's server copy, halve its motion, 0.4 away from the thrower's feet, 0.4 up | 1.8 servers |
+| Knockback | an unsprinted sword hit's: from the victim's server copy, halve its motion, 0.4 away from the thrower's feet, 0.4 up (at most 0.4) | 1.8 servers |
+| Rod knockback | the push away, the lift and its cap times the host's setting: Off (no knockback at all) to 200%, 100% by default; the halving stays | ours (a twist, since 0.4.11) |
 | Hangs at | 0.6 of the player's height (chest) | ours (1.8.9: 0.8, the neck) |
 | Line breaks at | 32 blocks | 1.8.9 |
 | Catches | only while moving | 1.8.9 in effect (its path on the ground is next to nothing) |
@@ -81,6 +94,9 @@ A level throw lands about 10.6 blocks away; thrown 20 degrees up, about 15.6.
   past; a bot's, from where it sees them, through the same delay), and the victim's game applies
   the hit. Everyone else's bobber, the host's bots' included, is shown on the same delay as they
   are, so it leaves their hand and catches people as drawn.
+- `scripts/Combat/CombatRules.cs`: the knockback. `ApplyKnockback` is the victim's game landing
+  a hit's knockback, used by the game and by the bot duels in the tests alike; for a rod catch
+  it reads the match's rod knockback as the hit lands (since 0.4.11) and at Off sends nothing.
 - `scripts/Gameplay/BobberView.cs`: the bobber and its sagging line, drawn after the players
   move so the line stays on the rod tip.
 - Practice bots that fight back use the rod at 3.5 to 8 blocks as players do (since 0.4.7): to
@@ -103,12 +119,19 @@ applies from the next throw, and with no cooldown bots almost never throw away t
 bobber; when the bobber disappears (at rest on the floor or on a wall top, hooked, dropped,
 still moving, falling down a wall) and that it catches no one once at rest; that asking for an
 earlier time after a later one gives where it was then, and the moment it vanishes doesn't
-depend on the order. `tests/CoreTests.cs`: nobody is hit at their old body after a respawn.
+depend on the order. Since 0.4.11: rod knockback at 100% is exactly the knockback from before
+it was a twist; at other settings the push, the lift and its cap scale while the halving stays;
+at Off a catch changes nothing about how the victim moves but still starts their hit
+protection; sword hits move the same at every setting; and the flight numbers above, measured
+through a whole catch (a thrown bobber, the catch, the knockback landing at the victim's next
+Minecraft tick). `tests/CoreTests.cs`: nobody is hit at their old body after a respawn.
 `tools/smoke_test.sh` requires every bot player, including the laggy one, to land rod hits,
-with a 0.5 s rod cooldown set by the host.
+with a 0.5 s rod cooldown and 150% rod knockback set by the host.
 
 ## Open questions
 
 - Balance: whether 0.75 s is the right default cooldown (`Tuning.DefaultRodCooldown`); the
   host can try others on the Twists screen. Before 0.4.2 there was none, and a player could rod someone every half second
   to keep them away.
+- Balance: which rod knockback feels right (`Tuning.DefaultRodKnockback`, 1.8's 100% for now).
+  Bots rod the same way at every setting, including Off, where a catch can't stop a chase.

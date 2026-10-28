@@ -116,8 +116,10 @@ timed hit.)
 1.8.9 by default. The owner wants comboing to be a bigger part of the game. The host can turn
 **combo knockback** down from 100% (1.8.9) to 60% in the Twists screen: a sprint hit's extra
 sideways push (1.8.9's 0.5, `Tuning.SprintKnockbackBonus`) becomes that fraction of itself. The
-base push (0.4), the lift, hits without sprint knockback and the rod stay 1.8.9's. Code:
-`CombatRules.Knockback`'s `comboKnockback`; the victim's game applies it.
+base push (0.4), the lift and hits without sprint knockback stay 1.8.9's, and the rod isn't
+touched (its knockback has a twist of its own since 0.4.11, see [rod.md](rod.md)). Code:
+`CombatRules.Knockback`'s `comboKnockback`; the victim's game applies it
+(`CombatRules.ApplyKnockback`).
 
 Why this one: what decides whether a combo carries on is how far each hit sends the victim
 against how fast the attacker catches up. In our combo simulation less sideways push makes

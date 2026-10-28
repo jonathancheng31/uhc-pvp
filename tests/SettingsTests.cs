@@ -127,7 +127,7 @@ public class SettingsTests : TestCase
     public void TestMinecraftAndTheDefaults()
     {
         MatchRules plain = MatchRules.Minecraft;
-        CheckEqual(plain, new MatchRules(1.0, 0.0, 0.0, 0.0, 1.0, 0.175, 0.0), "plain 1.8.9: every twist at 1.8.9's setting");
+        CheckEqual(plain, new MatchRules(1.0, 0.0, 0.0, 0.0, 1.0, 0.175, 0.0, 1.0), "plain 1.8.9: every twist at 1.8.9's setting");
         Check(plain.IsMinecraft && !plain.IsDefault, "plain 1.8 knows it's plain 1.8, and isn't the defaults");
         CheckEqual(plain.Normalized(), plain, "plain 1.8 is already valid");
         CheckEqual(MatchRules.Default, plain with { StrafeGrip = 1.0, HeadStart = 0.075, RodCooldown = 0.75 },
@@ -144,16 +144,22 @@ public class SettingsTests : TestCase
         CheckEqual((plain with { StrafeSpeed = 1.32 }).Normalized().StrafeSpeed, 1.3, "rounded to the slider's 5% steps");
         CheckEqual((plain with { StrafeSpeed = 3.0 }).Normalized().StrafeSpeed, Tuning.MaxStrafeSpeed, "capped at the maximum");
         CheckEqual((plain with { StrafeSpeed = 0.5 }).Normalized().StrafeSpeed, 1.0, "never slower than 1.8");
-        var nan = new MatchRules(double.NaN, double.NaN, double.NaN, double.NaN, double.NaN, double.NaN, double.NaN);
+        var nan = new MatchRules(double.NaN, double.NaN, double.NaN, double.NaN, double.NaN, double.NaN, double.NaN, double.NaN);
         CheckEqual(nan.Normalized(), MatchRules.Default, "not a number: the defaults");
         CheckEqual((plain with { StrafeGrip = double.NaN }).Normalized(), plain with { StrafeGrip = Tuning.DefaultStrafeGrip },
             "one broken twist gets its default, the rest stay");
-        CheckEqual(new Net.RulesUpdate(1.15f, 0.35f, 0.15f, 0.7f, 0.85f, 0.225f, 1.15f).ToMatchRules(), new MatchRules(1.15, 0.35, 0.15, 0.7, 0.85, 0.225, 1.15), "floats on the wire come back as exact steps");
-        CheckEqual(new Net.RulesUpdate(float.PositiveInfinity, float.NaN, -1f, float.NaN, float.NaN, float.NaN, float.NaN).ToMatchRules(),
+        CheckEqual(new Net.RulesUpdate(1.15f, 0.35f, 0.15f, 0.7f, 0.85f, 0.225f, 1.15f, 1.35f).ToMatchRules(),
+            new MatchRules(1.15, 0.35, 0.15, 0.7, 0.85, 0.225, 1.15, 1.35), "floats on the wire come back as exact steps");
+        CheckEqual(new Net.RulesUpdate(float.PositiveInfinity, float.NaN, -1f, float.NaN, float.NaN, float.NaN, float.NaN, float.NaN).ToMatchRules(),
             MatchRules.Default, "bad values on the wire: the defaults");
         CheckEqual(RulesUpdateRoundTrip(MatchRules.Minecraft), MatchRules.Minecraft, "plain 1.8 crosses the wire");
         CheckEqual(RulesUpdateRoundTrip(MatchRules.Default), MatchRules.Default, "so do the defaults");
         CheckEqual(RulesUpdateRoundTrip(MatchRules.Default with { RodCooldown = 0.35 }).RodCooldown, 0.35, "and a rod cooldown");
+        foreach (double rodKnockback in new[] { 0.0, 0.05, 0.5, 1.15, 1.5, 1.95, 2.0 })
+        {
+            CheckEqual(RulesUpdateRoundTrip(MatchRules.Default with { RodKnockback = rodKnockback }),
+                MatchRules.Default with { RodKnockback = rodKnockback }, $"and a rod knockback of {rodKnockback:0.00}, the rest untouched");
+        }
         CheckEqual((plain with { StrafeGrip = 2.0, WastedClickDelay = 9.0 }).Normalized(),
             plain with { StrafeGrip = Tuning.MaxStrafeGrip, WastedClickDelay = Tuning.MaxWastedClickDelay }, "grip and click delay are capped");
         CheckEqual((plain with { StrafeGrip = 0.33, WastedClickDelay = 0.12 }).Normalized(),
@@ -190,6 +196,17 @@ public class SettingsTests : TestCase
             double snapped = (plain with { RodCooldown = seconds }).Normalized().RodCooldown;
             CheckNear(snapped * Tuning.SimRate, Math.Round(snapped * Tuning.SimRate), 1e-9, $"every step is a whole number of our ticks ({snapped})");
         }
+        CheckEqual(MatchRules.Minecraft.RodKnockback, 1.0, "1.8's rod knocks back like an unsprinted sword hit: all of it");
+        CheckEqual(MatchRules.Default.RodKnockback, 1.0, "and so does the default, so nothing changes until the host moves it");
+        CheckEqual((plain with { RodKnockback = 1.32 }).Normalized().RodKnockback, 1.3, "rod knockback in 5% steps");
+        CheckEqual((plain with { RodKnockback = 0.02 }).Normalized().RodKnockback, 0.0, "rounded to the nearest, Off included");
+        CheckEqual((plain with { RodKnockback = -1 }).Normalized().RodKnockback, 0.0, "off at least");
+        CheckEqual((plain with { RodKnockback = 9 }).Normalized().RodKnockback, Tuning.MaxRodKnockback, "capped at the maximum");
+        CheckEqual(Tuning.MaxRodKnockback, 2.0, "up to 200%");
+        CheckEqual((plain with { RodKnockback = double.NaN }).Normalized().RodKnockback, Tuning.DefaultRodKnockback, "not a number: the default");
+        Check(!(plain with { RodKnockback = 1.5 }).IsMinecraft, "more rod knockback counts as a twist");
+        Check(!(plain with { RodKnockback = 0 }).IsMinecraft, "and so does none");
+        Check(!(MatchRules.Default with { RodKnockback = 0.5 }).IsDefault, "and isn't the defaults");
         CheckEqual(HeadStart.Label(0), "Off", "no head start shows as off");
         CheckEqual(HeadStart.Label(0.175), "175 ms", "a head start shows in milliseconds");
         CheckEqual(MatchRules.Seconds(0), "Off", "a delay of 0 shows as off");
@@ -214,8 +231,12 @@ public class SettingsTests : TestCase
             "no rod cooldown shows as off");
         CheckEqual(Plain((MatchRules.Minecraft with { RodCooldown = 1.2 }).Summary()), "Plain 1.8, but rod cooldown 1.20 s",
             "a rod cooldown shows in seconds");
-        CheckEqual(Plain(new MatchRules(1.3, 0.5, 0.15, 1.0, 0.8, 0.2, 1.2).Summary()),
-            "Defaults, but strafe speed 130%, snappiness 50%, pushing 100%, combo knockback 80%, head start 200 ms, wasted clicks 0.15 s, rod cooldown 1.20 s",
+        CheckEqual(Plain((MatchRules.Default with { RodKnockback = 0 }).Summary()), "Defaults, but rod knockback off",
+            "no rod knockback shows as off");
+        CheckEqual(Plain((MatchRules.Default with { RodKnockback = 1.5 }).Summary()), "Defaults, but rod knockback 150%",
+            "a rod knockback shows as a percentage");
+        CheckEqual(Plain(new MatchRules(1.3, 0.5, 0.15, 1.0, 0.8, 0.2, 1.2, 1.75).Summary()),
+            "Defaults, but strafe speed 130%, snappiness 50%, pushing 100%, combo knockback 80%, head start 200 ms, wasted clicks 0.15 s, rod cooldown 1.20 s, rod knockback 175%",
             "everything moved: from the defaults");
         Check(!(MatchRules.Default with { HeadStart = 0.175 }).Summary().Contains("head start 175", StringComparison.Ordinal),
             "each change stays on one line when the summary wraps");
@@ -227,10 +248,16 @@ public class SettingsTests : TestCase
     {
         var config = new ConfigFile();
         Settings.Write(config, new GameSettings(144, 35, 25));
-        Settings.WriteRules(config, new MatchRules(1.35, 0.6, 0.2, 0.8, 0.7, 0.1, 1.1));
+        Settings.WriteRules(config, new MatchRules(1.35, 0.6, 0.2, 0.8, 0.7, 0.1, 1.1, 1.45));
         var reloaded = new ConfigFile();
         CheckEqual(reloaded.Parse(config.EncodeToText()), Error.Ok, "the file parses");
-        CheckEqual(Settings.ReadRules(reloaded), new MatchRules(1.35, 0.6, 0.2, 0.8, 0.7, 0.1, 1.1), "the rules come back");
+        CheckEqual(Settings.ReadRules(reloaded), new MatchRules(1.35, 0.6, 0.2, 0.8, 0.7, 0.1, 1.1, 1.45), "the rules come back");
+        CheckEqual(reloaded.GetValue("rules", "rod_knockback").AsDouble(), 1.45, "the rod knockback is saved as rod_knockback");
+        var noRodKnockback = new ConfigFile();
+        Settings.WriteRules(noRodKnockback, MatchRules.Default with { RodKnockback = 0 });
+        var reloadedOff = new ConfigFile();
+        CheckEqual(reloadedOff.Parse(noRodKnockback.EncodeToText()), Error.Ok, "a file with the rod knockback off parses");
+        CheckEqual(Settings.ReadRules(reloadedOff).RodKnockback, 0.0, "and keeps it off");
         CheckEqual(Settings.Read(reloaded), new GameSettings(144, 35, 25), "next to the other settings");
         CheckEqual(Settings.ReadRules(new ConfigFile()), MatchRules.Default, "no file: the defaults");
         var broken = new ConfigFile();
@@ -248,14 +275,22 @@ public class SettingsTests : TestCase
         old.SetValue("rules", "wasted_click_delay", 0.0);
         old.SetValue("rules", "pushing", 1.0);
         CheckEqual(Settings.ReadRules(old),
-            new MatchRules(1.2, 0.0, 0.0, 1.0, Tuning.DefaultComboKnockback, Tuning.DefaultHeadStart, Tuning.DefaultRodCooldown),
+            new MatchRules(1.2, 0.0, 0.0, 1.0, Tuning.DefaultComboKnockback, Tuning.DefaultHeadStart, Tuning.DefaultRodCooldown,
+                Tuning.DefaultRodKnockback),
             "saved twists stay, missing ones get the defaults");
         // A file from 0.4.9 has no rod cooldown yet: the rod keeps the 0.75 s it always had.
         var beforeRodTwist = new ConfigFile();
         Settings.WriteRules(beforeRodTwist, MatchRules.Minecraft);
         beforeRodTwist.EraseSectionKey("rules", "rod_cooldown");
+        beforeRodTwist.EraseSectionKey("rules", "rod_knockback");
         CheckEqual(Settings.ReadRules(beforeRodTwist), MatchRules.Minecraft with { RodCooldown = 0.75 },
             "a saved plain 1.8 from before keeps the rod's cooldown");
+        // A file from 0.4.10 has no rod knockback yet: the rod keeps the knockback it always had.
+        var beforeRodKnockback = new ConfigFile();
+        Settings.WriteRules(beforeRodKnockback, MatchRules.Default with { RodCooldown = 0.4, HeadStart = 0.2 });
+        beforeRodKnockback.EraseSectionKey("rules", "rod_knockback");
+        CheckEqual(Settings.ReadRules(beforeRodKnockback), MatchRules.Default with { RodCooldown = 0.4, HeadStart = 0.2, RodKnockback = 1.0 },
+            "a file from before keeps its twists, and the rod knocks back as it always did");
     }
 
     public void TestBotSkillIsKeptInTheSettingsFile()
@@ -266,12 +301,12 @@ public class SettingsTests : TestCase
         {
             var config = new ConfigFile();
             Settings.Write(config, new GameSettings(144, 35, 25));
-            Settings.WriteRules(config, new MatchRules(1.35, 0.6, 0.2, 0.8, 0.7, 0.1, 1.1));
+            Settings.WriteRules(config, new MatchRules(1.35, 0.6, 0.2, 0.8, 0.7, 0.1, 1.1, 0.6));
             Settings.WriteBotDifficulty(config, skill);
             var reloaded = new ConfigFile();
             CheckEqual(reloaded.Parse(config.EncodeToText()), Error.Ok, $"the file parses ({skill})");
             CheckEqual(Settings.ReadBotDifficulty(reloaded), skill, $"{skill} comes back");
-            CheckEqual(Settings.ReadRules(reloaded), new MatchRules(1.35, 0.6, 0.2, 0.8, 0.7, 0.1, 1.1), $"next to the twists ({skill})");
+            CheckEqual(Settings.ReadRules(reloaded), new MatchRules(1.35, 0.6, 0.2, 0.8, 0.7, 0.1, 1.1, 0.6), $"next to the twists ({skill})");
             CheckEqual(Settings.Read(reloaded), new GameSettings(144, 35, 25), $"and the other settings ({skill})");
         }
         var hand = new ConfigFile();

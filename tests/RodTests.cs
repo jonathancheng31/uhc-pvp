@@ -490,4 +490,241 @@ public class RodTests : TestCase
             Check(inOrder.IsGoneAt(CastTime + 6), "and it does vanish");
         }
     }
+
+    // --- Rod knockback (a twist) ------------------------------------------------------------
+
+    private static readonly MovementInput Idle = new(0, 0, false, false, false, 0);
+    /// <summary>Sprinting at the thrower (who stands toward +Z), so the victim's own motion is halved by a knockback.</summary>
+    private static readonly MovementInput ChargeTheThrower = new(1, 0, false, true, false, 180);
+
+    /// <summary>A player standing on the floor, settled as players are a few ticks into a match.</summary>
+    private static PlayerMotor Settled(VoxelWorld world, Vec3d feet)
+    {
+        var motor = new PlayerMotor(world, feet);
+        for (int s = 0; s < 5 * Tuning.SubticksPerMcTick; s++)
+        {
+            motor.Step(Idle);
+        }
+        return motor;
+    }
+
+    private static MatchRules RodKnockback(double strength) => MatchRules.Default with { RodKnockback = strength };
+
+    /// <summary>Whether two motors are in exactly the same state (where they are, how they move, and the server's copy).</summary>
+    private static bool Same(PlayerMotor a, PlayerMotor b) =>
+        a.Position == b.Position && a.Velocity == b.Velocity && a.ServerMotion == b.ServerMotion
+        && a.KnockbackFlight == b.KnockbackFlight && a.OnGround == b.OnGround;
+
+    public void TestRodKnockbackScalesThePushTheLiftAndItsCap()
+    {
+        var random = new Random(1);
+        // The thrower stands straight toward +Z, so the push is all along -Z.
+        var thrower = new Vec3d(32.5, FloorY, 55.5);
+        var victim = new Vec3d(32.5, FloorY, 50.5);
+        Vec3d Rod(Vec3d copy, double strength) =>
+            CombatRules.Knockback(copy, thrower, victim, 0, true, false, random, Tuning.McComboKnockback, strength);
+        var standing = new Vec3d(0, -0.0784, 0);
+        var moving = new Vec3d(0.2, -0.3, -0.12);
+        var rising = new Vec3d(0, 0.3, 0);
+        foreach (Vec3d copy in new[] { standing, moving, rising })
+        {
+            CheckEqual(Rod(copy, 1.0), CombatRules.Knockback(copy, thrower, victim, 0, true, false, random),
+                $"100% is exactly an unsprinted sword hit's, today's rod knockback ({copy})");
+            foreach (double strength in new[] { 0.5, 1.5, 2.0 })
+            {
+                Vec3d k = Rod(copy, strength);
+                CheckNear(k.X, copy.X / 2, 1e-12, $"{strength:P0}: sideways the victim's motion is only halved ({copy})");
+                CheckNear(k.Z, copy.Z / 2 - Tuning.KnockbackHorizontal * strength, 1e-12, $"{strength:P0}: the push away is scaled ({copy})");
+            }
+        }
+        // The lift: halve the copy's, add 0.4, at most 0.4; all three 0.4s scaled.
+        CheckNear(Rod(standing, 1.0).Y, 0.3608, 1e-12, "standing, 100%: 1.8's lift");
+        CheckNear(Rod(standing, 0.5).Y, 0.1608, 1e-12, "standing, 50%: half the 0.4 added");
+        CheckNear(Rod(standing, 1.5).Y, 0.5608, 1e-12, "standing, 150%: half again");
+        CheckNear(Rod(standing, 2.0).Y, 0.7608, 1e-12, "standing, 200%: twice");
+        CheckNear(Rod(rising, 1.0).Y, 0.4, 1e-12, "rising, 100%: capped at 0.4");
+        CheckNear(Rod(rising, 0.5).Y, 0.2, 1e-12, "rising, 50%: the cap is halved too");
+        CheckNear(Rod(rising, 1.5).Y, 0.6, 1e-12, "rising, 150%: the cap is 0.6");
+        CheckNear(Rod(moving, 0.5).Y, 0.05, 1e-12, "falling, 50%: the halving stays as it is (-0.15 + 0.2)");
+    }
+
+    public void TestRodKnockbackAtFullIsTodaysExactly()
+    {
+        // A rod catch through the shared landing at 100% against the knockback rod catches got
+        // before it was a twist, built the same way, on a victim charging the thrower.
+        VoxelWorld world = FlatWorld();
+        var thrower = new Vec3d(32.5, FloorY, 55.5);
+        PlayerMotor twist = Settled(world, new Vec3d(32.5, FloorY, 48.5));
+        PlayerMotor before = Settled(world, new Vec3d(32.5, FloorY, 48.5));
+        for (int s = 0; s < 20; s++)
+        {
+            twist.Step(ChargeTheThrower);
+            before.Step(ChargeTheThrower);
+        }
+        Vec3d at = twist.Position;
+        CombatRules.ApplyKnockback(twist, HitResult.Hurt, thrower, at, 0, rod: true, sprintKnockback: false, RodKnockback(1.0), new Random(1));
+        before.Knock(copy => CombatRules.VelocityPacket(
+            CombatRules.Knockback(copy, thrower, at, 0, baseKnockback: true, sprintBonus: false, new Random(1), Tuning.McComboKnockback)));
+        int differ = 0;
+        double furthestBack = at.Z;
+        for (int s = 0; s < 90; s++)
+        {
+            twist.Step(ChargeTheThrower);
+            before.Step(ChargeTheThrower);
+            differ += Same(twist, before) ? 0 : 1;
+            furthestBack = Math.Min(furthestBack, twist.Position.Z);
+        }
+        CheckEqual(differ, 0, "ticks where 100% differs from the rod knockback before the twist");
+        Check(furthestBack < at.Z - 0.3, $"the knockback landed: pushed back {at.Z - furthestBack:0.00} blocks while charging the thrower");
+    }
+
+    public void TestRodKnockbackOffSendsNothingButTheCatchCounts()
+    {
+        VoxelWorld world = FlatWorld();
+        var thrower = new Vec3d(32.5, FloorY, 55.5);
+        PlayerMotor caught = Settled(world, new Vec3d(32.5, FloorY, 48.5));
+        PlayerMotor untouched = Settled(world, new Vec3d(32.5, FloorY, 48.5));
+        for (int s = 0; s < 20; s++)
+        {
+            caught.Step(ChargeTheThrower);
+            untouched.Step(ChargeTheThrower);
+        }
+        var vitality = new Vitality();
+        HitResult result = vitality.TakeHit(Tuning.RodDamage, Tuning.KitArmorPoints, 100);
+        CheckEqual(result, HitResult.Hurt, "the catch still counts as a full hit");
+        CombatRules.ApplyKnockback(caught, result, thrower, caught.Position, 0, rod: true, sprintKnockback: false, RodKnockback(0), new Random(1));
+        Check(!caught.KnockbackFlight, "not flying from a knockback (so pushing still treats them as walking)");
+        int differ = 0;
+        for (int s = 0; s < 90; s++)
+        {
+            caught.Step(ChargeTheThrower);
+            untouched.Step(ChargeTheThrower);
+            differ += Same(caught, untouched) ? 0 : 1;
+        }
+        CheckEqual(differ, 0, "ticks where a rod at Off changed anything (no velocity packet, the server's copy as it was)");
+
+        // Its hit protection started as with any rod catch.
+        CheckEqual(vitality.TakeHit(Tuning.RodDamage, Tuning.KitArmorPoints, 103), HitResult.Ignored,
+            "another rod inside the half second flies through");
+        CheckEqual(vitality.TakeHit(Tuning.SwordDamage, Tuning.KitArmorPoints, 105), HitResult.Stronger,
+            "a sword hit right after does its damage, but no knockback");
+        CheckEqual(vitality.TakeHit(Tuning.RodDamage, Tuning.KitArmorPoints, 110), HitResult.Hurt, "half a second later a rod catches again");
+    }
+
+    public void TestSwordKnockbackIgnoresTheRodKnockback()
+    {
+        VoxelWorld world = FlatWorld();
+        var attacker = new Vec3d(32.5, FloorY, 51.3);
+        foreach (HitResult result in new[] { HitResult.Hurt, HitResult.Stronger })
+        {
+            foreach (bool sprint in new[] { false, true })
+            {
+                // As before the twist (Game.ResolveAttack's knockback, inline).
+                PlayerMotor before = Settled(world, new Vec3d(32.5, FloorY, 48.5));
+                for (int s = 0; s < 20; s++)
+                {
+                    before.Step(ChargeTheThrower);
+                }
+                Vec3d at = before.Position;
+                if (result == HitResult.Hurt)
+                {
+                    before.Knock(copy => CombatRules.VelocityPacket(
+                        CombatRules.Knockback(copy, attacker, at, 0, baseKnockback: true, sprint, new Random(1), Tuning.McComboKnockback)));
+                }
+                else if (sprint)
+                {
+                    before.PushServerCopy(CombatRules.Knockback(Vec3d.Zero, attacker, at, 0, false, true, new Random(1), Tuning.McComboKnockback));
+                }
+                var after = new List<PlayerMotor>();
+                foreach (double rodKnockback in new[] { 0.0, 0.5, 1.0, 1.5, 2.0 })
+                {
+                    PlayerMotor victim = Settled(world, new Vec3d(32.5, FloorY, 48.5));
+                    for (int s = 0; s < 20; s++)
+                    {
+                        victim.Step(ChargeTheThrower);
+                    }
+                    CombatRules.ApplyKnockback(victim, result, attacker, victim.Position, 0, rod: false, sprint, RodKnockback(rodKnockback), new Random(1));
+                    after.Add(victim);
+                }
+                int differ = 0;
+                for (int s = 0; s < 90; s++)
+                {
+                    before.Step(ChargeTheThrower);
+                    foreach (PlayerMotor victim in after)
+                    {
+                        victim.Step(ChargeTheThrower);
+                        differ += Same(victim, before) ? 0 : 1;
+                    }
+                }
+                CheckEqual(differ, 0, $"ticks where a sword hit ({result}, sprint {sprint}) moved differently at any rod knockback");
+            }
+        }
+    }
+
+    /// <summary>
+    /// The whole catch, as the game does it: a level throw from 5 blocks away at a player standing
+    /// still, the thrower's game finding the catch frame by frame (Game.StepRods), the victim's
+    /// game counting it for hit protection and applying the knockback (Game.ResolveAttack), which
+    /// lands at the victim's next Minecraft tick. Returns how far the victim is carried, where
+    /// they first touch down and where they come to a stop, and how high they rise.
+    /// </summary>
+    private static (double Landed, double Stopped, double Height, HitResult Result) RodCatchFlight(double strength)
+    {
+        VoxelWorld world = FlatWorld();
+        var throwerFeet = new Vec3d(32.5, FloorY, 55.5);
+        PlayerMotor victim = Settled(world, new Vec3d(32.5, FloorY, 50.5));
+        var vitality = new Vitality();
+        Bobber bobber = Cast(world, throwerFeet, 0, 0);
+        var targets = new List<RodTarget>();
+        Vec3d start = victim.Position;
+        HitResult result = HitResult.Ignored;
+        double height = 0;
+        double? landed = null;
+        bool airborne = false;
+        for (int frame = 0; frame < 4 * Tuning.SimRate; frame++)
+        {
+            double from = CastTime + frame * Frame;
+            targets.Clear();
+            targets.Add(new RodTarget(2, victim.Position));
+            if (bobber.Catch(from, from + Frame, targets) is { } hit)
+            {
+                result = vitality.TakeHit(Tuning.RodDamage, Tuning.KitArmorPoints, HitProtection.TickAt(hit.Time));
+                start = victim.Position;
+                CombatRules.ApplyKnockback(
+                    victim, result, throwerFeet, victim.Position, 0, rod: true, sprintKnockback: false, RodKnockback(strength), new Random(1));
+                bobber.Hook(2, hit.Time);
+            }
+            victim.Step(Idle);
+            height = Math.Max(height, victim.Position.Y - FloorY);
+            airborne |= !victim.OnGround;
+            if (airborne && victim.OnGround && landed is null)
+            {
+                landed = (victim.Position - start).HorizontalLength;
+            }
+        }
+        double stopped = (victim.Position - start).HorizontalLength;
+        return (landed ?? stopped, stopped, height, result);
+    }
+
+    public void TestRodKnockbackFlightThroughARealCatch()
+    {
+        // The numbers in docs/rod.md: where a player standing still first touches down, where they
+        // stop, and how high their feet rise. More push also means more lift, so more time in the
+        // air: the flight grows faster than the percentage.
+        foreach (var (strength, landsAt, stopsAt, rises) in new[]
+        {
+            (0.0, 0.0, 0.0, 0.0),
+            (0.5, 0.68, 0.80, 0.25),
+            (1.0, 1.83, 1.98, 0.97),
+            (1.5, 3.30, 3.45, 2.11),
+            (2.0, 4.87, 5.00, 3.63),
+        })
+        {
+            var (landed, stopped, height, result) = RodCatchFlight(strength);
+            CheckEqual(result, HitResult.Hurt, $"{strength:P0}: the catch counts");
+            CheckNear(landed, landsAt, 0.01, $"{strength:P0}: touches down this far away");
+            CheckNear(stopped, stopsAt, 0.01, $"{strength:P0}: stops this far away");
+            CheckNear(height, rises, 0.01, $"{strength:P0}: rises this high");
+        }
+    }
 }

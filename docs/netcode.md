@@ -118,7 +118,7 @@ own player too), and their sword and rod find people there; their reaction time 
 a person's does (see [combat.md](combat.md), "Practice bots").
 
 **Match rules** (`MatchRules`, our twists: strafe speed, strafe snappiness, wasted clicks, player
-pushing, combo knockback, head start). The host picks them in the pause menu's Twists screen and sends a
+pushing, combo knockback, head start, rod cooldown, rod knockback). The host picks them in the pause menu's Twists screen and sends a
 `RulesUpdate` to each player as they join and to everyone when they change. Every game moves its
 own player and decides its own clicks, so they must all use the same rules; a client takes them
 only from the host.

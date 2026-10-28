@@ -30,7 +30,7 @@ public class MessageTests : TestCase
             new Swing(7),
             new RodCast(-2, 55.125, new Vector3(3.5f, 6.52f, 9.25f), new Vector3(0.1f, -0.2f, -1.48f)),
             new RodHook(-2, 7, 55.4),
-            new RulesUpdate(1.3f, 0.5f, 0.15f, 0.7f, 0.8f, 0.2f, 1.2f),
+            new RulesUpdate(1.3f, 0.5f, 0.15f, 0.7f, 0.8f, 0.2f, 1.2f, 1.55f),
         ];
         Check(messages.Select(m => m.Type).Distinct().Count() == Enum.GetValues<MsgType>().Length,
             "test covers every message type");
@@ -41,6 +41,17 @@ public class MessageTests : TestCase
             CheckEqual(MessageCodec.Encode(decoded!).Length, MessageCodec.Encode(message).Length, $"{message.Type} size");
             Check(MessageCodec.Encode(decoded!).SequenceEqual(MessageCodec.Encode(message)), $"{message.Type} same bytes");
         }
+    }
+
+    public void TestRulesUpdateCarriesTheRodKnockback()
+    {
+        var sent = new RulesUpdate(1.3f, 0.5f, 0.15f, 0.7f, 0.8f, 0.2f, 1.2f, 1.55f);
+        byte[] data = MessageCodec.Encode(sent);
+        var decoded = MessageCodec.Decode(data) as RulesUpdate;
+        CheckEqual(decoded, sent, "every twist comes back, the rod knockback included");
+        CheckEqual(decoded?.ToMatchRules().RodKnockback, 1.55, "as an exact 5% step");
+        CheckEqual(RulesUpdate.From(MatchRules.Default with { RodKnockback = 0 }).RodKnockback, 0f, "Off goes out as 0");
+        Check(MessageCodec.Decode(data[..^4]) is null, "one without the rod knockback (an older game's) is rejected");
     }
 
     public void TestTruncatedAndPaddedMessagesAreRejected()

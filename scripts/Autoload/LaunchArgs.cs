@@ -31,8 +31,9 @@ namespace UhcPvp.Autoload;
 /// --combo-kb=PERCENT     (0 is 1.8 and the default, 100 is solid), combo knockback, the sprint
 /// --head-start=MS        hit's extra push (100 is 1.8 and the default, down to 60), the head
 /// --rod-cooldown=SEC     start: how far in the past others are drawn (175 is 1.8, 75 the
-///                        default, 0 to 250), and the rod's cooldown in seconds (0 is 1.8, 0.75
-///                        the default, up to 1.5).
+/// --rod-knockback=PERCENT default, 0 to 250), the rod's cooldown in seconds (0 is 1.8, 0.75
+///                        the default, up to 1.5), and the rod's knockback (100 is 1.8 and the
+///                        default, 0 sends none, up to 200).
 /// --hold=KEYS          Hold movement keys all match: any of w, a, s, d, and j to jump (tests,
 ///                      screenshots: --hold=w on two opposite players runs them into each other).
 /// --ping=MS            Simulate this much extra ping.
@@ -85,12 +86,14 @@ public partial class LaunchArgs : Node
     public double? HeadStart { get; private set; }
     /// <summary>--rod-cooldown in seconds, or null.</summary>
     public double? RodCooldown { get; private set; }
+    /// <summary>--rod-knockback as a fraction (1.5 for 150), or null.</summary>
+    public double? RodKnockback { get; private set; }
 
     /// <summary>The host's rules: its saved choice, with any twist given on the command line instead.</summary>
     public MatchRules RulesFor(MatchRules saved) => new MatchRules(
         StrafeSpeed ?? saved.StrafeSpeed, StrafeGrip ?? saved.StrafeGrip, WastedClickDelay ?? saved.WastedClickDelay,
         Pushing ?? saved.Pushing, ComboKnockback ?? saved.ComboKnockback, HeadStart ?? saved.HeadStart,
-        RodCooldown ?? saved.RodCooldown).Normalized();
+        RodCooldown ?? saved.RodCooldown, RodKnockback ?? saved.RodKnockback).Normalized();
     public double PingMs { get; private set; }
     public double JitterMs { get; private set; }
     public double LossPercent { get; private set; }
@@ -154,6 +157,7 @@ public partial class LaunchArgs : Node
                 case "--combo-kb": ComboKnockback = ParseDouble(value) / 100.0; break;
                 case "--head-start": HeadStart = ParseDouble(value) / 1000.0; break;
                 case "--rod-cooldown": RodCooldown = ParseDouble(value); break;
+                case "--rod-knockback": RodKnockback = ParseDouble(value) / 100.0; break;
                 case "--ping": PingMs = ParseDouble(value); break;
                 case "--jitter": JitterMs = ParseDouble(value); break;
                 case "--loss": LossPercent = ParseDouble(value); break;

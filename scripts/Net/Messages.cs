@@ -280,7 +280,7 @@ public sealed record RodHook(int PlayerId, int VictimId, double Time) : IMessage
 /// </summary>
 public sealed record RulesUpdate(
     float StrafeSpeed, float StrafeGrip, float WastedClickDelay, float Pushing, float ComboKnockback, float HeadStart,
-    float RodCooldown) : IMessage
+    float RodCooldown, float RodKnockback) : IMessage
 {
     public MsgType Type => MsgType.RulesUpdate;
     public void Write(BinaryWriter w)
@@ -292,17 +292,20 @@ public sealed record RulesUpdate(
         w.Write(ComboKnockback);
         w.Write(HeadStart);
         w.Write(RodCooldown);
+        w.Write(RodKnockback);
     }
     public static RulesUpdate Read(BinaryReader r) =>
-        new(r.ReadSingle(), r.ReadSingle(), r.ReadSingle(), r.ReadSingle(), r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
+        new(r.ReadSingle(), r.ReadSingle(), r.ReadSingle(), r.ReadSingle(), r.ReadSingle(), r.ReadSingle(), r.ReadSingle(),
+            r.ReadSingle());
 
     public static RulesUpdate From(MatchRules rules) => new(
         (float)rules.StrafeSpeed, (float)rules.StrafeGrip, (float)rules.WastedClickDelay, (float)rules.Pushing,
-        (float)rules.ComboKnockback, (float)rules.HeadStart, (float)rules.RodCooldown);
+        (float)rules.ComboKnockback, (float)rules.HeadStart, (float)rules.RodCooldown, (float)rules.RodKnockback);
 
     /// <summary>The rules this carries, made valid (a float can't hold 1.15 exactly, and bad values become the default).</summary>
     public MatchRules ToMatchRules() =>
-        new MatchRules(StrafeSpeed, StrafeGrip, WastedClickDelay, Pushing, ComboKnockback, HeadStart, RodCooldown).Normalized();
+        new MatchRules(StrafeSpeed, StrafeGrip, WastedClickDelay, Pushing, ComboKnockback, HeadStart, RodCooldown, RodKnockback)
+            .Normalized();
 }
 
 /// <summary>Turns messages into bytes and back. Bad input decodes to null rather than throwing.</summary>

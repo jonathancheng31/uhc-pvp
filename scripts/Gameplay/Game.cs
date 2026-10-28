@@ -369,7 +369,7 @@ public partial class Game : Node3D
             + $"strafe={MatchRules.Percent(Session.Rules.StrafeSpeed)} grip={MatchRules.Percent(Session.Rules.StrafeGrip)} "
             + $"wasted={Session.Rules.WastedClickDelay:0.00} push={MatchRules.Percent(Session.Rules.Pushing)} "
             + $"combo={MatchRules.Percent(Session.Rules.ComboKnockback)} head={HeadStart.Label(Session.Rules.HeadStart)} "
-            + $"rod_cooldown={Session.Rules.RodCooldown:0.00} "
+            + $"rod_cooldown={Session.Rules.RodCooldown:0.00} rod_knockback={MatchRules.Percent(Session.Rules.RodKnockback)} "
             + $"pushed={LocalPlayer.Motor?.PushedTicks ?? 0} at={LocalPlayer.Feet.X:0.00},{LocalPlayer.Feet.Z:0.00}");
     }
 }

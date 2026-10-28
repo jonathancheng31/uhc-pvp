@@ -175,11 +175,22 @@ Not bugs: things that are expected to feel off until they're built.
 
 ## Done
 
+- **2026-10-28, 0.4.10, idea: "make another slider to adjust the fishing rod knockback".** A rod
+  catch always knocked back like an unsprinted sword hit. **Done in 0.4.11:** "Rod knockback"
+  on the Twists screen, under "Rod cooldown": Off to 200% in 5% steps, 100% (1.8's) by default,
+  so a new match plays as before. It scales the push and the lift together, so more sends people
+  both farther and higher: someone standing still lands 0.7 blocks away at 50%, 1.8 at 100%, 3.3
+  at 150% and 4.9 at 200%, rising 0.25, 1, 2.1 and 3.6 blocks. At Off a catch still catches them
+  and starts their hit protection but doesn't move them. Sword hits don't change. With a fifth
+  slider the Fighting column no longer fit a 720p screen (the Done button fell off the bottom),
+  so the two rod twists moved to a new "Fishing rod" column. To find out: which value feels
+  right.
 - **2026-10-28, 0.4.9, idea: "add a twists slider for the fishing rod delay".** The rod's
   cooldown was a fixed 0.75 s. **Done in 0.4.10:** "Rod cooldown" on the Twists screen, in the
-  Fighting column: Off (1.8, every right-click throws) to 1.5 s, 0.75 s by default, so a new
-  match plays as before. Bots follow it; with a short one or none they wait to see whether their
-  bobber caught you before throwing again (they kept throwing away their own bobbers).
+  Fighting column (the Fishing rod column since 0.4.11): Off (1.8, every right-click throws) to
+  1.5 s, 0.75 s by default, so a new match plays as before. Bots follow it; with a short one or
+  none they wait to see whether their bobber caught you before throwing again (they kept
+  throwing away their own bobbers).
 - **2026-10-28, 0.4.9, decision: "for the twists remove the default back to 1.8, just make it
   default back to the current default settings."** **Done in 0.4.10:** the "Plain 1.8 (all off)"
   button is gone; "Reset to defaults" stays. Plain 1.8 is still every slider all the way left

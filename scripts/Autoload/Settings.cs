@@ -129,7 +129,8 @@ public partial class Settings : Node
             ReadNumber(config, "rules", "pushing", fallback.Pushing),
             ReadNumber(config, "rules", "combo_knockback", fallback.ComboKnockback),
             ReadNumber(config, "rules", "head_start", fallback.HeadStart),
-            ReadNumber(config, "rules", "rod_cooldown", fallback.RodCooldown)).Normalized();
+            ReadNumber(config, "rules", "rod_cooldown", fallback.RodCooldown),
+            ReadNumber(config, "rules", "rod_knockback", fallback.RodKnockback)).Normalized();
     }
 
     public static void WriteRules(ConfigFile config, MatchRules rules)
@@ -141,6 +142,7 @@ public partial class Settings : Node
         config.SetValue("rules", "combo_knockback", rules.ComboKnockback);
         config.SetValue("rules", "head_start", rules.HeadStart);
         config.SetValue("rules", "rod_cooldown", rules.RodCooldown);
+        config.SetValue("rules", "rod_knockback", rules.RodKnockback);
     }
 
     /// <summary>The saved practice-bot skill ("easy", "normal" or "hard"); anything else is the default.</summary>

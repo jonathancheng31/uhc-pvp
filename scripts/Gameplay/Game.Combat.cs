@@ -228,29 +228,17 @@ public partial class Game
 
         bool critical = !rod && (attack.Flags & AttackFlags.Critical) != 0;
         bool sprintKnockback = !rod && (attack.Flags & AttackFlags.SprintKnockback) != 0;
-        double comboKnockback = Session.Rules.ComboKnockback;
         HitResult result = victim.Vitality.TakeHit(
             RawDamage(rod, critical), Tuning.KitArmorPoints, HitProtection.TickAt(attack.AttackTime));
         if (result == HitResult.Ignored)
         {
             return result;
         }
-        if (result == HitResult.Hurt)
-        {
-            // Knockback starts from the server's copy of the victim, as in 1.8.9 (see
-            // PlayerMotor.ServerMotion), and lands at the victim's next Minecraft tick like a
-            // velocity packet. The server keeps its own copy as it was.
-            victim.Motor.Knock(copy => CombatRules.VelocityPacket(CombatRules.Knockback(
-                copy, attackerFeet, victimFeet, attack.AttackerYaw, baseKnockback: true, sprintBonus: sprintKnockback, _random,
-                comboKnockback)));
-        }
-        else if (sprintKnockback)
-        {
-            // A stronger hit sends nothing: the victim doesn't move, but a sprint push stays on
-            // the server's copy and adds to the next knockback.
-            victim.Motor.PushServerCopy(
-                CombatRules.Knockback(Vec3d.Zero, attackerFeet, victimFeet, attack.AttackerYaw, false, true, _random, comboKnockback));
-        }
+        // Knockback starts from the server's copy of the victim, as in 1.8.9, and lands at the
+        // victim's next Minecraft tick like a velocity packet. The match's rules as they are now
+        // shape it: combo knockback, and for a rod catch the rod knockback (none at Off).
+        CombatRules.ApplyKnockback(
+            victim.Motor, result, attackerFeet, victimFeet, attack.AttackerYaw, rod, sprintKnockback, Session.Rules, _random);
         victim.OnDamaged();
 
         var flags = (result == HitResult.Hurt ? HurtFlags.Fresh : 0)

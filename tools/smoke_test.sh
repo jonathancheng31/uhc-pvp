@@ -6,7 +6,8 @@
 # combat path: host hitting its own bot, a client hitting a host-run bot, a client hitting the
 # host, and a client hitting another client through the host. The host also turns on every
 # twist (strafe speed 130%, grip 50%, wasted clicks 0.15 s, player pushing 100%, combo
-# knockback 80%, a 200 ms head start, a 0.5 s rod cooldown), which every player must get from it.
+# knockback 80%, a 200 ms head start, a 0.5 s rod cooldown, rod knockback 150%), which every
+# player must get from it.
 # 30 s of fighting: long enough that a bot landing no rod hit means something broke, not bad luck
 # (at 14 s, about 1 run in 7 failed that way).
 set -uo pipefail
@@ -21,7 +22,7 @@ run() { # name, extra args...
   "$GODOT" --headless --path . -- --name="$name" --bot=fight --port="$PORT" "$@" > "$LOGS/$name.log" 2>&1
 }
 
-run Host --host --dummies=1 --dummy-mode=chase --strafe=130 --grip=50 --wasted-clicks=0.15 --push=100 --combo-kb=80 --head-start=200 --rod-cooldown=0.5 --quit-after=31 &
+run Host --host --dummies=1 --dummy-mode=chase --strafe=130 --grip=50 --wasted-clicks=0.15 --push=100 --combo-kb=80 --head-start=200 --rod-cooldown=0.5 --rod-knockback=150 --quit-after=31 &
 run BotA --join=127.0.0.1 --quit-after=30 &
 run BotB --join=127.0.0.1 --ping=120 --jitter=20 --loss=2 --quit-after=30 &
 wait
@@ -32,7 +33,7 @@ for name in Host BotA BotB; do
   echo "$name: ${line:-<no report>}"
   landed="$(sed -n 's/.* landed=\([0-9]*\).*/\1/p' <<< "$line")"
   rods="$(sed -n 's/.* rods=\([0-9]*\).*/\1/p' <<< "$line")"
-  if [[ "$line" != *"seen=3"* || "$line" != *"strafe=130% grip=50% wasted=0.15 push=100% combo=80% head=200 ms rod_cooldown=0.50"* || "${landed:-0}" -lt 1 || "${rods:-0}" -lt 1 ]]; then
+  if [[ "$line" != *"seen=3"* || "$line" != *"strafe=130% grip=50% wasted=0.15 push=100% combo=80% head=200 ms rod_cooldown=0.50 rod_knockback=150%"* || "${landed:-0}" -lt 1 || "${rods:-0}" -lt 1 ]]; then
     status=1
     echo "---- $name log ----"; grep -v "ALSA\|audio" "$LOGS/$name.log" | tail -40
   fi

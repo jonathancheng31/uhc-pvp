@@ -37,10 +37,14 @@ public static class CombatRules
     /// EntityPlayer.attackTargetEntityWithCurrentItem: 0.5 along the attacker's facing and 0.1 up.
     /// <paramref name="comboKnockback"/> is our combo knockback twist (a match rule): the 0.5 is
     /// this fraction of 1.8.9's (1 is 1.8.9); the lift and the base push stay whole.
+    /// <paramref name="baseStrength"/> scales the base push, the lift and the lift's cap (the
+    /// halving stays): 1 is 1.8.9's. Only a rod catch passes anything else, the match's rod
+    /// knockback (see <see cref="ApplyKnockback"/>).
     /// </summary>
     public static Vec3d Knockback(
         Vec3d motion, Vec3d attackerPosition, Vec3d victimPosition, double attackerYaw,
-        bool baseKnockback, bool sprintBonus, Random random, double comboKnockback = Tuning.McComboKnockback)
+        bool baseKnockback, bool sprintBonus, Random random, double comboKnockback = Tuning.McComboKnockback,
+        double baseStrength = 1.0)
     {
         if (baseKnockback)
         {
@@ -53,11 +57,13 @@ public static class CombatRules
                 dz = (random.NextDouble() - random.NextDouble()) * 0.01;
             }
             double length = Math.Sqrt(dx * dx + dz * dz);
-            double y = Math.Min(motion.Y / 2 + Tuning.KnockbackVertical, Tuning.KnockbackVertical);
+            double push = Tuning.KnockbackHorizontal * baseStrength;
+            double lift = Tuning.KnockbackVertical * baseStrength;
+            double y = Math.Min(motion.Y / 2 + lift, lift);
             motion = new Vec3d(
-                motion.X / 2 - dx / length * Tuning.KnockbackHorizontal,
+                motion.X / 2 - dx / length * push,
                 y,
-                motion.Z / 2 - dz / length * Tuning.KnockbackHorizontal);
+                motion.Z / 2 - dz / length * push);
         }
         if (sprintBonus)
         {
@@ -65,6 +71,45 @@ public static class CombatRules
                 + new Vec3d(0, Tuning.SprintHitVerticalBonus, 0);
         }
         return motion;
+    }
+
+    /// <summary>
+    /// The victim's game applying the knockback of a hit that counted (<paramref name="result"/>,
+    /// from their <see cref="Vitality.TakeHit"/>) to their motor, under the match's
+    /// <paramref name="rules"/> as they are now:
+    /// - A full hit knocks them back at their next Minecraft tick, like a velocity packet, built
+    ///   from the server's copy of them (<see cref="PlayerMotor.ServerMotion"/>) as it is then, as
+    ///   in 1.8.9. The server keeps its own copy as it was.
+    /// - A stronger hit sends nothing: the victim doesn't move, but a sprint push stays on the
+    ///   server's copy and adds to the next knockback.
+    /// - A rod catch is a full hit without a sprint push, its push and lift the match's rod
+    ///   knockback (<see cref="MatchRules.RodKnockback"/>). At Off it sends nothing at all and
+    ///   leaves the server's copy alone; the catch still counted for hit protection.
+    /// Sword hits never depend on the rod knockback.
+    /// </summary>
+    /// <param name="attackerFeet">Where the attacker really stood when they clicked (or their bobber caught).</param>
+    /// <param name="victimFeet">Where the victim really stood then: knockback pushes away from the attacker as the two stood.</param>
+    public static void ApplyKnockback(
+        PlayerMotor victim, HitResult result, Vec3d attackerFeet, Vec3d victimFeet, double attackerYaw,
+        bool rod, bool sprintKnockback, MatchRules rules, Random random)
+    {
+        bool sprint = !rod && sprintKnockback;
+        double comboKnockback = rules.ComboKnockback;
+        if (result == HitResult.Hurt)
+        {
+            double strength = rod ? rules.RodKnockback : 1.0;
+            if (strength > 0)
+            {
+                victim.Knock(copy => VelocityPacket(Knockback(
+                    copy, attackerFeet, victimFeet, attackerYaw, baseKnockback: true, sprintBonus: sprint, random,
+                    comboKnockback, strength)));
+            }
+        }
+        else if (result == HitResult.Stronger && sprint)
+        {
+            victim.PushServerCopy(Knockback(
+                Vec3d.Zero, attackerFeet, victimFeet, attackerYaw, baseKnockback: false, sprintBonus: true, random, comboKnockback));
+        }
     }
 }
 

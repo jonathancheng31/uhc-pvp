@@ -8,14 +8,19 @@ namespace UhcPvp.Ui;
 /// <summary>
 /// The Twists screen, opened from the pause menu: our changes to 1.8.9's mechanics, for the
 /// whole match (<see cref="MatchRules"/>). The host moves the sliders and every player gets the
-/// change at once; everyone else sees the host's choice. Two columns, movement and fighting, so
-/// it fits a 720p screen. Leftmost is plain 1.8, except the head start, where 1.8's is marked;
-/// a value at its default (<see cref="MatchRules.Default"/>) is marked too.
+/// change at once; everyone else sees the host's choice. Three columns, movement, fighting and the
+/// fishing rod, so it fits a 720p screen. Leftmost is plain 1.8, except the head start and the rod
+/// knockback, where 1.8's is marked; a value at its default (<see cref="MatchRules.Default"/>) is
+/// marked too.
 /// </summary>
 public partial class TwistsMenu : PanelContainer
 {
-    /// <summary>Wide enough that the descriptions wrap to two or three lines, so four twists in a column still fit 720p.</summary>
-    private const float ColumnWidth = 520;
+    /// <summary>
+    /// Three columns of this, with the gaps and the panel's margins, fit across 1280 pixels (1244),
+    /// and three twists in a column, with descriptions of up to three lines, fit 720p.
+    /// </summary>
+    private const float ColumnWidth = 380;
+    private const float ColumnGap = 32;
 
     private HSlider _strafeSpeed = null!;
     private Label _strafeSpeedValue = null!;
@@ -32,6 +37,8 @@ public partial class TwistsMenu : PanelContainer
     private Label _headStartValue = null!;
     private HSlider _rodCooldown = null!;
     private Label _rodCooldownValue = null!;
+    private HSlider _rodKnockback = null!;
+    private Label _rodKnockbackValue = null!;
     private Button? _defaults;
     private bool _refreshing;
 
@@ -52,30 +59,35 @@ public partial class TwistsMenu : PanelContainer
         title.AddThemeFontSizeOverride("font_size", 28);
         box.AddChild(title);
         box.AddChild(Note(IsHost
-            ? $"Our changes to Minecraft 1.8, for everyone in this match. All the way left is plain 1.8, except the head start: 1.8's is {HeadStart.Label(Tuning.McHeadStart)}."
+            ? "Our changes to Minecraft 1.8, for everyone in this match. All the way left is plain 1.8, except the head start "
+                + $"(1.8's is {HeadStart.Label(Tuning.McHeadStart)}) and rod knockback ({MatchRules.Percent(Tuning.McRodKnockback)})."
             : "Our changes to Minecraft 1.8, set by the host for everyone in this match.",
-            2 * ColumnWidth + 32));
+            3 * ColumnWidth + 2 * ColumnGap));
 
         var columns = new HBoxContainer();
-        columns.AddThemeConstantOverride("separation", 32);
+        columns.AddThemeConstantOverride("separation", (int)ColumnGap);
         box.AddChild(columns);
         VBoxContainer movement = Column(columns, "Movement");
         VBoxContainer fighting = Column(columns, "Fighting");
+        VBoxContainer rod = Column(columns, "Fishing rod");
 
         (_strafeSpeed, _strafeSpeedValue) = Twist(movement, "Strafe speed", 1.0, Tuning.MaxStrafeSpeed, Tuning.StrafeSpeedStep,
             "A and D move you faster sideways on the ground. Never faster than a straight sprint.");
         (_strafeGrip, _strafeGripValue) = Twist(movement, "Strafe snappiness", 0.0, Tuning.MaxStrafeGrip, Tuning.StrafeGripStep,
-            "Starting, stopping and switching between A and D happen sooner on the ground (1.8 takes a quarter second to switch).");
+            // No-break spaces keep "A and D" on one line.
+            "Starting, stopping and switching between A and D happen sooner on the ground (1.8 takes a quarter second to switch).");
         (_pushing, _pushingValue) = Twist(movement, "Player pushing", 0.0, Tuning.MaxPushing, Tuning.PushingStep,
             "Players can't walk through each other: you stop at someone and shove them along. Lower is softer; below 60% you can push through.");
         (_comboKnockback, _comboKnockbackValue) = Twist(fighting, "Combo knockback", 0.0, 1.0 - Tuning.MinComboKnockback, Tuning.ComboKnockbackStep,
-            "A sprint hit's extra push. Less sends the victim less far, so you catch up sooner and combos run longer. The lift, plain hits and the rod stay 1.8's.");
+            "A sprint hit's extra push. Less sends the victim less far, so you catch up sooner and combos run longer. Not the lift, plain hits or the rod.");
         (_headStart, _headStartValue) = Twist(fighting, "Head start", 0.0, Tuning.MaxHeadStart, Tuning.HeadStartStep,
             "Everyone else is shown, and hit, this far in the past, the same at any ping, so whoever chases after a hit gets back in reach first.");
         (_wastedClicks, _wastedClicksValue) = Twist(fighting, "Wasted clicks", 0.0, Tuning.MaxWastedClickDelay, Tuning.WastedClickDelayStep,
             "A click that does nothing (a miss, or someone still in hit protection) blocks your clicks this long. Your crosshair turns red while it does.");
-        (_rodCooldown, _rodCooldownValue) = Twist(fighting, "Rod cooldown", 0.0, Tuning.MaxRodCooldown, Tuning.RodCooldownStep,
+        (_rodCooldown, _rodCooldownValue) = Twist(rod, "Rod cooldown", 0.0, Tuning.MaxRodCooldown, Tuning.RodCooldownStep,
             "After a throw, the rod can't be thrown again for this long. A bar under your crosshair shows it. Off lets every right-click throw.");
+        (_rodKnockback, _rodKnockbackValue) = Twist(rod, "Rod knockback", 0.0, Tuning.MaxRodKnockback, Tuning.RodKnockbackStep,
+            "How far and how high a rod catch sends someone. Off still catches them, and starts their hit protection, but doesn't move them.");
         _strafeSpeed.ValueChanged += value => Change(Session.Rules with { StrafeSpeed = value });
         _strafeGrip.ValueChanged += value => Change(Session.Rules with { StrafeGrip = value });
         _pushing.ValueChanged += value => Change(Session.Rules with { Pushing = value });
@@ -83,6 +95,7 @@ public partial class TwistsMenu : PanelContainer
         _headStart.ValueChanged += value => Change(Session.Rules with { HeadStart = value });
         _wastedClicks.ValueChanged += value => Change(Session.Rules with { WastedClickDelay = value });
         _rodCooldown.ValueChanged += value => Change(Session.Rules with { RodCooldown = value });
+        _rodKnockback.ValueChanged += value => Change(Session.Rules with { RodKnockback = value });
 
         box.AddChild(new Control { CustomMinimumSize = new Vector2(0, 8) });
         var buttons = new HBoxContainer();
@@ -116,13 +129,17 @@ public partial class TwistsMenu : PanelContainer
         _comboKnockback.Value = 1.0 - rules.ComboKnockback;
         _comboKnockbackValue.Text = Marked(MatchRules.Percent(rules.ComboKnockback), rules.ComboKnockback == byDefault.ComboKnockback);
         _headStart.Value = rules.HeadStart;
-        // The one slider where plain 1.8 isn't all the way left, so its 1.8 point is marked too.
+        // Plain 1.8 isn't all the way left here, so its 1.8 point is marked too.
         _headStartValue.Text = Marked(HeadStart.Label(rules.HeadStart), rules.HeadStart == byDefault.HeadStart,
             rules.HeadStart == minecraft.HeadStart);
         _wastedClicks.Value = rules.WastedClickDelay;
         _wastedClicksValue.Text = Marked(MatchRules.Seconds(rules.WastedClickDelay), rules.WastedClickDelay == byDefault.WastedClickDelay);
         _rodCooldown.Value = rules.RodCooldown;
         _rodCooldownValue.Text = Marked(MatchRules.Seconds(rules.RodCooldown), rules.RodCooldown == byDefault.RodCooldown);
+        _rodKnockback.Value = rules.RodKnockback;
+        // Off is all the way left here, so 1.8's (all of it) is marked too.
+        _rodKnockbackValue.Text = Marked(MatchRules.PercentOrOff(rules.RodKnockback), rules.RodKnockback == byDefault.RodKnockback,
+            rules.RodKnockback == minecraft.RodKnockback);
         if (_defaults is not null)
         {
             _defaults.Disabled = rules.IsDefault;

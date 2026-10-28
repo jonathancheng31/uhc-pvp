@@ -317,15 +317,12 @@ public sealed class BotDuel
             return result;
         }
         bool sprint = !rod && sprintKnockback;
-        // As the game: from where the two really are, built from the server's copy as it lands.
-        Vec3d attackerAt = attacker.Motor.Position;
-        Vec3d victimAt = victim.Motor.Position;
-        float yaw = attacker.Yaw;
-        Vec3d Knockback(Vec3d copy, bool full) => CombatRules.Knockback(
-            copy, attackerAt, victimAt, yaw, baseKnockback: full, sprintBonus: sprint, _random, _rules.ComboKnockback);
+        // As the game: from where the two really are, built from the server's copy as it lands,
+        // under the duel's rules (combo knockback, and the rod knockback for a rod catch).
+        CombatRules.ApplyKnockback(
+            victim.Motor, result, attacker.Motor.Position, victim.Motor.Position, attacker.Yaw, rod, sprint, _rules, _random);
         if (result == HitResult.Hurt)
         {
-            victim.Motor.Knock(copy => CombatRules.VelocityPacket(Knockback(copy, full: true)));
             victim.HurtAt = _time;
             victim.HurtByRod = rod;
             if (!rod)
@@ -334,10 +331,6 @@ public sealed class BotDuel
                 victim.KnockbackCut = false;
                 victim.KnockbackTracked = true;
             }
-        }
-        else if (sprint)
-        {
-            victim.Motor.PushServerCopy(Knockback(Vec3d.Zero, full: false));
         }
         Trace?.Invoke(string.Create(CultureInfo.InvariantCulture,
             $"  HIT by {attacker.Id}: {(rod ? "rod" : result.ToString())} sprint={sprint} "

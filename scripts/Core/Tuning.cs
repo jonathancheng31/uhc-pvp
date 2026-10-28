@@ -348,6 +348,19 @@ public static class Tuning
     public const double MaxRodCooldown = 1.5;
     /// <summary>One MC tick, so every length is a whole number of our ticks.</summary>
     public const double RodCooldownStep = 0.05;
+    /// <summary>
+    /// Rod knockback (a twist, see MatchRules): a rod catch's push away from the thrower
+    /// (<see cref="KnockbackHorizontal"/>), its lift (<see cref="KnockbackVertical"/>) and the
+    /// lift's cap, all as this fraction of an unsprinted sword hit's, which is what 1.8 servers
+    /// give a rod: 1. The victim's own motion is halved at any strength, as for any hit. 0 sends
+    /// no knockback at all, though the catch still counts for hit protection. Sword hits never
+    /// change.
+    /// </summary>
+    public const double McRodKnockback = 1.0;
+    /// <summary>1.8's in a new match.</summary>
+    public const double DefaultRodKnockback = McRodKnockback;
+    public const double MaxRodKnockback = 2.0;
+    public const double RodKnockbackStep = 0.05;
 
     // --- Practice bots ----------------------------------------------------------------------
 
