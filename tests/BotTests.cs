@@ -342,4 +342,21 @@ public class BotTests : TestCase
         Check(timed < spam * 0.6, $"wastes far fewer clicks than a spam clicker ({timed:P0} against {spam:P0})");
         Check(series.WinRateA > 0.7, $"and timing beats spam: Normal beats the 0.4.6 bot under wasted clicks ({series.WinRateA:P0})");
     }
+
+    public void TestWaitsForItsBobberWithoutARodCooldown()
+    {
+        // With the rod cooldown off (1.8.9's), every right-click throws, so throwing again too
+        // soon would make its own bobber vanish on the way: it waits to see whether it caught them.
+        int throws = 0;
+        int lost = 0;
+        for (int seed = 1; seed <= 20; seed++)
+        {
+            DuelResult r = BotDuel.Fight(
+                new SkilledBrain(BotDifficulty.Hard, seed * 2 + 1), new SkilledBrain(BotDifficulty.Normal, seed * 2 + 2), MatchRules.Minecraft, seed);
+            throws += r.A.RodThrows + r.B.RodThrows;
+            lost += r.A.RodThrowsLost + r.B.RodThrowsLost;
+        }
+        Check(throws > 100, $"both rod ({throws} throws)");
+        Check(lost * 50 <= throws, $"and almost never throw away their own bobber on its way ({lost} of {throws})");
+    }
 }

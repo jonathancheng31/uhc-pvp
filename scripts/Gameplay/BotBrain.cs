@@ -107,6 +107,8 @@ public sealed class BotBrain
     private double _rodPlanUntil;
     private double _rodRethinkAt;
     private double _lastRodAt = double.NegativeInfinity;
+    /// <summary>When it can tell whether its last bobber caught them: its flight, then a reaction time.</summary>
+    private double _rodWatchUntil = double.NegativeInfinity;
 
     public BotBrain(BotMode mode, int seed, BotDifficulty difficulty = Tuning.DefaultBotDifficulty)
     {
@@ -461,6 +463,12 @@ public sealed class BotBrain
         double theirs, double mine, bool comboing, bool comboed)
     {
         BotSkill skill = Skill;
+        if (_time < _rodWatchUntil)
+        {
+            // With a short rod cooldown, or none, it waits to see whether its last bobber caught
+            // them, as a person would: throwing again would make that one vanish on the way.
+            return false;
+        }
         // A bobber only catches someone whose protection is over by the time it gets there.
         double theirsThen = theirs - RodFlightSeconds(distance);
         RodPlan chance = RodPlan.None;
@@ -510,6 +518,7 @@ public sealed class BotBrain
         }
         _rod = RodPlan.None;
         _lastRodAt = _time;
+        _rodWatchUntil = _time + RodFlightSeconds(distance) + skill.ReactionSeconds;
         return true;
     }
 

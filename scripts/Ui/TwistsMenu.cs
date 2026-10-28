@@ -14,7 +14,8 @@ namespace UhcPvp.Ui;
 /// </summary>
 public partial class TwistsMenu : PanelContainer
 {
-    private const float ColumnWidth = 380;
+    /// <summary>Wide enough that the descriptions wrap to two or three lines, so four twists in a column still fit 720p.</summary>
+    private const float ColumnWidth = 520;
 
     private HSlider _strafeSpeed = null!;
     private Label _strafeSpeedValue = null!;
@@ -29,8 +30,9 @@ public partial class TwistsMenu : PanelContainer
     private Label _comboKnockbackValue = null!;
     private HSlider _headStart = null!;
     private Label _headStartValue = null!;
+    private HSlider _rodCooldown = null!;
+    private Label _rodCooldownValue = null!;
     private Button? _defaults;
-    private Button? _plain;
     private bool _refreshing;
 
     /// <summary>Raised when the screen closes (Done or Esc); the pause menu shows again.</summary>
@@ -72,12 +74,15 @@ public partial class TwistsMenu : PanelContainer
             "Everyone else is shown, and hit, this far in the past, the same at any ping, so whoever chases after a hit gets back in reach first.");
         (_wastedClicks, _wastedClicksValue) = Twist(fighting, "Wasted clicks", 0.0, Tuning.MaxWastedClickDelay, Tuning.WastedClickDelayStep,
             "A click that does nothing (a miss, or someone still in hit protection) blocks your clicks this long. Your crosshair turns red while it does.");
+        (_rodCooldown, _rodCooldownValue) = Twist(fighting, "Rod cooldown", 0.0, Tuning.MaxRodCooldown, Tuning.RodCooldownStep,
+            "After a throw, the rod can't be thrown again for this long. A bar under your crosshair shows it. Off lets every right-click throw.");
         _strafeSpeed.ValueChanged += value => Change(Session.Rules with { StrafeSpeed = value });
         _strafeGrip.ValueChanged += value => Change(Session.Rules with { StrafeGrip = value });
         _pushing.ValueChanged += value => Change(Session.Rules with { Pushing = value });
         _comboKnockback.ValueChanged += value => Change(Session.Rules with { ComboKnockback = 1.0 - value });
         _headStart.ValueChanged += value => Change(Session.Rules with { HeadStart = value });
         _wastedClicks.ValueChanged += value => Change(Session.Rules with { WastedClickDelay = value });
+        _rodCooldown.ValueChanged += value => Change(Session.Rules with { RodCooldown = value });
 
         box.AddChild(new Control { CustomMinimumSize = new Vector2(0, 8) });
         var buttons = new HBoxContainer();
@@ -86,7 +91,6 @@ public partial class TwistsMenu : PanelContainer
         if (IsHost)
         {
             _defaults = AddButton(buttons, "Reset to defaults", () => Session.SetRules(MatchRules.Default));
-            _plain = AddButton(buttons, "Plain 1.8 (all off)", () => Session.SetRules(MatchRules.Minecraft));
         }
         AddButton(buttons, "Done", Close);
 
@@ -117,10 +121,11 @@ public partial class TwistsMenu : PanelContainer
             rules.HeadStart == minecraft.HeadStart);
         _wastedClicks.Value = rules.WastedClickDelay;
         _wastedClicksValue.Text = Marked(MatchRules.Seconds(rules.WastedClickDelay), rules.WastedClickDelay == byDefault.WastedClickDelay);
-        if (_defaults is not null && _plain is not null)
+        _rodCooldown.Value = rules.RodCooldown;
+        _rodCooldownValue.Text = Marked(MatchRules.Seconds(rules.RodCooldown), rules.RodCooldown == byDefault.RodCooldown);
+        if (_defaults is not null)
         {
             _defaults.Disabled = rules.IsDefault;
-            _plain.Disabled = rules.IsMinecraft;
         }
         _refreshing = false;
     }

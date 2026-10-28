@@ -16,30 +16,33 @@ namespace UhcPvp.Core;
 /// <param name="Pushing">Player pushing, see <see cref="Tuning.McPushing"/>. 0 is 1.8.9 (players walk through each other), 1 is solid.</param>
 /// <param name="ComboKnockback">Combo knockback, the sprint hit's extra push as a fraction of 1.8.9's, see <see cref="Tuning.McComboKnockback"/>. 1 is 1.8.9.</param>
 /// <param name="HeadStart">Head start, how far in the past others are drawn and hit, in seconds, see <see cref="Tuning.McHeadStart"/>. 0.175 is 1.8.9's; 0 draws them as fresh as possible.</param>
+/// <param name="RodCooldown">Rod cooldown, in seconds, see <see cref="Tuning.McRodCooldown"/>. 0 is 1.8.9 (every right-click throws).</param>
 public readonly record struct MatchRules(
     double StrafeSpeed,
     double StrafeGrip,
     double WastedClickDelay,
     double Pushing,
     double ComboKnockback,
-    double HeadStart)
+    double HeadStart,
+    double RodCooldown)
 {
     /// <summary>
     /// Plain 1.8.9: every twist at 1.8.9's setting. The baseline movement and combat are measured
-    /// against, and one button away on the Twists screen.
+    /// against; on the Twists screen, every slider all the way left except the head start.
     /// </summary>
     public static MatchRules Minecraft => new(
         Tuning.McStrafeSpeed, Tuning.McStrafeGrip, Tuning.McWastedClickDelay, Tuning.McPushing,
-        Tuning.McComboKnockback, Tuning.McHeadStart);
+        Tuning.McComboKnockback, Tuning.McHeadStart, Tuning.McRodCooldown);
 
     /// <summary>
     /// What a new match starts with: the owner's picks from playing 0.4.8 (2026-10-23), the
-    /// snappiest strafing and a 75 ms head start, everything else 1.8.9's. Also what a missing or
-    /// broken value from the settings file or the network becomes.
+    /// snappiest strafing and a 75 ms head start, and the rod's 0.75 s cooldown from before it
+    /// was a twist; everything else 1.8.9's. Also what a missing or broken value from the
+    /// settings file or the network becomes.
     /// </summary>
     public static MatchRules Default => new(
         Tuning.DefaultStrafeSpeed, Tuning.DefaultStrafeGrip, Tuning.DefaultWastedClickDelay, Tuning.DefaultPushing,
-        Tuning.DefaultComboKnockback, Tuning.DefaultHeadStart);
+        Tuning.DefaultComboKnockback, Tuning.DefaultHeadStart, Tuning.DefaultRodCooldown);
 
     /// <summary>
     /// The same rules made valid, for values from a file or the network: each is kept within its
@@ -51,7 +54,8 @@ public readonly record struct MatchRules(
         Snap(WastedClickDelay, 0.0, Tuning.MaxWastedClickDelay, Tuning.WastedClickDelayStep, Tuning.DefaultWastedClickDelay),
         Snap(Pushing, 0.0, Tuning.MaxPushing, Tuning.PushingStep, Tuning.DefaultPushing),
         Snap(ComboKnockback, Tuning.MinComboKnockback, Tuning.McComboKnockback, Tuning.ComboKnockbackStep, Tuning.DefaultComboKnockback),
-        Snap(HeadStart, 0.0, Tuning.MaxHeadStart, Tuning.HeadStartStep, Tuning.DefaultHeadStart));
+        Snap(HeadStart, 0.0, Tuning.MaxHeadStart, Tuning.HeadStartStep, Tuning.DefaultHeadStart),
+        Snap(RodCooldown, 0.0, Tuning.MaxRodCooldown, Tuning.RodCooldownStep, Tuning.DefaultRodCooldown));
 
     /// <summary>Whether every twist is at 1.8.9's setting (plain 1.8).</summary>
     public bool IsMinecraft => Normalized() == Minecraft;
@@ -108,6 +112,7 @@ public readonly record struct MatchRules(
         Add("combo knockback", ComboKnockback, baseline.ComboKnockback, Percent(ComboKnockback));
         Add("head start", HeadStart, baseline.HeadStart, Core.HeadStart.Label(HeadStart));
         Add("wasted clicks", WastedClickDelay, baseline.WastedClickDelay, Seconds(WastedClickDelay));
+        Add("rod cooldown", RodCooldown, baseline.RodCooldown, Seconds(RodCooldown));
         return parts;
     }
 

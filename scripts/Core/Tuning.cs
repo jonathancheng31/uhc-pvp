@@ -321,11 +321,19 @@ public static class Tuning
     /// <summary>The line breaks (the bobber vanishes) when it's farther than this from the thrower.</summary>
     public const double RodLineLength = 32.0;
     /// <summary>
-    /// After a throw, the rod can't be thrown again for this many MC ticks (0.75 s; the owner's
-    /// choice in 0.4.2, so it can't be spammed). Longer than the half second of hit protection,
-    /// so back-to-back rods can't keep someone pinned away.
+    /// The rod's cooldown (a twist, see MatchRules): after a throw, the rod can't be thrown again
+    /// for this many seconds. 1.8.9 has none: 0, where every right-click throws.
     /// </summary>
-    public const int RodCooldownMcTicks = 15;
+    public const double McRodCooldown = 0.0;
+    /// <summary>
+    /// 0.75 s (15 MC ticks) in a new match: the owner's choice in 0.4.2, so it can't be spammed.
+    /// Longer than the half second of hit protection, so back-to-back rods can't keep someone
+    /// pinned away.
+    /// </summary>
+    public const double DefaultRodCooldown = 0.75;
+    public const double MaxRodCooldown = 1.5;
+    /// <summary>One MC tick, so every length is a whole number of our ticks.</summary>
+    public const double RodCooldownStep = 0.05;
 
     // --- Practice bots ----------------------------------------------------------------------
 

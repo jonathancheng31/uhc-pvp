@@ -60,6 +60,8 @@ public sealed class DuelSide
     /// <summary>Sword hits inside protection that still counted (crits, or after a rod).</summary>
     public int StrongerHits { get; set; }
     public int RodThrows { get; set; }
+    /// <summary>Throws that made its own bobber vanish while that one was still on its way to the other side.</summary>
+    public int RodThrowsLost { get; set; }
     public int RodHits { get; set; }
     public int Crits { get; set; }
     /// <summary>Full sword hits in a row without taking one back.</summary>
@@ -373,11 +375,17 @@ public sealed class BotDuel
     /// <summary>As Game.ThrowRod.</summary>
     private void ThrowRod(Fighter thrower)
     {
-        if (thrower.Vitality.IsDead || !thrower.Rod.TryThrow())
+        if (thrower.Vitality.IsDead || !thrower.Rod.TryThrow(_rules.RodCooldown))
         {
             return;
         }
         thrower.Stats.RodThrows++;
+        Fighter other = thrower == _fighters[0] ? _fighters[1] : _fighters[0];
+        if (thrower.Bobber is Bobber old && old.HookedId is null && old.LandedAt is null
+            && (old.PositionAt(_time) - old.Origin).HorizontalLength < (other.Motor.Position - old.Origin).HorizontalLength)
+        {
+            thrower.Stats.RodThrowsLost++;
+        }
         // Rounded like the cast message, as the game does.
         Vec3d origin = Vec3d.From(Bobber.CastOrigin(thrower.Eye, thrower.Yaw).ToGodot());
         Vec3d velocity = Vec3d.From(Bobber.CastVelocity(thrower.Yaw, thrower.Pitch, _random).ToGodot());

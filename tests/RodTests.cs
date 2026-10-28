@@ -181,36 +181,97 @@ public class RodTests : TestCase
 
     public void TestRodCooldownBlocksSpam()
     {
-        // 0.75 s: short, but longer than the half second of hit protection, so back-to-back
-        // rods can't keep someone pinned away.
-        double seconds = RodCooldown.Ticks / (double)Tuning.SimRate;
-        CheckNear(seconds, 0.75, 1e-9, "cooldown length (seconds)");
-        Check(Tuning.RodCooldownMcTicks > Tuning.HurtImmunityThresholdMcTicks, "longer than hit protection");
+        // 0.75 s by default: short, but longer than the half second of hit protection, so
+        // back-to-back rods can't keep someone pinned away.
+        double seconds = MatchRules.Default.RodCooldown;
+        CheckNear(seconds, 0.75, 1e-9, "cooldown length by default (seconds)");
+        CheckEqual(RodCooldown.TicksFor(seconds), 45, "45 of our ticks");
+        Check(seconds > Tuning.HurtImmunityThresholdMcTicks / (double)Tuning.McTickRate, "longer than hit protection");
 
         var cooldown = new RodCooldown();
         Check(cooldown.Ready && cooldown.FractionLeft == 0, "ready at the start");
-        Check(cooldown.TryThrow(), "first right-click throws");
+        Check(cooldown.TryThrow(seconds), "first right-click throws");
         CheckNear(cooldown.FractionLeft, 1, 1e-12, "full cooldown right after a throw");
         int throws = 0;
         double lastFraction = cooldown.FractionLeft;
         bool shrinking = true;
-        for (int t = 1; t < RodCooldown.Ticks; t++)
+        for (int t = 1; t < RodCooldown.TicksFor(seconds); t++)
         {
             cooldown.Tick();
             shrinking &= cooldown.FractionLeft < lastFraction;
             lastFraction = cooldown.FractionLeft;
             // Spam-clicking every tick of the cooldown does nothing.
-            throws += cooldown.TryThrow() ? 1 : 0;
+            throws += cooldown.TryThrow(seconds) ? 1 : 0;
         }
         CheckEqual(throws, 0, "right-clicks during the cooldown that threw");
-        Check(shrinking, "the cooldown shown on the slot shrinks every tick");
+        Check(shrinking, "the cooldown bar shrinks every tick");
         Check(!cooldown.Ready, "still cooling down one tick before the end");
         cooldown.Tick();
         Check(cooldown.Ready && cooldown.FractionLeft == 0, "ready after exactly the cooldown");
-        Check(cooldown.TryThrow(), "throws again once ready");
+        Check(cooldown.TryThrow(seconds), "throws again once ready");
 
         cooldown.Reset();
-        Check(cooldown.Ready && cooldown.TryThrow(), "a respawn makes the rod ready at once");
+        Check(cooldown.Ready && cooldown.TryThrow(seconds), "a respawn makes the rod ready at once");
+    }
+
+    public void TestRodCooldownLastsTheMatchRule()
+    {
+        // The host can set it from off to 1.5 s, in steps of one Minecraft tick.
+        foreach ((double seconds, int ticks) in new[] { (0.05, 3), (0.5, 30), (1.2, 72), (Tuning.MaxRodCooldown, 90) })
+        {
+            var cooldown = new RodCooldown();
+            Check(cooldown.TryThrow(seconds), $"{seconds} s: the first right-click throws");
+            int blocked = 0;
+            while (!cooldown.Ready)
+            {
+                blocked++;
+                CheckNear(cooldown.FractionLeft, (ticks - blocked + 1) / (double)ticks, 1e-12, $"{seconds} s: the bar after {blocked - 1} ticks");
+                Check(!cooldown.TryThrow(seconds), $"{seconds} s: no throw while cooling down");
+                cooldown.Tick();
+            }
+            CheckEqual(blocked, ticks, $"{seconds} s blocks for {ticks} of our ticks");
+        }
+    }
+
+    public void TestRodCooldownOffThrowsEveryClick()
+    {
+        // Off, as in 1.8.9: every right-click throws (the old bobber vanishes and a new one flies).
+        CheckEqual(MatchRules.Minecraft.RodCooldown, 0.0, "plain 1.8.9 has no rod cooldown");
+        var cooldown = new RodCooldown();
+        int throws = 0;
+        for (int t = 0; t < Tuning.SimRate; t++)
+        {
+            throws += cooldown.TryThrow(0) ? 1 : 0;
+            Check(cooldown.Ready && cooldown.FractionLeft == 0, "never cooling down, so no bar");
+            cooldown.Tick();
+        }
+        CheckEqual(throws, Tuning.SimRate, "right-clicking every tick for a second throws every time");
+    }
+
+    public void TestRodCooldownKeepsItsLengthWhenTheRuleChanges()
+    {
+        // The host moves the slider mid-cooldown: the running one keeps its length (and its bar
+        // stays right), and the new length counts from the next throw.
+        var cooldown = new RodCooldown();
+        cooldown.TryThrow(1.0);
+        for (int t = 0; t < 30; t++)
+        {
+            cooldown.Tick();
+            Check(!cooldown.TryThrow(0), "a shorter rule doesn't end a cooldown that's running");
+        }
+        CheckNear(cooldown.FractionLeft, 0.5, 1e-12, "halfway through 1 s, the bar is half full");
+        for (int t = 0; t < 30; t++)
+        {
+            cooldown.Tick();
+        }
+        Check(cooldown.Ready, "ready after the 1 s it started with");
+        Check(cooldown.TryThrow(0.25), "throws");
+        CheckNear(cooldown.FractionLeft, 1, 1e-12, "a full bar for the new length");
+        for (int t = 0; t < RodCooldown.TicksFor(0.25); t++)
+        {
+            cooldown.Tick();
+        }
+        Check(cooldown.Ready, "the next cooldown lasts the new 0.25 s");
     }
 
     public void TestSpammingThrowsAtMostOncePerCooldown()
@@ -222,7 +283,7 @@ public class RodTests : TestCase
         {
             if (t % 3 == 0)
             {
-                throws += cooldown.TryThrow() ? 1 : 0;
+                throws += cooldown.TryThrow(MatchRules.Default.RodCooldown) ? 1 : 0;
             }
             cooldown.Tick();
         }

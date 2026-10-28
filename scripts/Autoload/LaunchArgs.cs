@@ -29,9 +29,10 @@ namespace UhcPvp.Autoload;
 /// --wasted-clicks=SEC    and the default), strafe snappiness (0 is 1.8, 100 the default), the
 /// --push=PERCENT         wasted-click delay in seconds (0 is 1.8 and the default), player pushing
 /// --combo-kb=PERCENT     (0 is 1.8 and the default, 100 is solid), combo knockback, the sprint
-/// --head-start=MS        hit's extra push (100 is 1.8 and the default, down to 60), and the head
-///                        start: how far in the past others are drawn (175 is 1.8, 75 the
-///                        default, 0 to 250).
+/// --head-start=MS        hit's extra push (100 is 1.8 and the default, down to 60), the head
+/// --rod-cooldown=SEC     start: how far in the past others are drawn (175 is 1.8, 75 the
+///                        default, 0 to 250), and the rod's cooldown in seconds (0 is 1.8, 0.75
+///                        the default, up to 1.5).
 /// --hold=KEYS          Hold movement keys all match: any of w, a, s, d, and j to jump (tests,
 ///                      screenshots: --hold=w on two opposite players runs them into each other).
 /// --ping=MS            Simulate this much extra ping.
@@ -82,11 +83,14 @@ public partial class LaunchArgs : Node
     public double? ComboKnockback { get; private set; }
     /// <summary>--head-start in seconds (0.2 for 200), or null.</summary>
     public double? HeadStart { get; private set; }
+    /// <summary>--rod-cooldown in seconds, or null.</summary>
+    public double? RodCooldown { get; private set; }
 
     /// <summary>The host's rules: its saved choice, with any twist given on the command line instead.</summary>
     public MatchRules RulesFor(MatchRules saved) => new MatchRules(
         StrafeSpeed ?? saved.StrafeSpeed, StrafeGrip ?? saved.StrafeGrip, WastedClickDelay ?? saved.WastedClickDelay,
-        Pushing ?? saved.Pushing, ComboKnockback ?? saved.ComboKnockback, HeadStart ?? saved.HeadStart).Normalized();
+        Pushing ?? saved.Pushing, ComboKnockback ?? saved.ComboKnockback, HeadStart ?? saved.HeadStart,
+        RodCooldown ?? saved.RodCooldown).Normalized();
     public double PingMs { get; private set; }
     public double JitterMs { get; private set; }
     public double LossPercent { get; private set; }
@@ -149,6 +153,7 @@ public partial class LaunchArgs : Node
                 case "--hold": HoldKeys = value.ToLowerInvariant(); break;
                 case "--combo-kb": ComboKnockback = ParseDouble(value) / 100.0; break;
                 case "--head-start": HeadStart = ParseDouble(value) / 1000.0; break;
+                case "--rod-cooldown": RodCooldown = ParseDouble(value); break;
                 case "--ping": PingMs = ParseDouble(value); break;
                 case "--jitter": JitterMs = ParseDouble(value); break;
                 case "--loss": LossPercent = ParseDouble(value); break;

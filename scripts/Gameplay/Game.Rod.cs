@@ -26,10 +26,13 @@ public partial class Game
     /// <summary>Rod hits by the local player.</summary>
     public int RodHitsLanded { get; private set; }
 
-    /// <summary>A right-click by a player this game runs (you or a bot). Does nothing during the cooldown.</summary>
+    /// <summary>
+    /// A right-click by a player this game runs (you or a bot). Does nothing during the cooldown;
+    /// a throw starts one as long as the match's rule says.
+    /// </summary>
     public void ThrowRod(Player thrower)
     {
-        if (!thrower.IsOwned || thrower.IsDead || !thrower.RodCooldown.TryThrow())
+        if (!thrower.IsOwned || thrower.IsDead || !thrower.RodCooldown.TryThrow(Session.Rules.RodCooldown))
         {
             return;
         }
