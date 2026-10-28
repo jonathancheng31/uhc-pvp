@@ -87,7 +87,7 @@ It produces `UHC-PvP.exe` plus a `data_UhcPvp_windows_x86_64` folder (the .NET r
   `Settings` (the player's saved settings, applied at startup), `Network` (ENet host/join,
   messages, clock sync, lag simulator), `Session` (roster, teams, scene changes)
 - `scripts/Core/`: engine-light logic with unit tests: `Tuning` (every gameplay number),
-  `GameSettings` (max FPS and volume rules), `MatchRules` (the host's twists on 1.8.9), `SoundBank` (every sound and the mix), `PlayerState`, `SnapshotBuffer`, `NetClock`,
+  `GameSettings` (max FPS and volume rules), `MatchRules` (the host's twists on 1.8.9), `SoundBank` (every sound and the mix), `PlayerState`, `SnapshotBuffer`, `Sighting` (whether someone can be hit where they're seen), `NetClock`,
   `LagSimulator`, `Team`, `HeadStart` (1.8.9's display delay: how far in the past others are
   drawn and hit), `TickClock` (evenly spaced host times for each tick's state), and the fighting bot's `BotSkill` (Easy/Normal/Hard), `BotPerception`
   (what it sees, late) and `BotAim` (its hand on the mouse)

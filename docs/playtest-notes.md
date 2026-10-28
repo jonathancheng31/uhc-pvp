@@ -175,6 +175,27 @@ Not bugs: things that are expected to feel off until they're built.
 
 ## Done
 
+- **2026-10-28, 0.4.9, idea: "add a twists slider for the fishing rod delay".** The rod's
+  cooldown was a fixed 0.75 s. **Done in 0.4.10:** "Rod cooldown" on the Twists screen, in the
+  Fighting column: Off (1.8, every right-click throws) to 1.5 s, 0.75 s by default, so a new
+  match plays as before. Bots follow it; with a short one or none they wait to see whether their
+  bobber caught you before throwing again (they kept throwing away their own bobbers).
+- **2026-10-28, 0.4.9, decision: "for the twists remove the default back to 1.8, just make it
+  default back to the current default settings."** **Done in 0.4.10:** the "Plain 1.8 (all off)"
+  button is gone; "Reset to defaults" stays. Plain 1.8 is still every slider all the way left
+  except the head start, and still what parity tests measure against.
+- **2026-10-28, 0.4.9, feel: "make it so the fishing rod after sitting on ground or player for a
+  bit, disappears so the line isn't stuck on screen."** Cause: a bobber stayed out until the next
+  throw, so its line stayed stretched across the screen to a bobber on the ground or on an
+  enemy's chest. **Done in 0.4.10:** it disappears 2 s after it comes to rest, and 0.25 s after
+  it catches someone (the owner's pick: "try 0.25", offered 0.5 s, 1 s or 2 s). Also the owner's
+  choice: a bobber lying still no longer catches anyone who walks onto it ("No, only in flight";
+  1.8.9's practically never does). Found on the way and fixed: right after a bot respawned, a
+  dropped bobber or a sword swing could catch it at its old body, 25 to 40 blocks from where it
+  was (every bot respawn in a practice fight took a ghost sword hit), stretching the line across
+  the arena; and a practice bot's own bobber was drawn about a block ahead of itself, stepping
+  20 times a second. To find out: does the line now clear fast enough, and does 0.25 s still
+  show the catch clearly.
 - **2026-10-22, 0.4.5, feel: "the screen shakes on hit is too much can we remove this or tone it
   down or change it or smth?"** Cause: we copied 1.8.9's hurt camera tilt (14 degrees). **Done in
   0.4.6:** it's a setting, "Camera shake when hit", 0 to 100% of Minecraft's, 25% by default;

@@ -320,9 +320,11 @@ public static class Tuning
     public const double BobberHookHeight = 0.6;
     /// <summary>
     /// A caught bobber disappears this many seconds after catching someone, so the line doesn't
-    /// stay across your screen (ours: 1.8.9's hangs on until it's reeled in).
+    /// stay across your screen: long enough to see the catch land, gone before the follow-up hits
+    /// (the owner's pick, 2026-10-28). Ours: 1.8.9's hangs on until the thrower switches items or
+    /// reels in, which in 1.8 PvP is a fraction of a second after the catch.
     /// </summary>
-    public const double BobberHookSeconds = 2.0;
+    public const double BobberHookSeconds = 0.25;
     /// <summary>A bobber that has come to rest disappears after lying still this many seconds (ours: 1.8.9's lies there far longer).</summary>
     public const double BobberGroundSeconds = 2.0;
     /// <summary>

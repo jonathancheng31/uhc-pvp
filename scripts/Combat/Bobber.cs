@@ -170,8 +170,11 @@ public sealed class Bobber
     /// Whom it catches moving from where it is at host time <paramref name="from"/> to where it
     /// is at <paramref name="to"/> (a straight line, so for short steps: the game checks every
     /// 1/60 s), and when: the first of <paramref name="targets"/> it touches (see
-    /// <see cref="FirstHit"/>). Once it's gone it catches no one, so only the time until then
-    /// counts. Null if it touches no one, or it already hangs on someone.
+    /// <see cref="FirstHit"/>). Only a moving bobber catches: once it lies still it's a leftover
+    /// that catches no one, walking onto it included (the owner's choice, 2026-10-28; 1.8.9's
+    /// lying bobber practically never catches anyone, its path there being next to nothing), so
+    /// only the time until it came to rest counts. Null if it touches no one, or it already
+    /// hangs on someone.
     /// </summary>
     public (int Id, double Time)? Catch(double from, double to, IReadOnlyList<RodTarget> targets)
     {
@@ -179,7 +182,9 @@ public sealed class Bobber
         {
             return null;
         }
-        double until = IsGoneAt(to) ? Math.Min(to, GoneAt ?? to) : to;
+        // Works out the flight up to then, so whether it has come to rest by then is known.
+        PositionAt(to);
+        double until = RestingSince is double rest ? Math.Min(to, rest) : to;
         if (until <= from || FirstHit(PositionAt(from), PositionAt(until), targets) is not { } hit)
         {
             return null;

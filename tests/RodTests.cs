@@ -387,17 +387,6 @@ public class RodTests : TestCase
         bobber.Hook(7, caught);
         Check(FirstFrameFrom(FirstGone(bobber, CastTime, CastTime + 6), caught + Tuning.BobberHookSeconds),
             "hangs on them for the hook time, then it's gone");
-
-        // Lying on the floor when someone walks into it: it hangs on them the hook time from
-        // then, however long it lay there before.
-        Bobber lying = Cast(FlatWorld(), new Vec3d(32.5, FloorY, 55.5), 0, 0);
-        lying.PositionAt(At(30));
-        double rest = lying.RestingSince ?? double.NaN;
-        double walkedInto = rest + 1.5;
-        lying.Hook(7, walkedInto);
-        Check(!lying.IsGoneAt(rest + Tuning.BobberGroundSeconds), "the time it lay there no longer counts");
-        Check(FirstFrameFrom(FirstGone(lying, walkedInto, walkedInto + 6), walkedInto + Tuning.BobberHookSeconds),
-            "gone the hook time after it caught them");
     }
 
     public void TestDroppedBobberDisappearsAfterTheGroundTime()
@@ -417,7 +406,7 @@ public class RodTests : TestCase
         Check(FirstFrameFrom(gone, rest + Tuning.BobberGroundSeconds), "gone the ground time after landing, not before");
     }
 
-    public void TestGoneBobberCatchesNoOne()
+    public void TestBobberAtRestCatchesNoOne()
     {
         // While it flies it catches as always: someone 5 blocks ahead, as it reaches them.
         Bobber flying = Cast(FlatWorld(), new Vec3d(32.5, FloorY, 55.5), 0, 0);
@@ -432,19 +421,20 @@ public class RodTests : TestCase
         CheckNear(caught?.Time ?? -1, At(3) + (4.4 - 4.1496) / (5.317632 - 4.1496) / Tuning.McTickRate, 1e-6,
             "when it reaches them");
 
-        // Lying on the floor, it catches someone standing on it until it's gone, and then no one.
+        // Once it lies still it's a leftover: someone standing on it, or walking onto it, isn't
+        // caught (1.8.9's lying bobber practically never catches anyone either).
         Bobber lying = Cast(FlatWorld(), new Vec3d(32.5, FloorY, 55.5), 0, 0);
         var onIt = new List<RodTarget> { new(6, lying.PositionAt(At(30))) };
+        double rest = lying.RestingSince ?? double.NaN;
         double gone = lying.GoneAt ?? double.NaN;
-        CheckEqual(lying.Catch(gone - 1, gone - 1 + Frame, onIt)?.Id, 6, "caught while it's there");
-        Check(lying.Catch(gone - Frame / 2, gone + Frame / 2, onIt) is { Time: var time } && time < gone,
-            "in the frame it goes, only before it goes");
+        Check(lying.Catch(rest - Frame / 2, rest + Frame / 2, onIt) is not { } c || c.Time < rest,
+            "in the frame it comes to rest, only before it does");
         int catches = 0;
-        for (int frame = 0; frame < 3 * Tuning.SimRate; frame++)
+        for (int frame = 0; rest + frame * Frame < gone + 1; frame++)
         {
-            catches += lying.Catch(gone + frame * Frame, gone + (frame + 1) * Frame, onIt) is null ? 0 : 1;
+            catches += lying.Catch(rest + frame * Frame, rest + (frame + 1) * Frame, onIt) is null ? 0 : 1;
         }
-        CheckEqual(catches, 0, "catches after it's gone");
+        CheckEqual(catches, 0, "catches once it lies still, until it's gone and after");
         Check(lying.IsGoneAt(gone), "gone by then");
     }
 

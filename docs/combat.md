@@ -257,7 +257,9 @@ after moving, so it only cut its knockback by accident on 3% (against a precise 
 aiming, hit protection, knockback, rod, wasted clicks, and since 0.4.8 the head start: each sees
 and hits the other 175 ms in the past), starting 10 to 14 blocks apart until one dies. The
 measurements below are under plain 1.8.9 (`MatchRules.Minecraft`), with each twist on top of it
-where named; the combo lengths also at the 0.4.9 defaults.
+where named; the combo lengths also at the 0.4.9 defaults. Since 0.4.10 plain 1.8.9 has no rod
+cooldown (1.8 has none; it's a twist now, 0.75 s by default), which moved these numbers by a few
+points; the lines at the defaults didn't change.
 `tests/LegacyBotBrain.cs` is the 0.4.6 bot, kept as a yardstick. 300 duels each (rerun with
 `BOT_REPORT=300 tools/run_tests.sh BotReport`, about a minute); the 0.4.6 bot against itself comes
 out at 47 to 52%, so the duels are fair.
@@ -266,16 +268,16 @@ Duels won against the 0.4.6 bot, by twist (hits landed per duel in brackets):
 
 | | 1.8.9 | Wasted clicks 0.15 s | Strafe 130%, snappiness 50% |
 |---|---|---|---|
-| Easy | 0% | 6% | 0% |
-| Normal | 46% (5.1 to 5.6) | 90% | 44% |
-| Hard | 73% (6.2 to 4.6) | 94% | 64% |
+| Easy | 0% | 7% | 0% |
+| Normal | 48% (5.1 to 5.4) | 91% | 45% |
+| Hard | 73% (6.0 to 4.6) | 95% | 58% |
 
-Hard beats Normal 73% of the time and Normal beats Easy every time. The head start makes the
+Hard beats Normal 74% of the time and Normal beats Easy every time. The head start makes the
 first hit of an exchange worth more, which narrows close matchups (in 0.4.7, without it, Hard
 beat Normal 91% of the time and the 0.4.6 bot 86%). Under wasted clicks the bot wastes about a third of its
 clicks where the 0.4.6 bot's spam wastes 84%, so timing beats it. With the same eyes and hands as
-the bot it faces (the 0.4.6 decisions given today's aim), today's decisions win 86% (Normal) and
-91% (Hard): the decisions matter, not just the aim.
+the bot it faces (the 0.4.6 decisions given today's aim), today's decisions win 88% (Normal) and
+93% (Hard): the decisions matter, not just the aim.
 
 In the real game, over the network on one machine (both ways round, 8 minutes each, in 0.4.7
 before the head start): Hard 25 kills to the 0.4.6 bot's 17; Normal 19 to 19.
@@ -287,11 +289,11 @@ with Normal's eyes and hands:
 | Against | Average combo | Combos of 4+ hits | Longest combo per fight | Who wins |
 |---|---|---|---|---|
 | Easy | 6.1 hits | 71% (1 in 10 reach 9) | 8.1 | player 100% |
-| Normal | 2.3 | 18% | 4.1 | player 65% |
-| Hard | 1.8 | 10% | 3.0 | player 36% |
-| 0.4.6 bot | 2.3 | 21% | 4.1 | player 55% |
+| Normal | 2.2 | 17% | 3.9 | player 64% |
+| Hard | 1.9 | 11% | 3.2 | player 37% |
+| 0.4.6 bot | 2.4 | 21% | 4.1 | player 57% |
 
-With perfect aim the same player averages 6.8 on Easy, 3.6 on Normal, 2.7 on Hard and 3.6 on
+With perfect aim the same player averages 6.8 on Easy, 3.5 on Normal, 2.7 on Hard and 3.6 on
 the 0.4.6 bot. A kill takes 9 hits, so 9 is the longest a combo can be. These are with 1.8.9's
 head start (0.4.8); without it (0.4.7) the player averaged 4.0 on Easy, 1.7 on Normal and 1.4 on
 Hard, so the head start makes every bot easier to combo, Easy most. At the 0.4.9 defaults (a

@@ -196,6 +196,18 @@ start and the cap come from connections that need more than the head start (abov
   the host clock, so the delay doesn't touch them.
 - Practice bots: see everyone through the delay, then react (combat.md).
 - Pushing: the freshest positions (above), not the delayed view.
+- Deaths and respawns (since 0.4.10): shown on the delay too. Whoever sees a player in the past
+  sees their body until their view reaches the respawn, then the player at their spawn, with no
+  sliding between; a host bot falls and gets up a head start after it happens, like everything
+  else about it. A player can be hit or caught only where they're seen alive, both read from the
+  same moment of the view (`Sighting`), so a swing or a dropped bobber can't land on their old
+  body the moment they respawn (before, every bot respawn in a practice fight took one, 25 to 40
+  blocks from the bot). Nor once this game knows they've died, from their states or the hit that
+  killed them, even while they're still drawn alive: their game would turn it down anyway. Their
+  game also turns down a hit whose view of them is from before their latest respawn (a tick's
+  allowance). If every state showing a death is lost on the way (a network stall), a state
+  showing them alive more than half the shortest respawn after the kill counts as the respawn,
+  so nobody stays unhittable.
 
 **Measured** (combo simulation, best attacker strategy, average combo of 3 tick phases, 8 is the
 cap; full table in [combat.md](combat.md), under combo knockback): before, holding no keys,

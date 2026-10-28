@@ -199,6 +199,22 @@ public class SnapshotBufferTests : TestCase
         buffer.NoteKilled(1.2);
         Check(!buffer.KnownDead, "news of the old kill arriving late doesn't kill them again");
     }
+
+    public void TestEveryStateShowingADeathLostStillEndsIt()
+    {
+        var buffer = new SnapshotBuffer();
+        static PlayerState At(float x, bool dead) => new(new Vector3(x, 5, 0), 0, 0, dead ? PlayerFlags.Dead : PlayerFlags.None, dead ? 0 : 20);
+        buffer.Push(1.0, At(3, false));
+        buffer.NoteKilled(1.2);
+        // Their game hears of the kill a moment after it: states from just after it still show them alive.
+        buffer.Push(1.4, At(3, false));
+        Check(buffer.KnownDead, "still dead while news of the kill could still be on its way to their game");
+        // Every state showing them dead is lost (a network stall), and the next shows them back.
+        double back = 1.2 + System.Math.Min(Tuning.RespawnDelay, Tuning.BotRespawnDelay);
+        buffer.Push(back, At(40, false));
+        Check(!buffer.KnownDead, "back once a state shows them alive long after the kill, or nobody could hit them again");
+        CheckEqual(buffer.RespawnedAt, back, "respawned at that state");
+    }
 }
 
 public class TuningTests : TestCase

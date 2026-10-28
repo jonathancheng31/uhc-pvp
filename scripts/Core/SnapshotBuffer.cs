@@ -28,6 +28,12 @@ public sealed class SnapshotBuffer
     private bool _hasAge;
     private double _killedAt = double.NegativeInfinity;
 
+    /// <summary>
+    /// A state showing a player alive this long after the hit that killed them is from their
+    /// next life: half the shortest respawn, far longer than the news of a death takes to arrive.
+    /// </summary>
+    private static readonly double SurelyRespawned = Math.Min(Tuning.RespawnDelay, Tuning.BotRespawnDelay) / 2;
+
     /// <summary>How far behind the host clock this player is drawn, in seconds.</summary>
     public double RenderDelay { get; private set; } = Tuning.InterpMinDelay;
 
@@ -66,6 +72,12 @@ public sealed class SnapshotBuffer
         }
         if (!IsEmpty && LatestState.Has(PlayerFlags.Dead) && !state.Has(PlayerFlags.Dead))
         {
+            RespawnedAt = time;
+        }
+        else if (!state.Has(PlayerFlags.Dead) && _killedAt > RespawnedAt && time > _killedAt + SurelyRespawned)
+        {
+            // Alive long after the hit that killed them, with every state showing them dead lost
+            // on the way: they've respawned, or nobody here could hit them again.
             RespawnedAt = time;
         }
         _states.Add((time, state));
