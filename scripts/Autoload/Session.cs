@@ -48,7 +48,12 @@ public partial class Session : Node
     {
         Net.JoinedHost += OnJoinedHost;
         Net.JoinFailed += OnJoinFailed;
-        Net.ConnectionLost += () => Leave("Lost connection to the host");
+        Net.ConnectionLost += () =>
+        {
+            // Logged so a dropped connection shows in a test's log, not just as a missing report.
+            GD.Print($"[session] lost connection to the host as {MyName}");
+            Leave("Lost connection to the host");
+        };
         Net.PeerDisconnected += OnPeerDisconnected;
         Net.MessageReceived += OnMessage;
     }
