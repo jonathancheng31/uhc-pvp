@@ -318,6 +318,18 @@ public static class Tuning
     public const double BobberHitboxGrow = 0.3;
     /// <summary>A caught bobber hangs at this fraction of the player's height: the chest (1.8.9's hangs at the neck, 0.8).</summary>
     public const double BobberHookHeight = 0.6;
+    /// <summary>
+    /// A caught bobber disappears this many seconds after catching someone, so the line doesn't
+    /// stay across your screen (ours: 1.8.9's hangs on until it's reeled in).
+    /// </summary>
+    public const double BobberHookSeconds = 2.0;
+    /// <summary>A bobber that has come to rest disappears after lying still this many seconds (ours: 1.8.9's lies there far longer).</summary>
+    public const double BobberGroundSeconds = 2.0;
+    /// <summary>
+    /// A bobber moving less than this in a MC tick (blocks) counts as at rest: the last bit of
+    /// its slide along the ground. In the air, gravity takes it past this within a tick.
+    /// </summary>
+    public const double BobberRestSpeed = 0.01;
     /// <summary>The line breaks (the bobber vanishes) when it's farther than this from the thrower.</summary>
     public const double RodLineLength = 32.0;
     /// <summary>

@@ -17,6 +17,11 @@ public readonly record struct RodTarget(int Id, Vec3d Feet);
 /// line, which is also the path checked for players, the way Minecraft checks what a
 /// projectile hits. Which player it catches is decided by the thrower's game (Game.Rod.cs);
 /// a caught bobber hangs on that player until the thrower casts again.
+///
+/// It also disappears on its own: <see cref="Tuning.BobberGroundSeconds"/> after it comes to
+/// rest, or <see cref="Tuning.BobberHookSeconds"/> after it catches someone. Both follow from
+/// the flight and the time of the catch, which every game knows, so every game makes it vanish
+/// at the same moment of the flight it shows.
 /// </summary>
 public sealed class Bobber
 {
@@ -47,6 +52,11 @@ public sealed class Bobber
     public Vec3d Origin { get; }
     /// <summary>The player it's caught on, if any.</summary>
     public int? HookedId { get; private set; }
+    /// <summary>
+    /// Host time it caught <see cref="HookedId"/>: when its path reached them, which is also when
+    /// every game shows it hanging on them.
+    /// </summary>
+    public double? HookedAt { get; private set; }
     /// <summary>Whether it's lying on the ground (or against a wall), as of the latest tick worked out.</summary>
     public bool Landed { get; private set; }
     /// <summary>
@@ -55,6 +65,24 @@ public sealed class Bobber
     /// one Minecraft tick ahead of the latest <see cref="PositionAt"/>.
     /// </summary>
     public double? LandedAt { get; private set; }
+    /// <summary>
+    /// Host time it came to rest, or null while it's moving, as of the latest tick worked out.
+    /// At rest means it has hardly moved (less than <see cref="Tuning.BobberRestSpeed"/>) in every
+    /// Minecraft tick since. Touching down isn't enough: it slides a little on the ground first,
+    /// and against a wall or a ceiling it only touches for a tick or two before it falls. Gravity
+    /// pulls a bobber in the air faster than that within a tick, so it can only stay at rest
+    /// while something holds it up: the floor, the top of a wall, anything it ends up lying on.
+    /// </summary>
+    public double? RestingSince { get; private set; }
+
+    /// <summary>
+    /// Host time it disappears on its own: <see cref="Tuning.BobberHookSeconds"/> after catching
+    /// someone, or <see cref="Tuning.BobberGroundSeconds"/> after coming to rest. Null while it's
+    /// flying (as of the latest tick worked out).
+    /// </summary>
+    public double? GoneAt => HookedAt is double hookedAt
+        ? hookedAt + Tuning.BobberHookSeconds
+        : RestingSince + Tuning.BobberGroundSeconds;
 
     /// <summary>The bobber's collision box, a small cube standing on <paramref name="position"/>.</summary>
     public static Box BoxAt(Vec3d position) => Box.ForPlayer(position, Tuning.BobberSize, Tuning.BobberSize);
@@ -95,6 +123,7 @@ public sealed class Bobber
             _to = Step(_to);
             _tick++;
             NoteLanding();
+            NoteRest();
         }
         if (tick < _tick)
         {
@@ -104,17 +133,63 @@ public sealed class Bobber
         return _from + (_to - _from) * t;
     }
 
-    /// <summary>Caught on a player: it hangs on them from now on.</summary>
-    public void Hook(int playerId) => HookedId = playerId;
+    /// <summary>Caught on a player at host time <paramref name="time"/>: it hangs on them from then on.</summary>
+    public void Hook(int playerId, double time)
+    {
+        HookedId = playerId;
+        HookedAt = time;
+    }
 
     /// <summary>
     /// The caught player is gone (died or left): the bobber drops from where it hung, starting
-    /// at host time <paramref name="time"/>.
+    /// at host time <paramref name="time"/>. Once it lands, it's the time at rest that counts.
     /// </summary>
     public void Release(double time, Vec3d position)
     {
         HookedId = null;
+        HookedAt = null;
         Fly(time, position, Vec3d.Zero);
+    }
+
+    /// <summary>
+    /// Whether it has disappeared on its own by host time <paramref name="time"/> (see
+    /// <see cref="GoneAt"/>). Works out the flight up to then, like <see cref="PositionAt"/>.
+    /// </summary>
+    public bool IsGoneAt(double time)
+    {
+        if (HookedId is null)
+        {
+            PositionAt(time);
+        }
+        return GoneAt is double goneAt && time >= goneAt;
+    }
+
+    /// <summary>
+    /// Whom it catches moving from where it is at host time <paramref name="from"/> to where it
+    /// is at <paramref name="to"/> (a straight line, so for short steps: the game checks every
+    /// 1/60 s), and when: the first of <paramref name="targets"/> it touches (see
+    /// <see cref="FirstHit"/>). Once it's gone it catches no one, so only the time until then
+    /// counts. Null if it touches no one, or it already hangs on someone.
+    /// </summary>
+    public (int Id, double Time)? Catch(double from, double to, IReadOnlyList<RodTarget> targets)
+    {
+        if (HookedId is not null)
+        {
+            return null;
+        }
+        // In this order: the flight is worked out going forward in time.
+        Vec3d a = PositionAt(from);
+        Vec3d b = PositionAt(to);
+        if (GoneAt is double goneAt && goneAt < to)
+        {
+            // It lay still from before then, so where it is now is where it lay as it went.
+            to = goneAt;
+        }
+        if (to <= from || FirstHit(a, b, targets) is not { } hit)
+        {
+            return null;
+        }
+        return (hit.Id, from + (to - from) * hit.Fraction);
     }
 
     /// <summary>Where a caught bobber hangs on a player standing at <paramref name="feet"/>.</summary>
@@ -156,8 +231,10 @@ public sealed class Bobber
         _motion = motion;
         Landed = false;
         LandedAt = null;
+        RestingSince = null;
         _to = Step(position);
         NoteLanding();
+        NoteRest();
     }
 
     /// <summary>The tick just worked out ends at <see cref="_to"/>: if it touched down, that's when.</summary>
@@ -166,6 +243,22 @@ public sealed class Bobber
         if (Landed && LandedAt is null)
         {
             LandedAt = _startTime + (_tick + 1) / (double)Tuning.McTickRate;
+        }
+    }
+
+    /// <summary>
+    /// The tick just worked out: if it hardly moved, it's at rest from the start of that tick
+    /// (unless it already was); if it moved, it isn't.
+    /// </summary>
+    private void NoteRest()
+    {
+        if ((_to - _from).Length >= Tuning.BobberRestSpeed)
+        {
+            RestingSince = null;
+        }
+        else
+        {
+            RestingSince ??= _startTime + _tick / (double)Tuning.McTickRate;
         }
     }
 

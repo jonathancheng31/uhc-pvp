@@ -17,6 +17,9 @@ namespace UhcPvp.Gameplay;
 ///
 /// Every game flies each bobber from its cast (<see cref="Bobber"/>). Someone else's bobber is
 /// shown on the same delay as they are, so it leaves their hand and catches people as drawn.
+/// A bobber that has lain still, or hung on someone, for a couple of seconds disappears: each
+/// game decides that from the flight as it shows it, so they all agree without a message, and
+/// the thrower's game stops looking for catches at that moment.
 /// </summary>
 public partial class Game
 {
@@ -78,8 +81,6 @@ public partial class Game
                 continue;
             }
             double from = view.CheckedUntil;
-            Vec3d a = bobber.PositionAt(from);
-            Vec3d b = bobber.PositionAt(now);
             view.CheckedUntil = now;
             _rodTargets.Clear();
             foreach (Player p in _players.Values)
@@ -89,12 +90,14 @@ public partial class Game
                     _rodTargets.Add(new RodTarget(p.PeerId, SeenBy(thrower, p, now)));
                 }
             }
-            if (Bobber.FirstHit(a, b, _rodTargets) is { } hit && _players.TryGetValue(hit.Id, out Player? target))
+            // Once it's lain still long enough it's gone and catches no one, even before a bot's
+            // drawn bobber (the head start behind) gets there and vanishes.
+            if (bobber.Catch(from, now, _rodTargets) is { } hit && _players.TryGetValue(hit.Id, out Player? target))
             {
-                double time = from + (now - from) * hit.Fraction;
+                double time = hit.Time;
                 if (RodHit(thrower, target, time, SeenBy(thrower, target, now)))
                 {
-                    bobber.Hook(target.PeerId);
+                    bobber.Hook(target.PeerId, time);
                     if (!thrower.IsLocal)
                     {
                         // A bot is drawn the head start in the past: show the catch when its drawn
@@ -135,7 +138,8 @@ public partial class Game
 
     /// <summary>
     /// Every frame, after the players have moved: places a bobber and its line, or removes it
-    /// (thrower dead or gone, line stretched too far, fell out of the world). Called by the view.
+    /// (thrower dead or gone, lain still or hung on someone long enough, line stretched too far,
+    /// fell out of the world). Called by the view.
     /// </summary>
     internal void UpdateBobber(BobberView view)
     {
@@ -150,8 +154,15 @@ public partial class Game
         double time = thrower.IsLocal ? view.CheckedUntil : thrower.ViewTime(Net.HostTime);
         if (view.PendingHook is (int victimId, double hookTime) && time >= hookTime)
         {
-            bobber.Hook(victimId);
+            bobber.Hook(victimId, hookTime);
             view.PendingHook = null;
+        }
+        // Gone once it's lain still, or hung on someone, long enough as this screen shows it: the
+        // same moment of its flight on every game (later on the screens that show it on a delay).
+        if (bobber.IsGoneAt(time))
+        {
+            RemoveBobber(bobber.ThrowerId);
+            return;
         }
         Vec3d position;
         if (bobber.HookedId is int hookedId && time >= view.ShowHookAt)

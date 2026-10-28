@@ -393,7 +393,10 @@ public sealed class BotDuel
         thrower.CheckedUntil = _time;
     }
 
-    /// <summary>As Game.StepRods: each flying bobber looks for someone to catch.</summary>
+    /// <summary>
+    /// As Game.StepRods: each flying bobber looks for someone to catch. And as Game.UpdateBobber,
+    /// one that has lain still or hung on someone long enough disappears.
+    /// </summary>
     private void StepRods()
     {
         foreach (Fighter thrower in _fighters)
@@ -405,24 +408,26 @@ public sealed class BotDuel
             if (bobber.HookedId is not null)
             {
                 thrower.CheckedUntil = _time;
+                thrower.Bobber = bobber.IsGoneAt(_time) ? null : bobber;
                 continue;
             }
             double from = thrower.CheckedUntil;
-            Vec3d a = bobber.PositionAt(from);
-            Vec3d b = bobber.PositionAt(_time);
             thrower.CheckedUntil = _time;
-            if ((b - thrower.Motor.Position).Length > Tuning.RodLineLength || b.Y < Tuning.VoidY)
-            {
-                thrower.Bobber = null;
-                continue;
-            }
             _rodTargets.Clear();
             Fighter victim = thrower == _fighters[0] ? _fighters[1] : _fighters[0];
             _rodTargets.Add(new RodTarget(victim.Id, SeenFeet(victim)));
-            if (Bobber.FirstHit(a, b, _rodTargets) is not null
+            // Catches first, then the bobber's place is checked, in the game's order (it checks
+            // for catches every tick, and where the bobber is when drawing it).
+            if (bobber.Catch(from, _time, _rodTargets) is { } hit
                 && Resolve(thrower, victim, rod: true, critical: false, sprintKnockback: false) != HitResult.Ignored)
             {
-                bobber.Hook(victim.Id);
+                bobber.Hook(victim.Id, hit.Time);
+                continue;
+            }
+            Vec3d b = bobber.PositionAt(_time);
+            if ((b - thrower.Motor.Position).Length > Tuning.RodLineLength || b.Y < Tuning.VoidY || bobber.IsGoneAt(_time))
+            {
+                thrower.Bobber = null;
             }
         }
     }
