@@ -54,6 +54,8 @@ public partial class Player : Node3D
     private double _castTime = -1;
     private double _flashTime;
     private double _deadTime;
+    /// <summary>Whether the state this player is drawn in (anyone but you) is alive.</summary>
+    private bool _shownAlive = true;
 
     public int PeerId { get; private set; }
     public string PlayerName { get; private set; } = "";
@@ -90,6 +92,12 @@ public partial class Player : Node3D
     public float HomeYaw { get; set; }
 
     public bool IsDead => IsOwned ? Vitality.IsDead : (Flags & PlayerFlags.Dead) != 0;
+    /// <summary>
+    /// Whether this game knows this player is dead right now: really, for a player it runs;
+    /// for anyone else, from their latest state or the hit that killed them, until a state shows
+    /// them back. (A remote player's <see cref="IsDead"/> is as they're drawn, the head start ago.)
+    /// </summary>
+    public bool KnownDead => IsOwned ? Vitality.IsDead : Buffer.KnownDead;
     public double Health => Vitality.Health;
     /// <summary>Seconds until a dead owned player respawns.</summary>
     public double RespawnIn { get; private set; }
@@ -120,6 +128,16 @@ public partial class Player : Node3D
 
     /// <summary>Which way this player is seen facing at host time <paramref name="hostNow"/>.</summary>
     public double ViewYaw(double hostNow) => States.IsEmpty ? Yaw : States.Sample(ViewTime(hostNow)).Yaw;
+
+    /// <summary>
+    /// This player as our bots see them at host time <paramref name="hostNow"/>: where, and
+    /// whether they can be hit there, from the same moment (see <see cref="Sighting"/>).
+    /// </summary>
+    public Sighting SeenAt(double hostNow) =>
+        States.IsEmpty ? new Sighting(Feet, !KnownDead) : Sighting.Of(States.Sample(ViewTime(hostNow)), KnownDead);
+
+    /// <summary>This player as drawn on this screen (for your clicks and bobber): where, and whether they can be hit there.</summary>
+    public Sighting Shown => new(ShownFeet, _shownAlive && !KnownDead);
 
     /// <summary>
     /// Where this player is by the freshest news: really, if this game runs them; for a remote
@@ -288,7 +306,8 @@ public partial class Player : Node3D
                 _swingTime = -1;
             }
         }
-        _deadTime = IsDead ? _deadTime + delta : 0;
+        // Everyone but you falls and gets up as drawn, the head start after it happens.
+        _deadTime = (IsLocal ? IsDead : !_shownAlive) ? _deadTime + delta : 0;
         if (_castTime >= 0)
         {
             _castTime += delta;
@@ -376,6 +395,7 @@ public partial class Player : Node3D
             if ((hurt.Flags & HurtFlags.Killed) != 0)
             {
                 Flags |= PlayerFlags.Dead;
+                Buffer.NoteKilled(double.IsFinite(hurt.AttackTime) ? hurt.AttackTime : Network.Instance.HostTime);
             }
         }
     }
@@ -457,7 +477,7 @@ public partial class Player : Node3D
     }
 
     /// <summary>A tick of a player this game runs ended at host time <paramref name="time"/>: keeps its state, to show it in the past.</summary>
-    public void Record(double time) => Keep(History, time, GetState());
+    public void Record(double time) => History.Push(time, GetState());
 
     /// <summary>The state to send to everyone else: the latest tick, not the smoothed view.</summary>
     public PlayerState GetState() => new(
@@ -466,20 +486,10 @@ public partial class Player : Node3D
     /// <summary>A state for this (remote) player arrived at host time <paramref name="hostNow"/>.</summary>
     public void ReceiveState(double time, PlayerState state, double hostNow)
     {
-        if (Keep(Buffer, time, state))
+        if (Buffer.Push(time, state))
         {
             Buffer.NoteArrivalAge(hostNow - time);
         }
-    }
-
-    private static bool Keep(SnapshotBuffer buffer, double time, PlayerState state)
-    {
-        if (!buffer.IsEmpty && buffer.LatestState.Has(PlayerFlags.Dead) && !state.Has(PlayerFlags.Dead))
-        {
-            // Respawned: jump straight to the new spot instead of sliding there.
-            buffer.Clear();
-        }
-        return buffer.Push(time, state);
     }
 
     /// <summary>
@@ -495,6 +505,7 @@ public partial class Player : Node3D
         }
         PlayerState state = States.Sample(ViewTime(hostNow));
         Position = state.Position;
+        _shownAlive = !state.Has(PlayerFlags.Dead);
         if (!IsOwned)
         {
             Yaw = state.Yaw;

@@ -85,9 +85,10 @@ public partial class Game
             _rodTargets.Clear();
             foreach (Player p in _players.Values)
             {
-                if (p != thrower && !p.IsDead && (Tuning.FriendlyFire || p.Team != thrower.Team))
+                if (p != thrower && (Tuning.FriendlyFire || p.Team != thrower.Team)
+                    && SeenBy(thrower, p, now) is { Hittable: true } seen)
                 {
-                    _rodTargets.Add(new RodTarget(p.PeerId, SeenBy(thrower, p, now)));
+                    _rodTargets.Add(new RodTarget(p.PeerId, seen.Feet));
                 }
             }
             // Once it's lain still long enough it's gone and catches no one, even before a bot's
@@ -95,7 +96,7 @@ public partial class Game
             if (bobber.Catch(from, now, _rodTargets) is { } hit && _players.TryGetValue(hit.Id, out Player? target))
             {
                 double time = hit.Time;
-                if (RodHit(thrower, target, time, SeenBy(thrower, target, now)))
+                if (RodHit(thrower, target, time, SeenBy(thrower, target, now).Feet))
                 {
                     bobber.Hook(target.PeerId, time);
                     if (!thrower.IsLocal)

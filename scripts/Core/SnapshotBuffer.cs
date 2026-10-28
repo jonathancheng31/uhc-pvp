@@ -9,6 +9,10 @@ namespace UhcPvp.Core;
 ///
 /// It also decides how far in the past to show that player: just enough to cover how late
 /// their updates usually arrive, and no more. Showing them any older is what causes "ghosting".
+///
+/// A respawn is shown on the same delay as everything else: whoever sees the player in the past
+/// sees their body until their view reaches the respawn, then the player at their spawn, with
+/// no sliding between. Hits and catches follow the same view (<see cref="Sighting"/>).
 /// </summary>
 public sealed class SnapshotBuffer
 {
@@ -22,6 +26,7 @@ public sealed class SnapshotBuffer
     private double _ageAvg;
     private double _ageDev;
     private bool _hasAge;
+    private double _killedAt = double.NegativeInfinity;
 
     /// <summary>How far behind the host clock this player is drawn, in seconds.</summary>
     public double RenderDelay { get; private set; } = Tuning.InterpMinDelay;
@@ -30,9 +35,27 @@ public sealed class SnapshotBuffer
     public bool IsEmpty => _states.Count == 0;
     public double LatestTime => IsEmpty ? 0.0 : _states[^1].Time;
     public PlayerState LatestState => IsEmpty ? default : _states[^1].State;
+    /// <summary>
+    /// Host time of the state that last brought this player back (the first alive one after a
+    /// dead one), or negative infinity if they haven't respawned.
+    /// </summary>
+    public double RespawnedAt { get; private set; } = double.NegativeInfinity;
 
-    /// <summary>Forgets stored states, so the next one shows instantly (e.g. after a respawn teleport).</summary>
-    public void Clear() => _states.Clear();
+    /// <summary>
+    /// Whether they're dead as far as their states and the news of their death go: from their
+    /// latest state, or the hit that killed them (which can arrive before the states that show
+    /// it), until a state shows them back.
+    /// </summary>
+    public bool KnownDead => LatestState.Has(PlayerFlags.Dead) || _killedAt > RespawnedAt;
+
+    /// <summary>A hit at host time <paramref name="time"/> killed this player.</summary>
+    public void NoteKilled(double time) => _killedAt = Math.Max(_killedAt, time);
+
+    /// <summary>
+    /// Whether a view of this player at host time <paramref name="time"/> shows their current
+    /// life: from their latest respawn on. Earlier, it shows their old body.
+    /// </summary>
+    public bool ShowsCurrentLife(double time) => time >= RespawnedAt;
 
     /// <summary>Adds a state stamped with host time. Older or repeated states are ignored.</summary>
     public bool Push(double time, PlayerState state)
@@ -40,6 +63,10 @@ public sealed class SnapshotBuffer
         if (!IsEmpty && time <= LatestTime)
         {
             return false;
+        }
+        if (!IsEmpty && LatestState.Has(PlayerFlags.Dead) && !state.Has(PlayerFlags.Dead))
+        {
+            RespawnedAt = time;
         }
         _states.Add((time, state));
         if (_states.Count > MaxStates)
@@ -74,7 +101,7 @@ public sealed class SnapshotBuffer
 
     /// <summary>
     /// The blended state at a host-clock time. Holds the first or last state when the time
-    /// is outside the stored range.
+    /// is outside the stored range, and the body until the moment of a respawn.
     /// </summary>
     public PlayerState Sample(double time)
     {
@@ -107,6 +134,11 @@ public sealed class SnapshotBuffer
         }
         var (t0, a) = _states[lo];
         var (t1, b) = _states[hi];
+        if (a.Has(PlayerFlags.Dead) && !b.Has(PlayerFlags.Dead))
+        {
+            // Respawned at the next state: they jump to their spawn then, not slide there.
+            return a;
+        }
         return PlayerState.Blend(a, b, (float)((time - t0) / (t1 - t0)));
     }
 }

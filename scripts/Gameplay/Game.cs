@@ -137,9 +137,15 @@ public partial class Game : Node3D
 
     public Player? Find(int id) => _players.GetValueOrDefault(id);
 
-    /// <summary>Living players on the other team (whom bots go after).</summary>
-    public IReadOnlyList<Player> EnemiesOf(Player player) =>
-        _players.Values.Where(p => p != player && !p.IsDead && p.Team != player.Team).ToList();
+    /// <summary>
+    /// Players on the other team that bots go after: those it can hit as it sees them, so a
+    /// respawned player turns up when its view shows them back (see <see cref="Sighting"/>).
+    /// </summary>
+    public IReadOnlyList<Player> EnemiesOf(Player player)
+    {
+        double now = Net.HostTime;
+        return _players.Values.Where(p => p != player && p.Team != player.Team && p.SeenAt(now).Hittable).ToList();
+    }
 
     /// <summary>
     /// Everyone around one of our own players (us or a bot), for the pushing twist (see

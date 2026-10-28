@@ -93,7 +93,7 @@ public class RodTests : TestCase
         Vec3d third = bobber.PositionAt(CastTime + 2.25 / Tuning.McTickRate);
         Vec3d b = bobber.PositionAt(At(3));
         CheckNear(Distance(third, a + (b - a) * 0.25), 0, 1e-9, "a quarter of the way along the tick's move");
-        CheckNear(Distance(bobber.PositionAt(At(2)), b), 0, 1e-9, "a time already passed shows the start of the latest tick");
+        CheckNear(Distance(bobber.PositionAt(At(2)), a), 0, 1e-9, "a time already passed gives where it was then");
     }
 
     public void TestBobberStopsAtWalls()
@@ -446,5 +446,58 @@ public class RodTests : TestCase
         }
         CheckEqual(catches, 0, "catches after it's gone");
         Check(lying.IsGoneAt(gone), "gone by then");
+    }
+
+    public void TestAnEarlierTimeAfterALaterOneGivesWhereItWasThen()
+    {
+        // A host bot's bobber: its catches are checked now, and it's drawn the head start ago.
+        Bobber bobber = Cast(FlatWorld(), new Vec3d(32.5, FloorY, 55.5), 0, 0);
+        Bobber inOrder = Cast(FlatWorld(), new Vec3d(32.5, FloorY, 55.5), 0, 0);
+        double behind = Tuning.DefaultHeadStart;
+        double worst = 0;
+        for (int frame = 0; frame <= Tuning.SimRate; frame++)
+        {
+            double drawn = CastTime + frame * Frame;
+            bobber.PositionAt(drawn + behind);
+            worst = Math.Max(worst, Distance(bobber.PositionAt(drawn), inOrder.PositionAt(drawn)));
+        }
+        CheckNear(worst, 0, 1e-12, "drawn where it was then, not ahead");
+        // Smooth: a frame later it has moved a frame's worth along its 2nd tick (a third of that
+        // tick's 1.38 blocks, a little down too), not held still until the next tick.
+        bobber.PositionAt(At(3));
+        Vec3d a = bobber.PositionAt(At(1) + Frame / 2);
+        Vec3d b = bobber.PositionAt(At(1) + 1.5 * Frame);
+        CheckNear(Distance(a, b), 1.380491 / 3, 1e-5, "moves every frame");
+    }
+
+    public void TestTheTimeItVanishesDoesntDependOnTheOrderItsAskedIn()
+    {
+        // As above, one asked ahead then behind and one asked in order, from a throw that lands
+        // and lies still, then one caught and dropped: the same answer every frame.
+        foreach (bool hooked in new[] { false, true })
+        {
+            Bobber bobber = Cast(FlatWorld(), new Vec3d(32.5, FloorY, 55.5), 0, 0);
+            Bobber inOrder = Cast(FlatWorld(), new Vec3d(32.5, FloorY, 55.5), 0, 0);
+            int disagree = 0;
+            for (int frame = 0; frame <= 6 * Tuning.SimRate; frame++)
+            {
+                double drawn = CastTime + frame * Frame;
+                if (hooked && frame == 9)
+                {
+                    bobber.Hook(7, drawn);
+                    inOrder.Hook(7, drawn);
+                }
+                if (hooked && frame == 60)
+                {
+                    bobber.Release(drawn, new Vec3d(32.5, FloorY + 1.08, 50.5));
+                    inOrder.Release(drawn, new Vec3d(32.5, FloorY + 1.08, 50.5));
+                }
+                bobber.IsGoneAt(drawn + Tuning.DefaultHeadStart);
+                disagree += bobber.IsGoneAt(drawn) == inOrder.IsGoneAt(drawn)
+                    && Distance(bobber.PositionAt(drawn), inOrder.PositionAt(drawn)) < 1e-12 ? 0 : 1;
+            }
+            CheckEqual(disagree, 0, $"frames where asking ahead first changes the answer ({(hooked ? "caught and dropped" : "lying still")})");
+            Check(inOrder.IsGoneAt(CastTime + 6), "and it does vanish");
+        }
     }
 }

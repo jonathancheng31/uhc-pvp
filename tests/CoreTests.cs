@@ -126,6 +126,79 @@ public class SnapshotBufferTests : TestCase
         buffer.NoteArrivalAge(-1.0);
         Check(buffer.RenderDelay >= Tuning.InterpMinDelay, "minimum delay");
     }
+
+    /// <summary>A player who dies at x = 3 at 1.5 s, lies there, and comes back at x = 40 at 2.5 s (all kept in the buffer).</summary>
+    private static SnapshotBuffer DiesAndRespawns(out double respawn)
+    {
+        var buffer = new SnapshotBuffer();
+        respawn = 2.5;
+        for (int tick = 0; tick <= 1.8 * Tuning.SimRate; tick++)
+        {
+            double time = 1.0 + tick / (double)Tuning.SimRate;
+            bool dead = time >= 1.5 && time < respawn;
+            float x = time < respawn ? 3 : 40;
+            buffer.Push(time, new PlayerState(new Vector3(x, 5, 0), 0, 0, dead ? PlayerFlags.Dead : PlayerFlags.None, dead ? 0 : 20));
+        }
+        return buffer;
+    }
+
+    public void TestARespawnIsSeenOnTheSameDelayAsEverythingElse()
+    {
+        // Someone seeing them a head start in the past sees the body until their view reaches the
+        // respawn, then the player at their spawn: never alive at the body, and never sliding
+        // from one to the other.
+        SnapshotBuffer buffer = DiesAndRespawns(out double respawn);
+        double lastDead = respawn - 1.0 / Tuning.SimRate;
+        foreach (double time in new[] { lastDead, lastDead + 0.004, (lastDead + respawn) / 2, respawn - 1e-6 })
+        {
+            PlayerState seen = buffer.Sample(time);
+            Check(seen.Has(PlayerFlags.Dead) && System.Math.Abs(seen.Position.X - 3) < 1e-6,
+                $"just before the respawn ({(respawn - time) * 1000:0.0} ms): dead at the body (got x = {seen.Position.X:0.00}, {seen.Flags})");
+        }
+        PlayerState back = buffer.Sample(respawn);
+        Check(!back.Has(PlayerFlags.Dead) && System.Math.Abs(back.Position.X - 40) < 1e-6, "from the respawn on: alive at their spawn");
+        PlayerState died = buffer.Sample(1.5 + 0.5 / Tuning.SimRate);
+        Check(died.Has(PlayerFlags.Dead) && System.Math.Abs(died.Position.X - 3) < 1e-6, "and the death is seen on the same delay");
+    }
+
+    public void TestCanOnlyBeHitWhereSeenAlive()
+    {
+        SnapshotBuffer buffer = DiesAndRespawns(out double respawn);
+        double headStart = Tuning.DefaultHeadStart;
+        // 20 ms after respawning they're alive, but seen a head start ago: their body, not them.
+        Sighting justBack = Sighting.Of(buffer.Sample(respawn + 0.02 - headStart), knownDead: false);
+        Check(!justBack.Hittable, "just respawned: can't be hit at their body");
+        CheckNear(justBack.Feet.X, 3, 1e-6, "seen at their body");
+        Sighting back = Sighting.Of(buffer.Sample(respawn + 0.01), knownDead: false);
+        Check(back.Hittable, "once the view shows them back: can be hit");
+        CheckNear(back.Feet.X, 40, 1e-6, "at their spawn");
+        // 20 ms after dying they're still drawn alive, but this game knows: their game would turn
+        // the hit down, so it doesn't count here either.
+        Sighting justDied = Sighting.Of(buffer.Sample(1.5 + 0.02 - headStart), knownDead: true);
+        Check(!justDied.Hittable, "just died, still drawn alive: can't be hit");
+        Check(Sighting.Of(buffer.Sample(1.2), knownDead: false).Hittable, "alive and seen alive: can be hit");
+    }
+
+    public void TestKnowsOfADeathFromTheNewsOrTheStates()
+    {
+        var buffer = new SnapshotBuffer();
+        static PlayerState At(float x, bool dead) => new(new Vector3(x, 5, 0), 0, 0, dead ? PlayerFlags.Dead : PlayerFlags.None, dead ? 0 : 20);
+        buffer.Push(1.0, At(3, false));
+        Check(!buffer.KnownDead, "alive");
+        // The hit that killed them arrives before the states that show it.
+        buffer.NoteKilled(1.2);
+        buffer.Push(1.1, At(3, false));
+        Check(buffer.KnownDead, "dead from the news of the kill, before any state shows it");
+        buffer.Push(1.3, At(3, true));
+        Check(buffer.KnownDead, "and from the states");
+        CheckEqual(buffer.RespawnedAt, double.NegativeInfinity, "hasn't respawned yet");
+        buffer.Push(3.3, At(40, false));
+        Check(!buffer.KnownDead, "back once a state shows them alive again");
+        CheckEqual(buffer.RespawnedAt, 3.3, "respawned at that state");
+        Check(!buffer.ShowsCurrentLife(3.29) && buffer.ShowsCurrentLife(3.3), "a view from before then shows their old body");
+        buffer.NoteKilled(1.2);
+        Check(!buffer.KnownDead, "news of the old kill arriving late doesn't kill them again");
+    }
 }
 
 public class TuningTests : TestCase

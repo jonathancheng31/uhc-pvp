@@ -61,9 +61,9 @@ public partial class Game
         _aimTargets.Clear();
         foreach (Player p in _players.Values)
         {
-            if (p != attacker && !p.IsDead)
+            if (p != attacker && SeenBy(attacker, p, now) is { Hittable: true } seen)
             {
-                _aimTargets.Add(new AimTarget(p.PeerId, SeenBy(attacker, p, now)));
+                _aimTargets.Add(new AimTarget(p.PeerId, seen.Feet));
             }
         }
         AimResult aim = HitScan.Aim(attacker.Eye, HitScan.LookVector(attacker.Yaw, attacker.Pitch), _aimTargets, World);
@@ -89,7 +89,7 @@ public partial class Game
         var flags = (critical ? AttackFlags.Critical : 0) | (sprintKnockback ? AttackFlags.SprintKnockback : 0);
         var attack = new Attack(
             attacker.PeerId, target.PeerId, now, target.ViewTime(now),
-            attacker.Feet.ToGodot(), attacker.Yaw, SeenBy(attacker, target, now).ToGodot(), flags);
+            attacker.Feet.ToGodot(), attacker.Yaw, SeenBy(attacker, target, now).Feet.ToGodot(), flags);
         if (attacker.IsLocal)
         {
             LastReach = aim.Distance;
@@ -136,12 +136,13 @@ public partial class Game
 
     /// <summary>
     /// Where a player this game runs sees <paramref name="target"/> at host time
-    /// <paramref name="now"/>, which is where its clicks and its bobber find them: you, where they
-    /// were last drawn on your screen; a bot, the same view (<see cref="Player.ViewFeet"/>), you
+    /// <paramref name="now"/>, which is where its clicks and its bobber find them, and whether
+    /// they can be hit there (alive as seen, and not known to have died since): you, as they
+    /// were last drawn on your screen; a bot, the same view (<see cref="Player.SeenAt"/>), you
     /// included. Both are the head start in the past.
     /// </summary>
-    private static Vec3d SeenBy(Player viewer, Player target, double now) =>
-        viewer.IsLocal ? target.ShownFeet : target.ViewFeet(now);
+    private static Sighting SeenBy(Player viewer, Player target, double now) =>
+        viewer.IsLocal ? target.Shown : target.SeenAt(now);
 
     private HitProtection GuessProtection(int playerId)
     {
@@ -192,6 +193,13 @@ public partial class Game
         Player? attacker = _players.GetValueOrDefault(attack.AttackerId);
         if (attacker is not null && !Tuning.FriendlyFire && attacker.Team == victim.Team)
         {
+            return HitResult.Ignored;
+        }
+        // A view of us from before our latest respawn shows our old body, not us (with a tick's
+        // allowance, as for the lag cap below).
+        if (!victim.History.ShowsCurrentLife(attack.ViewTime + 1.0 / Tuning.SimRate))
+        {
+            GD.Print($"[combat] ignored a hit on {victim.PlayerName}: attacker saw them before they respawned");
             return HitResult.Ignored;
         }
         // The lag cap: the attacker's view of us must be no older than the head start (or the

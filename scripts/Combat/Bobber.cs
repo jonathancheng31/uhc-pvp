@@ -29,12 +29,21 @@ public sealed class Bobber
     private readonly List<Box> _boxes = new();
     /// <summary>Host time the current flight started (the cast, or a release).</summary>
     private double _startTime;
-    /// <summary>Which Minecraft tick of the flight <see cref="_from"/> and <see cref="_to"/> span.</summary>
-    private long _tick;
-    private Vec3d _from;
-    private Vec3d _to;
-    /// <summary>Motion for the tick after <see cref="_to"/>, in blocks per MC tick.</summary>
+    /// <summary>
+    /// Where it is at the start of each Minecraft tick of the flight worked out so far, the last
+    /// being where the latest tick ends. All kept, so any time gives the same answer in any
+    /// order: a host bot's bobber is checked for catches ahead of where it's drawn.
+    /// </summary>
+    private readonly List<Vec3d> _path = new();
+    /// <summary>Motion for the next tick to work out, in blocks per MC tick.</summary>
     private Vec3d _motion;
+    /// <summary>The tick it came to rest in (see <see cref="RestingSince"/>), as of the latest tick worked out.</summary>
+    private int? _restTick;
+    /// <summary>
+    /// When it had lain still for <see cref="Tuning.BobberGroundSeconds"/>, once the flight's been
+    /// worked out that far. It stays put from then on, whatever's asked later.
+    /// </summary>
+    private double? _restOver;
 
     public Bobber(ICollisionWorld world, int throwerId, double castTime, Vec3d origin, Vec3d velocity)
     {
@@ -62,7 +71,7 @@ public sealed class Bobber
     /// <summary>
     /// Host time this flight first touched the ground or a wall (where it's drawn then, so its
     /// sound plays as it's seen to land), or null while it's still in the air. Worked out up to
-    /// one Minecraft tick ahead of the latest <see cref="PositionAt"/>.
+    /// one Minecraft tick ahead of the furthest time asked for.
     /// </summary>
     public double? LandedAt { get; private set; }
     /// <summary>
@@ -73,7 +82,7 @@ public sealed class Bobber
     /// pulls a bobber in the air faster than that within a tick, so it can only stay at rest
     /// while something holds it up: the floor, the top of a wall, anything it ends up lying on.
     /// </summary>
-    public double? RestingSince { get; private set; }
+    public double? RestingSince => _restTick is int tick ? _startTime + tick / (double)Tuning.McTickRate : null;
 
     /// <summary>
     /// Host time it disappears on its own: <see cref="Tuning.BobberHookSeconds"/> after catching
@@ -82,7 +91,7 @@ public sealed class Bobber
     /// </summary>
     public double? GoneAt => HookedAt is double hookedAt
         ? hookedAt + Tuning.BobberHookSeconds
-        : RestingSince + Tuning.BobberGroundSeconds;
+        : _restOver ?? RestingSince + Tuning.BobberGroundSeconds;
 
     /// <summary>The bobber's collision box, a small cube standing on <paramref name="position"/>.</summary>
     public static Box BoxAt(Vec3d position) => Box.ForPlayer(position, Tuning.BobberSize, Tuning.BobberSize);
@@ -106,31 +115,24 @@ public sealed class Bobber
         (HitScan.LookVector(yaw, pitch) + noise * Tuning.RodCastSpread) * Tuning.RodCastSpeed;
 
     /// <summary>
-    /// Where the flying bobber is at host time <paramref name="time"/>. Times before the flight
-    /// started give its start; works out new ticks as needed (times should mostly go forward).
+    /// Where the flying bobber is at host time <paramref name="time"/>, along the straight line
+    /// of the Minecraft tick it's in. Times before the flight started give its start. Works out
+    /// new ticks as needed; times already passed give where it was then.
     /// </summary>
     public Vec3d PositionAt(double time)
     {
         double ticks = (time - _startTime) * Tuning.McTickRate;
         if (!(ticks > 0))
         {
-            return _from;
+            return _path[0];
         }
-        long tick = (long)Math.Floor(ticks);
-        while (_tick < tick)
+        int tick = (int)Math.Floor(ticks);
+        while (_path.Count <= tick + 1)
         {
-            _from = _to;
-            _to = Step(_to);
-            _tick++;
-            NoteLanding();
-            NoteRest();
+            WorkOutTick();
         }
-        if (tick < _tick)
-        {
-            return _from;
-        }
-        double t = ticks - tick;
-        return _from + (_to - _from) * t;
+        Vec3d start = _path[tick];
+        return start + (_path[tick + 1] - start) * (ticks - tick);
     }
 
     /// <summary>Caught on a player at host time <paramref name="time"/>: it hangs on them from then on.</summary>
@@ -177,19 +179,12 @@ public sealed class Bobber
         {
             return null;
         }
-        // In this order: the flight is worked out going forward in time.
-        Vec3d a = PositionAt(from);
-        Vec3d b = PositionAt(to);
-        if (GoneAt is double goneAt && goneAt < to)
-        {
-            // It lay still from before then, so where it is now is where it lay as it went.
-            to = goneAt;
-        }
-        if (to <= from || FirstHit(a, b, targets) is not { } hit)
+        double until = IsGoneAt(to) ? Math.Min(to, GoneAt ?? to) : to;
+        if (until <= from || FirstHit(PositionAt(from), PositionAt(until), targets) is not { } hit)
         {
             return null;
         }
-        return (hit.Id, from + (to - from) * hit.Fraction);
+        return (hit.Id, from + (until - from) * hit.Fraction);
     }
 
     /// <summary>Where a caught bobber hangs on a player standing at <paramref name="feet"/>.</summary>
@@ -226,39 +221,50 @@ public sealed class Bobber
     private void Fly(double time, Vec3d position, Vec3d motion)
     {
         _startTime = time;
-        _tick = 0;
-        _from = position;
+        _path.Clear();
+        _path.Add(position);
         _motion = motion;
         Landed = false;
         LandedAt = null;
-        RestingSince = null;
-        _to = Step(position);
+        _restTick = null;
+        _restOver = null;
+        WorkOutTick();
+    }
+
+    /// <summary>Works out the next Minecraft tick of the flight, from where the latest one ends.</summary>
+    private void WorkOutTick()
+    {
+        _path.Add(Step(_path[^1]));
         NoteLanding();
         NoteRest();
     }
 
-    /// <summary>The tick just worked out ends at <see cref="_to"/>: if it touched down, that's when.</summary>
+    /// <summary>The tick just worked out ends at the end of <see cref="_path"/>: if it touched down, that's when.</summary>
     private void NoteLanding()
     {
         if (Landed && LandedAt is null)
         {
-            LandedAt = _startTime + (_tick + 1) / (double)Tuning.McTickRate;
+            LandedAt = _startTime + (_path.Count - 1) / (double)Tuning.McTickRate;
         }
     }
 
     /// <summary>
     /// The tick just worked out: if it hardly moved, it's at rest from the start of that tick
-    /// (unless it already was); if it moved, it isn't.
+    /// (unless it already was); if it moved, it isn't. Once it has lain still for the ground
+    /// time, that moment is kept.
     /// </summary>
     private void NoteRest()
     {
-        if ((_to - _from).Length >= Tuning.BobberRestSpeed)
+        int tick = _path.Count - 2;
+        if ((_path[^1] - _path[^2]).Length >= Tuning.BobberRestSpeed)
         {
-            RestingSince = null;
+            _restTick = null;
+            return;
         }
-        else
+        _restTick ??= tick;
+        if (_restOver is null && tick + 1 - _restTick.Value >= Tuning.BobberGroundSeconds * Tuning.McTickRate - 1e-9)
         {
-            RestingSince ??= _startTime + _tick / (double)Tuning.McTickRate;
+            _restOver = RestingSince + Tuning.BobberGroundSeconds;
         }
     }
 
