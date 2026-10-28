@@ -135,7 +135,7 @@ public class RodTests : TestCase
     public void TestHookAndRelease()
     {
         Bobber bobber = Cast(FlatWorld(), new Vec3d(32.5, FloorY, 55.5), 0, 0);
-        bobber.Hook(7);
+        bobber.Hook(7, CastTime);
         CheckEqual(bobber.HookedId, 7, "caught");
         CheckNear(Bobber.HookPoint(new Vec3d(1, 2, 3)).Y, 2 + 1.08, 1e-12, "hangs at the chest");
         var hangPoint = new Vec3d(20.5, 12, 20.5);
@@ -227,5 +227,163 @@ public class RodTests : TestCase
             cooldown.Tick();
         }
         CheckEqual(throws, 4, "throws in 3 s of spam-clicking");
+    }
+
+    private const double Frame = 1.0 / Tuning.SimRate;
+
+    /// <summary>
+    /// The first host time the bobber is gone, asking every 1/60 s from <paramref name="from"/>
+    /// to <paramref name="until"/> as the game does each frame; null if it's still there.
+    /// </summary>
+    private static double? FirstGone(Bobber bobber, double from, double until)
+    {
+        for (int frame = 0; from + frame * Frame <= until; frame++)
+        {
+            if (bobber.IsGoneAt(from + frame * Frame))
+            {
+                return from + frame * Frame;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>Whether <paramref name="gone"/> is the first frame at or after <paramref name="due"/>.</summary>
+    private static bool FirstFrameFrom(double? gone, double due) => gone is double g && g >= due - 1e-9 && g < due + Frame;
+
+    public void TestBobberAtRestDisappearsAfterTheGroundTime()
+    {
+        Bobber bobber = Cast(FlatWorld(), new Vec3d(32.5, FloorY, 55.5), 0, 0);
+        double? gone = FirstGone(bobber, CastTime, CastTime + 6);
+        double rest = bobber.RestingSince ?? double.NaN;
+        double landed = bobber.LandedAt ?? double.NaN;
+        // It touches down, slides a little, then lies still: its time counts from then.
+        Check(rest > landed && rest < landed + 0.3, $"at rest a moment after touching down ({rest - landed:0.00} s later)");
+        CheckNear(bobber.PositionAt(CastTime + 6).Y, FloorY, 1e-9, "lying on the floor");
+        Check(FirstFrameFrom(gone, rest + Tuning.BobberGroundSeconds),
+            $"gone the ground time after coming to rest, not before (rest {rest - CastTime:0.00} s, gone {gone - CastTime:0.00} s after the throw)");
+        Check(!bobber.IsGoneAt(rest + Tuning.BobberGroundSeconds - 1e-6), "still there just before");
+        Check(bobber.IsGoneAt(CastTime + 60), "and stays gone");
+    }
+
+    public void TestBobberAtRestOnTopOfAWallDisappearsToo()
+    {
+        VoxelWorld world = FlatWorld();
+        // A wall across the floor, 5 deep with its top at y = 10, the bobber lobbed onto it.
+        world.Fill(new Vector3I(0, (int)FloorY, 40), new Vector3I(63, 9, 44), Block.Stone);
+        Bobber bobber = Cast(world, new Vec3d(32.5, FloorY, 55.5), 0, 35);
+        double? gone = FirstGone(bobber, CastTime, CastTime + 6);
+        CheckNear(bobber.PositionAt(CastTime + 6).Y, 10, 1e-9, "lying on top of the wall");
+        Check(bobber.RestingSince is double rest && FirstFrameFrom(gone, rest + Tuning.BobberGroundSeconds),
+            "gone the ground time after coming to rest there");
+    }
+
+    public void TestBobberStillMovingDoesNotDisappear()
+    {
+        // Nothing to land on: it falls for as long as you like (the game removes it below the world).
+        Bobber falling = Cast(new VoxelWorld(new Vector3I(64, 40, 64)), new Vec3d(32.5, 30, 32.5), 0, 30);
+        bool everResting = false;
+        for (int frame = 0; frame <= 10 * Tuning.SimRate; frame++)
+        {
+            Check(!falling.IsGoneAt(CastTime + frame * Frame), "a bobber in the air doesn't disappear");
+            everResting |= falling.RestingSince is not null;
+        }
+        Check(!everResting, "and never counts as at rest");
+
+        // Thrown up into a tall wall it touches the wall, falls down along it, and lies at its
+        // foot; thrown into a ceiling it stops for a moment against it, then falls to the floor.
+        // Either way its time counts from lying on the floor, not from touching the wall.
+        VoxelWorld wall = FlatWorld();
+        wall.Fill(new Vector3I(0, (int)FloorY, 20), new Vector3I(63, 30, 20), Block.Stone);
+        VoxelWorld ceiling = FlatWorld();
+        ceiling.Fill(new Vector3I(0, 9, 0), new Vector3I(63, 9, 40), Block.Stone);
+        foreach (var (name, bobber) in new[]
+        {
+            ("wall", Cast(wall, new Vec3d(32.5, FloorY, 27.5), 0, 20)),
+            ("ceiling", Cast(ceiling, new Vec3d(32.5, FloorY, 45.5), 0, 40)),
+        })
+        {
+            double? onFloor = null;
+            double? gone = null;
+            for (int frame = 0; gone is null && frame <= 6 * Tuning.SimRate; frame++)
+            {
+                double t = CastTime + frame * Frame;
+                gone = bobber.IsGoneAt(t) ? t : null;
+                onFloor ??= bobber.PositionAt(t).Y <= FloorY + 1e-9 ? t : (double?)null;
+            }
+            double touched = bobber.LandedAt ?? double.NaN;
+            double floor = onFloor ?? double.NaN;
+            Check(floor > touched + 0.5, $"{name}: falls a while after touching it ({floor - touched:0.00} s)");
+            Check(bobber.RestingSince is double rest && rest >= floor - 1.0 / Tuning.McTickRate
+                && FirstFrameFrom(gone, rest + Tuning.BobberGroundSeconds),
+                $"{name}: gone the ground time after lying on the floor (touched {touched - CastTime:0.00} s, floor {floor - CastTime:0.00} s, gone {gone - CastTime:0.00} s after the throw)");
+        }
+    }
+
+    public void TestHookedBobberDisappearsAfterTheHookTime()
+    {
+        Bobber bobber = Cast(FlatWorld(), new Vec3d(32.5, FloorY, 55.5), 0, 0);
+        double caught = At(3);
+        bobber.Hook(7, caught);
+        Check(FirstFrameFrom(FirstGone(bobber, CastTime, CastTime + 6), caught + Tuning.BobberHookSeconds),
+            "hangs on them for the hook time, then it's gone");
+
+        // Lying on the floor when someone walks into it: it hangs on them the hook time from
+        // then, however long it lay there before.
+        Bobber lying = Cast(FlatWorld(), new Vec3d(32.5, FloorY, 55.5), 0, 0);
+        lying.PositionAt(At(30));
+        double rest = lying.RestingSince ?? double.NaN;
+        double walkedInto = rest + 1.5;
+        lying.Hook(7, walkedInto);
+        Check(!lying.IsGoneAt(rest + Tuning.BobberGroundSeconds), "the time it lay there no longer counts");
+        Check(FirstFrameFrom(FirstGone(lying, walkedInto, walkedInto + 6), walkedInto + Tuning.BobberHookSeconds),
+            "gone the hook time after it caught them");
+    }
+
+    public void TestDroppedBobberDisappearsAfterTheGroundTime()
+    {
+        Bobber bobber = Cast(FlatWorld(), new Vec3d(32.5, FloorY, 55.5), 0, 0);
+        double caught = At(3);
+        bobber.Hook(7, caught);
+        // The player it hangs on dies a second later: it drops from their chest.
+        double died = caught + 1;
+        bobber.Release(died, Bobber.HookPoint(new Vec3d(32.5, FloorY, 50.5)));
+        Check(bobber.HookedAt is null, "no longer hanging on anyone");
+        double? gone = FirstGone(bobber, died, died + 6);
+        double rest = bobber.RestingSince ?? double.NaN;
+        // Its first moment after letting go it doesn't move yet, but it falls right after.
+        Check(rest > died + 0.3, $"at rest once it has fallen to the floor ({rest - died:0.00} s after the drop)");
+        Check(gone > caught + Tuning.BobberHookSeconds, "the hook's time no longer counts");
+        Check(FirstFrameFrom(gone, rest + Tuning.BobberGroundSeconds), "gone the ground time after landing, not before");
+    }
+
+    public void TestGoneBobberCatchesNoOne()
+    {
+        // While it flies it catches as always: someone 5 blocks ahead, as it reaches them.
+        Bobber flying = Cast(FlatWorld(), new Vec3d(32.5, FloorY, 55.5), 0, 0);
+        var ahead = new List<RodTarget> { new(5, new Vec3d(32.5, FloorY, 50.5)) };
+        (int Id, double Time)? caught = null;
+        for (int frame = 0; caught is null && frame < 2 * Tuning.SimRate; frame++)
+        {
+            caught = flying.Catch(CastTime + frame * Frame, CastTime + (frame + 1) * Frame, ahead);
+        }
+        // Their hitbox counts from 4.4 blocks out, which it passes in its 4th tick (4.15 to 5.32 blocks).
+        CheckEqual(caught?.Id, 5, "catches the player ahead");
+        CheckNear(caught?.Time ?? -1, At(3) + (4.4 - 4.1496) / (5.317632 - 4.1496) / Tuning.McTickRate, 1e-6,
+            "when it reaches them");
+
+        // Lying on the floor, it catches someone standing on it until it's gone, and then no one.
+        Bobber lying = Cast(FlatWorld(), new Vec3d(32.5, FloorY, 55.5), 0, 0);
+        var onIt = new List<RodTarget> { new(6, lying.PositionAt(At(30))) };
+        double gone = lying.GoneAt ?? double.NaN;
+        CheckEqual(lying.Catch(gone - 1, gone - 1 + Frame, onIt)?.Id, 6, "caught while it's there");
+        Check(lying.Catch(gone - Frame / 2, gone + Frame / 2, onIt) is { Time: var time } && time < gone,
+            "in the frame it goes, only before it goes");
+        int catches = 0;
+        for (int frame = 0; frame < 3 * Tuning.SimRate; frame++)
+        {
+            catches += lying.Catch(gone + frame * Frame, gone + (frame + 1) * Frame, onIt) is null ? 0 : 1;
+        }
+        CheckEqual(catches, 0, "catches after it's gone");
+        Check(lying.IsGoneAt(gone), "gone by then");
     }
 }
